@@ -16,7 +16,7 @@ app.use('*', async (c, next) => {
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
+    c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
   } catch {}
   try {
     const ct = c.res.headers.get('content-type') || '';
@@ -520,7 +520,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
   </section>
 </div>
 ${canEdit ? `<p class="mt-8"><a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a></p>` : ''}
-${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" onsubmit="return confirm('Delete this recipe?')"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
+${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
 </article>`;
 }
 
@@ -600,29 +600,7 @@ ${cats.map((cat) => `
     </ul>
   </section>`).join('')}
 </div>
-<script>
-(function(){
-  var list = document.getElementById('list');
-  if(!list) return;
-  var version = list.dataset.version, base = list.dataset.base;
-  document.querySelectorAll('.toggle-form').forEach(function(f){
-    f.addEventListener('submit', function(e){
-      e.preventDefault();
-      var btn=f.querySelector('button'), box=f.querySelector('span'), label=f.querySelectorAll('span')[1];
-      var on = box.classList.toggle('bg-emerald-600');
-      box.classList.toggle('border-emerald-600'); box.classList.toggle('text-white'); box.classList.toggle('border-stone-300');
-      box.textContent = on ? '\\u2713' : '';
-      label.classList.toggle('line-through'); btn.classList.toggle('text-stone-500');
-      fetch(base + '/toggle', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'fetch'}, body:'id='+encodeURIComponent(f.querySelector('input[name=id]').value)});
-    });
-  });
-  setInterval(function(){
-    fetch(base + '/version', {headers:{'X-Requested-With':'fetch'}}).then(function(r){return r.json()}).then(function(d){
-      if(String(d.version) !== String(version)) location.reload();
-    }).catch(function(){});
-  }, 5000);
-})();
-</script>`;
+`;
 }
 
 app.get('/app/list/version', async (c) => {
@@ -641,9 +619,9 @@ app.get('/app/share', async (c) => {
 <p class="mt-2 text-stone-600">Anyone with this link can see this week's plan and check off grocery items — no account or app needed.</p>
 <div class="mt-6 flex gap-2">
   <input readonly value="${esc(link)}" id="share-url" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5 text-sm bg-white">
-  <button onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);this.textContent='Copied!'" class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Copy</button>
+  <button type="button" data-copy="share-url" class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Copy</button>
 </div>
-<form method="post" action="/app/share/rotate" class="mt-4" onsubmit="return confirm('Create a new link? The current link will stop working for everyone.')">
+<form method="post" action="/app/share/rotate" class="mt-4" data-confirm="Create a new link? The current link will stop working for everyone.">
   <button class="text-sm text-stone-500 hover:text-red-600 hover:underline">Reset link (revokes the old one)</button>
 </form>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>

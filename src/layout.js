@@ -12,6 +12,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <link rel="canonical" href="https://mealloop.zalize.com${esc(path)}">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<script src="/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
 <header class="border-b border-stone-200 bg-white/80 backdrop-blur sticky top-0 z-20">

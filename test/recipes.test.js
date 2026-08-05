@@ -62,5 +62,9 @@ test('mergeIngredients sums duplicate quantities and dedupes', async () => {
     mergeIngredients(['2 tbsp olive oil', '1 tbsp olive oil', '750g beef mince', '250g beef mince', 'nutmeg', 'nutmeg', '1/2 cup milk', '½ cup milk']),
     ['3 tbsp olive oil', '1000g beef mince', 'nutmeg', '1 cup milk']
   );
-  assert.deepEqual(mergeIngredients(['2 onions', '1 onion']), ['2 onions', '1 onion']); // plural differs — kept separate
+  assert.deepEqual(mergeIngredients(['2 onions', '1 onion']), ['3 onions']);
+  assert.deepEqual(mergeIngredients(['1 kg potatoes', '500g potatoes']), ['1500g potatoes']);
+  assert.deepEqual(mergeIngredients(['1 cup flour', '2 cups flour']), ['3 cups flour']);
+  assert.deepEqual(mergeIngredients(['1 lb butter', '1 lbs butter']), ['2 lb butter']);
+  assert.deepEqual(mergeIngredients(['2 tomatoes', '1 tomato', '3 berries', '1 berry']), ['3 tomatoes', '4 berries']);
 });
