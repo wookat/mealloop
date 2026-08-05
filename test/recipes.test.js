@@ -74,6 +74,8 @@ test('scaleIngredient multiplies quantities and passes through unquantified labe
   assert.equal(scaleIngredient('750g beef mince', 2), '1500g beef mince');
   assert.equal(scaleIngredient('1 cup milk', 2), '2 cups milk');
   assert.equal(scaleIngredient('2 onions', 0.5), '1 onion');
+  assert.equal(scaleIngredient('1 onion', 2), '2 onions');
+  assert.equal(scaleIngredient('1 tomato', 3), '3 tomatoes');
   assert.equal(scaleIngredient('nutmeg', 3), 'nutmeg');
   assert.equal(scaleIngredient('2 tbsp olive oil', 1), '2 tbsp olive oil');
 });

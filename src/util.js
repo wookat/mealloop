@@ -91,6 +91,13 @@ function singular(word) {
   return word;
 }
 
+function plural(word) {
+  if (/(s|x|z|ch|sh)$/i.test(word)) return word + 'es';
+  if (/[^aeiou]y$/i.test(word)) return word.slice(0, -1) + 'ies';
+  if (/[^aeiou]o$/i.test(word)) return word + 'es';
+  return word + 's';
+}
+
 function nameKey(name) {
   const clean = name.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
   return clean.split(' ').map(singular).join(' ');
@@ -100,12 +107,10 @@ export function formatIngredient({ qty, unit, name }) {
   if (qty == null) return name;
   const n = Math.round(qty * 100) / 100;
   if (!unit) {
-    if (n === 1) {
-      const words = name.split(' ');
-      words[words.length - 1] = singular(words[words.length - 1]);
-      return `1 ${words.join(' ')}`;
-    }
-    return `${n} ${name}`;
+    const words = name.split(' ');
+    const last = words[words.length - 1];
+    words[words.length - 1] = n === 1 ? singular(last) : (singular(last) === last ? plural(last) : last);
+    return `${n} ${words.join(' ')}`;
   }
   const u = COUNT_UNITS.has(unit) && n !== 1 ? (unit === 'bunch' ? 'bunches' : `${unit}s`) : unit;
   return TIGHT_UNITS.has(u) ? `${n}${u} ${name}` : `${n} ${u} ${name}`;
