@@ -8,7 +8,7 @@ export async function sendMagicCode(env, email) {
   const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
   if (sends >= 3) return false;
   await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',

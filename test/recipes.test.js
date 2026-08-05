@@ -43,3 +43,15 @@ test('weekDates returns Monday-start 7 days', () => {
   assert.equal(days[0], '2026-08-03');
   assert.equal(days[6], '2026-08-09');
 });
+
+test('isPublicHttpUrl rejects internal targets and accepts public sites', async () => {
+  const { isPublicHttpUrl } = await import('../src/recipes.js');
+  assert.equal(isPublicHttpUrl('https://www.bbcgoodfood.com/recipes/classic-lasagne-0'), true);
+  assert.equal(isPublicHttpUrl('http://localhost:8787/x'), false);
+  assert.equal(isPublicHttpUrl('http://169.254.169.254/latest/meta-data'), false);
+  assert.equal(isPublicHttpUrl('http://10.0.0.1/'), false);
+  assert.equal(isPublicHttpUrl('http://[::1]/'), false);
+  assert.equal(isPublicHttpUrl('ftp://example.com/'), false);
+  assert.equal(isPublicHttpUrl('http://intranet/'), false);
+  assert.equal(isPublicHttpUrl('http://foo.internal/'), false);
+});

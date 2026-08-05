@@ -16,12 +16,14 @@ app.use('*', async (c, next) => {
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'");
+    c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
   } catch {}
   try {
     const ct = c.res.headers.get('content-type') || '';
     if (c.req.method === 'GET' && ct.includes('text/html') && c.res.status === 200) {
-      const path = new URL(c.req.url).pathname.split('/').slice(0, 3).join('/') || '/';
+      const raw = new URL(c.req.url).pathname;
+      // Never persist share tokens in analytics.
+      const path = raw.startsWith('/s/') ? '/s' : raw.split('/').slice(0, 3).join('/') || '/';
       c.executionCtx.waitUntil(
         c.env.DB.prepare(
           'INSERT INTO analytics_daily (day, path, views) VALUES (?, ?, 1) ON CONFLICT(day, path) DO UPDATE SET views = views + 1'
@@ -62,6 +64,7 @@ app.get('/', async (c) => {
     <input type="email" name="email" required placeholder="you@example.com" class="flex-1 rounded-lg px-3 py-2.5 text-stone-900 bg-white">
     <button class="rounded-lg bg-white text-emerald-700 font-semibold px-5 py-2.5 hover:bg-emerald-50">Notify me</button>
   </form>
+  <p class="text-emerald-100 text-xs mt-2">Product updates only — unsubscribe any time. See our <a class="underline" href="/privacy">privacy policy</a>.</p>
 </section>`;
   return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Free family meal planner: import recipes from any site, plan your week, share one live grocery list with a single link.', body, user, path: '/' }));
 });
@@ -70,21 +73,41 @@ app.post('/subscribe', async (c) => {
   const form = await c.req.parseBody();
   const email = String(form.email || '').trim().toLowerCase();
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    await c.env.DB.prepare('INSERT INTO email_intents (id, email, source) VALUES (?, ?, ?)').bind(uid(), email, 'landing').run();
+    const seen = await c.env.DB.prepare('SELECT id FROM email_intents WHERE email = ?').bind(email).first();
+    if (!seen) await c.env.DB.prepare('INSERT INTO email_intents (id, email, source) VALUES (?, ?, ?)').bind(uid(), email, 'landing').run();
   }
   return c.html(page({ title: 'Thanks', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">We'll email you when new features ship.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
 });
 
 app.get('/privacy', (c) =>
   c.html(page({ title: 'Privacy', path: '/privacy', body: legalBody('Privacy Policy', `
-<p>MealLoop is designed to be privacy-first:</p>
+<p>MealLoop is designed to be privacy-first. Controller: MealLoop (Zalize), contact <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>.</p>
+<h2 class="font-semibold text-lg pt-2">What we collect and why</h2>
 <ul class="list-disc pl-5 space-y-1">
-<li>We collect only your email address (for login) and the meal-planning content you create.</li>
-<li>Analytics are first-party, aggregate and cookie-free: we count page views per day per path. No individual tracking, no third-party trackers, no ads.</li>
-<li>The only cookie we set is a session cookie after you log in. It is strictly necessary for the service.</li>
-<li>We never sell or share your data. Email is used solely for login codes and, if you opted in, product updates.</li>
-<li>You may delete your account and data anytime by emailing mealloop@zalize.com.</li>
-</ul>`) }))
+<li><strong>Email address</strong> — to send login codes and run your account. Legal basis: performance of a contract (Art. 6(1)(b) GDPR).</li>
+<li><strong>Your meal-planning content</strong> (recipes, plan entries, grocery items, household name) — to provide the service. Legal basis: contract.</li>
+<li><strong>Product-update emails</strong>, only if you submit the signup form. Legal basis: consent (Art. 6(1)(a)); withdraw anytime by emailing us.</li>
+<li><strong>Aggregate page counts</strong> (date + page path only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
+</ul>
+<h2 class="font-semibold text-lg pt-2">Cookies</h2>
+<p>One strictly necessary cookie (<code>ml_session</code>, HttpOnly/Secure/SameSite=Lax, 30 days) is set only after you log in. No analytics or advertising cookies, so no consent banner is required.</p>
+<h2 class="font-semibold text-lg pt-2">Processors and data location</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li><strong>Cloudflare, Inc.</strong> — hosting, database (D1), key-value storage and headless rendering for recipe import.</li>
+<li><strong>Resend (Plus Five Five, Inc.)</strong> — transactional email delivery of login codes.</li>
+<li>Both may process data in the US under Standard Contractual Clauses / the EU-US Data Privacy Framework.</li>
+</ul>
+<h2 class="font-semibold text-lg pt-2">Retention</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li>Login codes: 10 minutes. Session tokens: 30 days (or until you log out).</li>
+<li>Account and meal-planning content: until you ask us to delete it.</li>
+<li>Newsletter emails: until you unsubscribe. Aggregate page counts: 24 months (they contain no personal data).</li>
+</ul>
+<h2 class="font-semibold text-lg pt-2">Your rights</h2>
+<p>You have the right to access, rectify, erase, restrict or object to processing, to data portability, to withdraw consent, and to lodge a complaint with your supervisory authority. Email <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a> and we will respond within 30 days.</p>
+<h2 class="font-semibold text-lg pt-2">Sharing</h2>
+<p>We never sell your data. Anyone holding your household's share link can see that week's plan and grocery list without logging in — share it only with people you trust, and use "Reset link" on the Share page to revoke it.</p>
+<p>MealLoop is not intended for children under 16.</p>`) }))
 );
 
 app.get('/terms', (c) =>
@@ -221,13 +244,19 @@ app.get('/app', async (c) => {
   const nextWeek = shiftDays(days[0], 7);
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Week of ${days[0]}</h1>
+  <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
   <div class="flex items-center gap-2 text-sm">
     <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
   </div>
 </div>
+${recipes.results.length === 0 ? `
+<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+  <h2 class="font-semibold text-emerald-900">Start with one recipe</h2>
+  <p class="mt-1 text-sm text-emerald-800">Import a recipe by pasting its URL — then you can drop it into any day below and its ingredients flow into your grocery list.</p>
+  <a href="/app/recipes" class="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add your first recipe</a>
+</div>` : ''}
 <div class="mb-4 flex flex-wrap gap-2">
   <form method="post" action="/app/plan/to-list" class="inline">
     <input type="hidden" name="from" value="${days[0]}"><input type="hidden" name="to" value="${days[6]}">
@@ -242,20 +271,22 @@ ${days.map((d) => `
     ${MEALS.map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
       return `<div class="mt-2">
-        <p class="text-[11px] uppercase tracking-wide text-stone-400">${meal}</p>
+        <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
           <div class="mt-1 flex items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
             <span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</span>
-            <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-400 hover:text-red-600">✕</button></form>
+            <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
           </div>`).join('')}
         <details class="mt-1">
-          <summary class="text-xs text-stone-400 cursor-pointer hover:text-emerald-700">+ add</summary>
+          <summary class="text-xs text-stone-500 cursor-pointer hover:text-emerald-700">+ add</summary>
           <form method="post" action="/app/plan" class="mt-1 space-y-1">
             <input type="hidden" name="date" value="${d}"><input type="hidden" name="meal" value="${meal}"><input type="hidden" name="week" value="${days[0]}">
-            <select name="recipe_id" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
+            ${recipes.results.length
+              ? `<select name="recipe_id" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
               <option value="">— pick recipe —</option>
               ${recipes.results.map((r) => `<option value="${r.id}">${esc(r.title)}</option>`).join('')}
-            </select>
+            </select>`
+              : `<p class="text-xs text-stone-500">No recipes yet — <a class="text-emerald-700 underline" href="/app/recipes">import one</a>, or just type a note:</p>`}
             <input name="note" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
             <button class="w-full rounded bg-emerald-600 text-white text-xs font-semibold py-1 hover:bg-emerald-700">Add</button>
           </form>
@@ -274,6 +305,10 @@ app.post('/app/plan', async (c) => {
   const meal = String(f.meal || '');
   const recipeId = String(f.recipe_id || '') || null;
   const note = String(f.note || '').trim().slice(0, 120) || null;
+  if (recipeId) {
+    const owned = await c.env.DB.prepare('SELECT id FROM recipes WHERE id = ? AND household_id = ?').bind(recipeId, h.id).first();
+    if (!owned) return c.redirect(`/app?week=${f.week || ''}`);
+  }
   if (/^\d{4}-\d{2}-\d{2}$/.test(date) && MEALS.includes(meal) && (recipeId || note)) {
     await c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(uid(), h.id, date, meal, recipeId, note).run();
@@ -297,18 +332,25 @@ app.post('/app/plan/to-list', async (c) => {
     `SELECT DISTINCT r.id, r.ingredients_json FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ?`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
+  // Idempotent: skip ingredients whose label is already on the list.
+  const existing = await c.env.DB.prepare('SELECT label FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const seen = new Set(existing.results.map((r) => String(r.label).toLowerCase()));
   const stmts = [];
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
+      const label = String(ing).slice(0, 200);
+      const key = label.toLowerCase();
+      if (!label || seen.has(key)) continue;
+      seen.add(key);
       stmts.push(
         c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, recipe_id) VALUES (?, ?, ?, ?, ?)')
-          .bind(uid(), h.id, ing.slice(0, 200), categorize(ing), row.id)
+          .bind(uid(), h.id, label, categorize(label), row.id)
       );
     }
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
-  return c.redirect('/app/list');
+  return c.redirect(`/app/list?added=${stmts.length}`);
 });
 
 function shiftDays(dateStr, n) {
@@ -437,7 +479,8 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
     <ol class="space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
   </section>
 </div>
-${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-8" onsubmit="return confirm('Delete this recipe?')"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
+${canEdit ? `<p class="mt-8"><a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a></p>` : ''}
+${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" onsubmit="return confirm('Delete this recipe?')"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
 </article>`;
 }
 
@@ -446,7 +489,11 @@ app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
   const items = await c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all();
-  const body = listBody(h, items.results, { editable: true, base: '/app/list', shareLink: true });
+  const added = c.req.query('added');
+  const notice = added === undefined ? '' : Number(added) > 0
+    ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from this week's plan.`
+    : "Everything from this week's plan is already on the list.";
+  const body = listBody(h, items.results, { editable: true, base: '/app/list', shareLink: true, notice });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -478,9 +525,10 @@ app.post('/app/list/clear', async (c) => {
   return c.redirect('/app/list');
 });
 
-function listBody(h, items, { editable, base, shareLink }) {
+function listBody(h, items, { editable, base, shareLink, notice }) {
   const cats = [...new Set(items.map((i) => i.category))];
   return `
+${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
   <div class="flex gap-2">
@@ -497,13 +545,13 @@ ${editable ? `
 ${cats.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
 ${cats.map((cat) => `
   <section>
-    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-400 mb-1.5">${esc(cat)}</h2>
+    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${items.filter((i) => i.category === cat).map((i) => `
       <li>
         <form method="post" action="${base}/toggle" class="toggle-form">
           <input type="hidden" name="id" value="${i.id}">
-          <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-400' : ''}">
+          <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
             <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}</span>
           </button>
@@ -524,7 +572,7 @@ ${cats.map((cat) => `
       var on = box.classList.toggle('bg-emerald-600');
       box.classList.toggle('border-emerald-600'); box.classList.toggle('text-white'); box.classList.toggle('border-stone-300');
       box.textContent = on ? '\\u2713' : '';
-      label.classList.toggle('line-through'); btn.classList.toggle('text-stone-400');
+      label.classList.toggle('line-through'); btn.classList.toggle('text-stone-500');
       fetch(base + '/toggle', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded','X-Requested-With':'fetch'}, body:'id='+encodeURIComponent(f.querySelector('input[name=id]').value)});
     });
   });
@@ -555,9 +603,18 @@ app.get('/app/share', async (c) => {
   <input readonly value="${esc(link)}" id="share-url" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5 text-sm bg-white">
   <button onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);this.textContent='Copied!'" class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Copy</button>
 </div>
+<form method="post" action="/app/share/rotate" class="mt-4" onsubmit="return confirm('Create a new link? The current link will stop working for everyone.')">
+  <button class="text-sm text-stone-500 hover:text-red-600 hover:underline">Reset link (revokes the old one)</button>
+</form>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
 </div>`;
   return c.html(page({ title: 'Share', body, user, path: '/app/share', noindex: true }));
+});
+
+app.post('/app/share/rotate', async (c) => {
+  const h = c.get('household');
+  await c.env.DB.prepare('UPDATE households SET share_token = ? WHERE id = ?').bind(token(20), h.id).run();
+  return c.redirect('/app/share');
 });
 
 async function shareHousehold(c) {
@@ -581,13 +638,22 @@ app.get('/s/:token', async (c) => {
     const es = entries.results.filter((e) => e.date === d);
     return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500' : 'border-stone-200'} p-3">
       <h3 class="text-sm font-semibold">${dayLabel(d)}</h3>
-      ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-400 mr-1">${e.meal}</span>${esc(e.recipe_title || e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-400">Nothing planned</p>'}
+      ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}
   </div>
 </section>`;
   const body = planHtml + listBody(h, items.results, { editable: false, base: `/s/${h.share_token}`, shareLink: false });
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
+});
+
+app.get('/s/:token/r/:id', async (c) => {
+  const h = await shareHousehold(c);
+  if (!h) return c.notFound();
+  const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
+  if (!r) return c.notFound();
+  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false);
+  return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
 });
 
 app.post('/s/:token/toggle', async (c) => {
