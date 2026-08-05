@@ -15,8 +15,10 @@ async function browserExtract(url, env) {
   const browser = await puppeteer.launch(env.BROWSER);
   try {
     const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36');
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 25000 }).catch(() => {});
     const html = await page.content();
+    console.log(`browserExtract ${url}: html=${html.length} title=${(html.match(/<title[^>]*>([^<]*)/i) || [])[1] || ''}`);
     const recipe = extractRecipe(html);
     if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
     recipe.source_url = url;
