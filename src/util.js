@@ -46,3 +46,76 @@ export function categorize(label) {
   for (const [cat, re] of CATEGORY_RULES) if (re.test(label)) return cat;
   return 'Other';
 }
+
+const UNITS = 'g|kg|ml|l|oz|lb|lbs|tbsp|tsp|cup|cups|clove|cloves|can|cans|pack|packs|sprig|sprigs|slice|slices|bunch|bunches|handful';
+const VULGAR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3 };
+const TIGHT_UNITS = new Set(['g', 'ml', 'oz']);
+const UNIT_ALIASES = { lbs: 'lb', cups: 'cup', cloves: 'clove', cans: 'can', packs: 'pack', sprigs: 'sprig', slices: 'slice', bunches: 'bunch' };
+const UNIT_SCALE = { kg: ['g', 1000], l: ['ml', 1000] };
+const COUNT_UNITS = new Set(['cup', 'clove', 'can', 'pack', 'sprig', 'slice', 'bunch']);
+
+function canonicalUnit(unit, qty) {
+  if (!unit) return { unit, qty };
+  let u = UNIT_ALIASES[unit] || unit;
+  if (UNIT_SCALE[u] && qty != null) {
+    const [to, factor] = UNIT_SCALE[u];
+    return { unit: to, qty: qty * factor };
+  }
+  return { unit: u, qty };
+}
+
+// "750g lean beef mince" -> { qty: 750, unit: 'g', name: 'lean beef mince' }
+export function parseIngredient(label) {
+  const raw = String(label).trim();
+  const m = raw.match(new RegExp(`^(\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:[.,]\\d+)?|[${Object.keys(VULGAR).join('')}])\\s*(${UNITS})?\\b\\.?\\s*(.*)$`, 'i'));
+  if (!m || !m[3]) return { qty: null, unit: null, name: raw };
+  const { unit, qty } = canonicalUnit(m[2] ? m[2].toLowerCase() : null, toNumber(m[1]));
+  return { qty, unit, name: m[3].trim() };
+}
+
+function toNumber(s) {
+  if (VULGAR[s] !== undefined) return VULGAR[s];
+  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+  const frac = s.match(/^(\d+)\/(\d+)$/);
+  if (frac) return Number(frac[1]) / Number(frac[2]);
+  return Number(s.replace(',', '.'));
+}
+
+function singular(word) {
+  if (word.endsWith('ies') && word.length > 4) return word.slice(0, -3) + 'y';
+  if (/(oes|ches|shes|sses|xes|zes)$/.test(word)) return word.slice(0, -2);
+  if (word.endsWith('s') && !word.endsWith('ss') && word.length > 3) return word.slice(0, -1);
+  return word;
+}
+
+function nameKey(name) {
+  const clean = name.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+  return clean.split(' ').map(singular).join(' ');
+}
+
+export function formatIngredient({ qty, unit, name }) {
+  if (qty == null) return name;
+  const n = Math.round(qty * 100) / 100;
+  if (!unit) return `${n} ${name}`;
+  const u = COUNT_UNITS.has(unit) && n !== 1 ? (unit === 'bunch' ? 'bunches' : `${unit}s`) : unit;
+  return TIGHT_UNITS.has(u) ? `${n}${u} ${name}` : `${n} ${u} ${name}`;
+}
+
+// Sums quantities of the same ingredient+unit; keeps unparsed labels as-is.
+export function mergeIngredients(labels) {
+  const out = [];
+  const index = new Map();
+  for (const label of labels) {
+    const parsed = parseIngredient(label);
+    const key = `${nameKey(parsed.name)}|${parsed.unit || ''}`;
+    const at = index.get(key);
+    if (at === undefined) {
+      index.set(key, out.push(parsed) - 1);
+    } else if (parsed.qty != null && out[at].qty != null) {
+      out[at].qty += parsed.qty;
+    }
+    // same key but unquantifiable on either side: treat as duplicate, keep first
+  }
+  return out.map(formatIngredient);
+}

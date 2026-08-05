@@ -1,7 +1,29 @@
 // Server-side recipe import: fetch a URL and extract schema.org/Recipe JSON-LD.
 import puppeteer from '@cloudflare/puppeteer';
 
+const MAX_HTML_BYTES = 4 * 1024 * 1024;
+const FETCH_TIMEOUT_MS = 15000;
+const MAX_REDIRECTS = 5;
+
+// Reject non-public destinations so a user-supplied URL can't probe internal services.
+export function isPublicHttpUrl(raw) {
+  let u;
+  try {
+    u = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (!/^https?:$/.test(u.protocol)) return false;
+  const host = u.hostname.toLowerCase();
+  if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) return false;
+  if (host.startsWith('[')) return false; // IPv6 literal
+  if (!host.includes('.')) return false;
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) return false; // bare IPv4 (incl. metadata/private ranges)
+  return true;
+}
+
 export async function importRecipeFromUrl(url, env) {
+  if (!isPublicHttpUrl(url)) throw new Error('that URL is not supported');
   try {
     return await fetchAndExtract(url, url);
   } catch (e) {
@@ -29,7 +51,53 @@ async function browserExtract(url, env) {
 }
 
 async function fetchAndExtract(fetchUrl, sourceUrl, extraHeaders = {}) {
-  const res = await fetch(fetchUrl, {
+  let current = fetchUrl;
+  let res;
+  for (let hop = 0; ; hop++) {
+    if (hop > MAX_REDIRECTS) throw new Error('that page redirected too many times');
+    res = await fetchOnce(current, extraHeaders);
+    const location = res.status >= 300 && res.status < 400 ? res.headers.get('location') : null;
+    if (!location) break;
+    current = new URL(location, current).toString();
+    // Re-validate every hop: an open redirect must not land on an internal address.
+    if (!isPublicHttpUrl(current)) throw new Error('that page redirected to an unsupported address');
+  }
+  if (!res.ok) {
+    throw new Error(
+      res.status === 403 || res.status === 429
+        ? 'this site blocks automated access — you can copy the recipe in manually below'
+        : `the page could not be loaded (HTTP ${res.status})`
+    );
+  }
+  const html = await readCapped(res);
+  const recipe = extractRecipe(html);
+  if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
+  recipe.source_url = sourceUrl;
+  return recipe;
+}
+
+async function readCapped(res) {
+  const reader = res.body?.getReader();
+  if (!reader) return '';
+  const decoder = new TextDecoder();
+  let out = '';
+  let bytes = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    bytes += value.byteLength;
+    if (bytes > MAX_HTML_BYTES) {
+      await reader.cancel();
+      break;
+    }
+    out += decoder.decode(value, { stream: true });
+  }
+  return out;
+}
+
+async function fetchOnce(fetchUrl, extraHeaders) {
+  return fetch(fetchUrl, {
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     headers: {
       ...extraHeaders,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
@@ -40,20 +108,8 @@ async function fetchAndExtract(fetchUrl, sourceUrl, extraHeaders = {}) {
       'Sec-Fetch-Site': 'none',
       'Upgrade-Insecure-Requests': '1',
     },
-    redirect: 'follow',
+    redirect: 'manual',
   });
-  if (!res.ok) {
-    throw new Error(
-      res.status === 403 || res.status === 429
-        ? 'this site blocks automated access — you can copy the recipe in manually below'
-        : `the page could not be loaded (HTTP ${res.status})`
-    );
-  }
-  const html = await res.text();
-  const recipe = extractRecipe(html);
-  if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
-  recipe.source_url = sourceUrl;
-  return recipe;
 }
 
 export function extractRecipe(html) {

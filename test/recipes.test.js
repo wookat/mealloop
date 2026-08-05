@@ -43,3 +43,28 @@ test('weekDates returns Monday-start 7 days', () => {
   assert.equal(days[0], '2026-08-03');
   assert.equal(days[6], '2026-08-09');
 });
+
+test('isPublicHttpUrl rejects internal targets and accepts public sites', async () => {
+  const { isPublicHttpUrl } = await import('../src/recipes.js');
+  assert.equal(isPublicHttpUrl('https://www.bbcgoodfood.com/recipes/classic-lasagne-0'), true);
+  assert.equal(isPublicHttpUrl('http://localhost:8787/x'), false);
+  assert.equal(isPublicHttpUrl('http://169.254.169.254/latest/meta-data'), false);
+  assert.equal(isPublicHttpUrl('http://10.0.0.1/'), false);
+  assert.equal(isPublicHttpUrl('http://[::1]/'), false);
+  assert.equal(isPublicHttpUrl('ftp://example.com/'), false);
+  assert.equal(isPublicHttpUrl('http://intranet/'), false);
+  assert.equal(isPublicHttpUrl('http://foo.internal/'), false);
+});
+
+test('mergeIngredients sums duplicate quantities and dedupes', async () => {
+  const { mergeIngredients } = await import('../src/util.js');
+  assert.deepEqual(
+    mergeIngredients(['2 tbsp olive oil', '1 tbsp olive oil', '750g beef mince', '250g beef mince', 'nutmeg', 'nutmeg', '1/2 cup milk', '½ cup milk']),
+    ['3 tbsp olive oil', '1000g beef mince', 'nutmeg', '1 cup milk']
+  );
+  assert.deepEqual(mergeIngredients(['2 onions', '1 onion']), ['3 onions']);
+  assert.deepEqual(mergeIngredients(['1 kg potatoes', '500g potatoes']), ['1500g potatoes']);
+  assert.deepEqual(mergeIngredients(['1 cup flour', '2 cups flour']), ['3 cups flour']);
+  assert.deepEqual(mergeIngredients(['1 lb butter', '1 lbs butter']), ['2 lb butter']);
+  assert.deepEqual(mergeIngredients(['2 tomatoes', '1 tomato', '3 berries', '1 berry']), ['3 tomatoes', '4 berries']);
+});
