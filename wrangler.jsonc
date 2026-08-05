@@ -1,0 +1,20 @@
+{
+  "name": "mealloop",
+  "main": "src/index.js",
+  "compatibility_date": "2026-07-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": { "directory": "./public", "binding": "ASSETS" },
+  "routes": [{ "pattern": "mealloop.zalize.com", "custom_domain": true }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "mealloop-db", "database_id": "328379b0-0787-43c3-8eeb-affc266f2e34" }
+  ],
+  "browser": { "binding": "BROWSER" },
+  "kv_namespaces": [
+    { "binding": "KV", "id": "a02f5b9e979e4f9fb8dbe95a0cd4f983" }
+  ],
+  "vars": {
+    "SITE_URL": "https://mealloop.zalize.com",
+    "PAYWALL_ENABLED": "false"
+  },
+  "observability": { "enabled": true }
+}
