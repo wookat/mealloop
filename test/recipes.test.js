@@ -68,3 +68,12 @@ test('mergeIngredients sums duplicate quantities and dedupes', async () => {
   assert.deepEqual(mergeIngredients(['1 lb butter', '1 lbs butter']), ['2 lb butter']);
   assert.deepEqual(mergeIngredients(['2 tomatoes', '1 tomato', '3 berries', '1 berry']), ['3 tomatoes', '4 berries']);
 });
+
+test('scaleIngredient multiplies quantities and passes through unquantified labels', async () => {
+  const { scaleIngredient } = await import('../src/util.js');
+  assert.equal(scaleIngredient('750g beef mince', 2), '1500g beef mince');
+  assert.equal(scaleIngredient('1 cup milk', 2), '2 cups milk');
+  assert.equal(scaleIngredient('2 onions', 0.5), '1 onion');
+  assert.equal(scaleIngredient('nutmeg', 3), 'nutmeg');
+  assert.equal(scaleIngredient('2 tbsp olive oil', 1), '2 tbsp olive oil');
+});

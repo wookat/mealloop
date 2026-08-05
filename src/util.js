@@ -47,6 +47,8 @@ export function categorize(label) {
   return 'Other';
 }
 
+export const STANDARD_CATEGORIES = [...CATEGORY_RULES.map(([cat]) => cat), 'Other'];
+
 const UNITS = 'g|kg|ml|l|oz|lb|lbs|tbsp|tsp|cup|cups|clove|cloves|can|cans|pack|packs|sprig|sprigs|slice|slices|bunch|bunches|handful';
 const VULGAR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3 };
 const TIGHT_UNITS = new Set(['g', 'ml', 'oz']);
@@ -97,9 +99,24 @@ function nameKey(name) {
 export function formatIngredient({ qty, unit, name }) {
   if (qty == null) return name;
   const n = Math.round(qty * 100) / 100;
-  if (!unit) return `${n} ${name}`;
+  if (!unit) {
+    if (n === 1) {
+      const words = name.split(' ');
+      words[words.length - 1] = singular(words[words.length - 1]);
+      return `1 ${words.join(' ')}`;
+    }
+    return `${n} ${name}`;
+  }
   const u = COUNT_UNITS.has(unit) && n !== 1 ? (unit === 'bunch' ? 'bunches' : `${unit}s`) : unit;
   return TIGHT_UNITS.has(u) ? `${n}${u} ${name}` : `${n} ${u} ${name}`;
+}
+
+// "750g beef" × 2 -> "1500g beef"; labels without a quantity pass through unchanged.
+export function scaleIngredient(label, factor) {
+  if (!factor || factor === 1) return String(label);
+  const parsed = parseIngredient(label);
+  if (parsed.qty == null) return String(label);
+  return formatIngredient({ ...parsed, qty: parsed.qty * factor });
 }
 
 // Sums quantities of the same ingredient+unit; keeps unparsed labels as-is.

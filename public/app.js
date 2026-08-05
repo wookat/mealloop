@@ -14,6 +14,22 @@
     });
   });
 
+  document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
+    sel.addEventListener('change', function () {
+      if (sel.value === '__custom') {
+        var name = prompt(sel.dataset.customPrompt || 'New category name:');
+        if (!name || !name.trim()) { sel.value = sel.dataset.prev; return; }
+        var opt = document.createElement('option');
+        opt.value = name.trim().slice(0, 30);
+        opt.textContent = opt.value;
+        opt.selected = true;
+        sel.insertBefore(opt, sel.lastElementChild);
+      }
+      sel.form.submit();
+    });
+    sel.dataset.prev = sel.value;
+  });
+
   var list = document.getElementById('list');
   if (!list) return;
   var version = list.dataset.version, base = list.dataset.base;

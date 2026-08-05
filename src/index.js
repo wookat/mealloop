@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -228,7 +228,11 @@ async function bumpVersion(env, hid) {
 }
 
 // ---------- planner ----------
-const MEALS = ['breakfast', 'lunch', 'dinner'];
+const SCALES = [0.5, 1, 2, 3, 4];
+
+function mealsFor(h) {
+  return h.snacks ? ['breakfast', 'lunch', 'dinner', 'snacks'] : ['breakfast', 'lunch', 'dinner'];
+}
 
 app.get('/app', async (c) => {
   const user = c.get('user');
@@ -250,6 +254,7 @@ app.get('/app', async (c) => {
     <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
+    <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
 </div>
 ${recipes.results.length === 0 ? `
@@ -294,13 +299,13 @@ ${recipes.results.length === 0 ? `
 ${days.map((d) => `
   <div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3">
     <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
-    ${MEALS.map((meal) => {
+    ${mealsFor(h).map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
       return `<div class="mt-2">
         <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
           <div class="mt-1 flex items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
-            <span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</span>
+            <span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
             <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
           </div>`).join('')}
         <details class="mt-1">
@@ -311,6 +316,9 @@ ${days.map((d) => `
               ? `<select name="recipe_id" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
               <option value="">— pick recipe —</option>
               ${recipes.results.map((r) => `<option value="${r.id}">${esc(r.title)}</option>`).join('')}
+            </select>
+            <select name="scale" class="w-full rounded border border-stone-300 text-sm px-1 py-1" aria-label="Servings scale">
+              ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
             </select>`
               : `<p class="text-xs text-stone-500">No recipes yet — <a class="text-emerald-700 underline" href="/app/recipes">import one</a>, or just type a note:</p>`}
             <input name="note" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
@@ -331,13 +339,14 @@ app.post('/app/plan', async (c) => {
   const meal = String(f.meal || '');
   const recipeId = String(f.recipe_id || '') || null;
   const note = String(f.note || '').trim().slice(0, 120) || null;
+  const scale = SCALES.includes(Number(f.scale)) ? Number(f.scale) : 1;
   if (recipeId) {
     const owned = await c.env.DB.prepare('SELECT id FROM recipes WHERE id = ? AND household_id = ?').bind(recipeId, h.id).first();
     if (!owned) return c.redirect(`/app?week=${f.week || ''}`);
   }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date) && MEALS.includes(meal) && (recipeId || note)) {
-    await c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(uid(), h.id, date, meal, recipeId, note).run();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date) && mealsFor(h).includes(meal) && (recipeId || note)) {
+    await c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, date, meal, recipeId, note, recipeId ? scale : 1).run();
     await bumpVersion(c.env, h.id);
   }
   return c.redirect(`/app?week=${f.week || ''}`);
@@ -361,8 +370,8 @@ app.post('/app/plan/copy-week', async (c) => {
   const prev = await c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
     .bind(h.id, prevDays[0], prevDays[6]).all();
   const stmts = prev.results.map((e) =>
-    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note)
+    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note, e.scale)
   );
   if (stmts.length) {
     await c.env.DB.batch(stmts);
@@ -384,8 +393,8 @@ app.post('/app/menus', async (c) => {
   const menuId = uid();
   const stmts = [c.env.DB.prepare('INSERT INTO menus (id, household_id, name) VALUES (?, ?, ?)').bind(menuId, h.id, name)];
   for (const e of entries.results) {
-    stmts.push(c.env.DB.prepare('INSERT INTO menu_entries (id, menu_id, dow, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(uid(), menuId, days.indexOf(e.date), e.meal, e.recipe_id, e.note));
+    stmts.push(c.env.DB.prepare('INSERT INTO menu_entries (id, menu_id, dow, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), menuId, days.indexOf(e.date), e.meal, e.recipe_id, e.note, e.scale));
   }
   await c.env.DB.batch(stmts);
   return c.redirect(`/app?week=${week}`);
@@ -402,8 +411,8 @@ app.post('/app/menus/apply', async (c) => {
   const entries = await c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
   const stmts = entries.results
     .filter((e) => e.dow >= 0 && e.dow <= 6)
-    .map((e) => c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(uid(), h.id, days[e.dow], e.meal, e.recipe_id, e.note));
+    .map((e) => c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, days[e.dow], e.meal, e.recipe_id, e.note, e.scale));
   if (stmts.length) {
     await c.env.DB.batch(stmts);
     await bumpVersion(c.env, h.id);
@@ -428,8 +437,8 @@ app.post('/app/plan/to-list', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const rows = await c.env.DB.prepare(
-    `SELECT DISTINCT r.id, r.ingredients_json FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
-     WHERE p.household_id = ? AND p.date BETWEEN ? AND ?`
+    `SELECT r.id, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
+     WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.id`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
   // Merge duplicate ingredients across recipes (summing quantities), then skip
   // labels already on the list so the button stays idempotent.
@@ -437,7 +446,7 @@ app.post('/app/plan/to-list', async (c) => {
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      if (label) labels.push(label);
+      if (label) labels.push(scaleIngredient(label, row.scale));
     }
   }
   const merged = mergeIngredients(labels);
@@ -673,6 +682,25 @@ app.post('/app/list/toggle', async (c) => {
   return c.redirect('/app/list');
 });
 
+app.post('/app/settings/snacks', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  await c.env.DB.prepare('UPDATE households SET snacks = 1 - snacks WHERE id = ?').bind(h.id).run();
+  return c.redirect(`/app?week=${String(f.week || '')}`);
+});
+
+app.post('/app/list/category', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const category = String(f.category || '').trim().slice(0, 30);
+  if (category) {
+    await c.env.DB.prepare('UPDATE shopping_items SET category = ? WHERE id = ? AND household_id = ?')
+      .bind(category, String(f.id || ''), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect('/app/list');
+});
+
 app.post('/app/list/clear', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ? AND checked = 1').bind(h.id).run();
@@ -682,6 +710,7 @@ app.post('/app/list/clear', async (c) => {
 
 function listBody(h, items, { editable, base, shareLink, notice }) {
   const cats = [...new Set(items.map((i) => i.category))];
+  const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
   return `
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -704,14 +733,21 @@ ${cats.map((cat) => `
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${items.filter((i) => i.category === cat).map((i) => `
-      <li>
-        <form method="post" action="${base}/toggle" class="toggle-form">
+      <li class="flex items-center">
+        <form method="post" action="${base}/toggle" class="toggle-form flex-1">
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
             <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}</span>
           </button>
         </form>
+        ${editable ? `<form method="post" action="/app/list/category" class="pr-2">
+          <input type="hidden" name="id" value="${i.id}">
+          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-1 py-0.5 max-w-28">
+            ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
+            <option value="__custom">New category…</option>
+          </select>
+        </form>` : ''}
       </li>`).join('')}
     </ul>
   </section>`).join('')}
