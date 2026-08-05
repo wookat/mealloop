@@ -26,6 +26,9 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) �
 - Household/share token is auto-created on first /app visit.
 - Quantity merging keys on ingredient name+unit — to test merge math exactly, plan on an empty future week (`/app?week=YYYY-MM-DD`) so previously planned recipes don't add into the totals.
 - "Copy last week's plan" renders only when the viewed week has zero entries.
+- All client JS is in static `/app.js` (data-copy buttons, form[data-confirm] dialogs, .toggle-form check-off, 5s version poll) — after CSP changes check the browser console for violations.
+- Tags are normalized to slugs (lowercase, spaces→dashes, max 10); tag filter is `/app/recipes?tag=<slug>`; favorites sort first via `ORDER BY favorite DESC`.
+- Confirm-dialog cancel tests should verify state via a reload (token/recipe unchanged).
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).
