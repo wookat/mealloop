@@ -4,6 +4,10 @@ const SESSION_TTL = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL = 60 * 10;
 
 export async function sendMagicCode(env, email) {
+  const sendKey = `sends:${email.toLowerCase()}`;
+  const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
+  if (sends >= 3) return false;
+  await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
   const code = String(Math.floor(100000 + Math.random() * 900000));
   await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
   const res = await fetch('https://api.resend.com/emails', {
@@ -21,9 +25,19 @@ export async function sendMagicCode(env, email) {
 
 export async function verifyCode(env, email, code) {
   const key = `code:${email.toLowerCase()}`;
+  const attemptsKey = `attempts:${email.toLowerCase()}`;
+  const attempts = parseInt((await env.KV.get(attemptsKey)) || '0', 10);
+  if (attempts >= 5) {
+    await env.KV.delete(key);
+    return null;
+  }
   const stored = await env.KV.get(key);
-  if (!stored || stored !== code.trim()) return null;
+  if (!stored || stored !== code.trim()) {
+    await env.KV.put(attemptsKey, String(attempts + 1), { expirationTtl: CODE_TTL });
+    return null;
+  }
   await env.KV.delete(key);
+  await env.KV.delete(attemptsKey);
   let user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email.toLowerCase()).first();
   if (!user) {
     const id = uid();

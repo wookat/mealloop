@@ -366,6 +366,11 @@ app.post('/app/recipes/import', async (c) => {
   try {
     const parsed = new URL(url);
     if (!/^https?:$/.test(parsed.protocol)) throw new Error('Invalid URL');
+    const host = parsed.hostname;
+    if (
+      host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal') ||
+      /^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(':') || !host.includes('.')
+    ) throw new Error('Invalid URL');
     const r = await importRecipeFromUrl(url, c.env);
     const id = uid();
     await c.env.DB.prepare(
