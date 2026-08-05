@@ -400,10 +400,16 @@ app.get('/app/recipes', async (c) => {
   const h = c.get('household');
   const err = c.req.query('err');
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
+  const tag = normalizeTag(String(c.req.query('tag') || ''));
   const recipes = q
-    ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY created_at DESC")
+    ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY favorite DESC, created_at DESC")
         .bind(h.id, `%${q}%`, `%${q}%`).all()
-    : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY created_at DESC').bind(h.id).all();
+    : tag
+      ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY favorite DESC, created_at DESC")
+          .bind(h.id, `%,${tag},%`).all()
+      : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC').bind(h.id).all();
+  const allTags = await c.env.DB.prepare('SELECT tags FROM recipes WHERE household_id = ? AND tags != \'\'').bind(h.id).all();
+  const tagSet = [...new Set(allTags.results.flatMap((r) => r.tags.split(',')).filter(Boolean))].sort();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Recipes</h1>
@@ -413,6 +419,10 @@ app.get('/app/recipes', async (c) => {
   </form>
 </div>
 ${err ? `<p class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
+${tagSet.length ? `<div class="flex flex-wrap gap-1.5 mb-4">
+  ${tag ? `<a href="/app/recipes" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300">✕ Clear filter</a>` : ''}
+  ${tagSet.map((t) => `<a href="/app/recipes?tag=${encodeURIComponent(t)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${t === tag ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}">#${esc(t)}</a>`).join('')}
+</div>` : ''}
 <form method="post" action="/app/recipes/import" class="flex flex-col sm:flex-row gap-2 mb-6">
   <input type="url" name="url" required placeholder="Paste a recipe URL (e.g. from BBC Good Food, Serious Eats…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2.5 hover:bg-emerald-700">Import recipe</button>
@@ -422,12 +432,13 @@ ${recipes.results.map((r) => `
   <a href="/app/recipes/${r.id}" class="rounded-xl bg-white border border-stone-200 overflow-hidden hover:border-emerald-400">
     ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="h-36 w-full object-cover" loading="lazy">` : `<div class="h-36 w-full bg-stone-100 flex items-center justify-center text-stone-300 text-4xl">🍽</div>`}
     <div class="p-3">
-      <h3 class="font-semibold leading-snug">${esc(r.title)}</h3>
+      <h3 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h3>
       <p class="text-xs text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes}m`, r.cook_minutes && `Cook ${r.cook_minutes}m`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
+      ${r.tags ? `<p class="mt-1.5 flex flex-wrap gap-1">${r.tags.split(',').filter(Boolean).map((t) => `<span class="px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-800">#${esc(t)}</span>`).join('')}</p>` : ''}
     </div>
   </a>`).join('')}
 </div>
-${recipes.results.length === 0 ? (q ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
+${recipes.results.length === 0 ? (q || tag ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || `#${tag}`)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
 <details class="mt-8">
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or add a recipe manually</summary>
   <form method="post" action="/app/recipes/new" class="mt-3 max-w-lg space-y-2">
@@ -489,6 +500,26 @@ app.get('/app/recipes/:id', async (c) => {
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
+app.post('/app/recipes/:id/favorite', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  await c.env.DB.prepare('UPDATE recipes SET favorite = 1 - favorite WHERE id = ? AND household_id = ?').bind(id, h.id).run();
+  return c.redirect(`/app/recipes/${id}`);
+});
+
+app.post('/app/recipes/:id/tags', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  const f = await c.req.parseBody();
+  const tags = String(f.tags || '').split(',').map(normalizeTag).filter(Boolean).slice(0, 10).join(',');
+  await c.env.DB.prepare('UPDATE recipes SET tags = ? WHERE id = ? AND household_id = ?').bind(tags, id, h.id).run();
+  return c.redirect(`/app/recipes/${id}`);
+});
+
+function normalizeTag(s) {
+  return s.toLowerCase().trim().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').slice(0, 30);
+}
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -519,7 +550,14 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
     <ol class="space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
   </section>
 </div>
-${canEdit ? `<p class="mt-8"><a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a></p>` : ''}
+${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
+  <a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
+  <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
+</div>
+<form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
+  <input name="tags" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
+  <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Save tags</button>
+</form>` : ''}
 ${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
 </article>`;
 }
