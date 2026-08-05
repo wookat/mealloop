@@ -1,0 +1,37 @@
+{
+  "name": "mealloop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build:css": "tailwindcss -i src/input.css -o public/styles.css --minify",
+    "dev": "wrangler dev",
+    "deploy": "npm run build:css && wrangler deploy",
+    "check": "node --check src/index.js && node --check src/auth.js && node --check src/recipes.js && node --check src/util.js && node --check src/layout.js && node --check src/guides.js",
+    "test": "node --test test/*.test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wookat/mealloop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/wookat/mealloop/issues"
+  },
+  "homepage": "https://github.com/wookat/mealloop#readme",
+  "dependencies": {
+    "hono": "^4.13.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.3",
+    "tailwindcss": "^4.3.3",
+    "wrangler": "^4.119.0"
+  },
+  "private": true,
+  "type": "module"
+}
