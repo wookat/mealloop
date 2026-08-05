@@ -332,7 +332,7 @@ app.get('/app/recipes', async (c) => {
 <h1 class="text-2xl font-bold mb-4">Recipes</h1>
 ${err ? `<p class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
 <form method="post" action="/app/recipes/import" class="flex flex-col sm:flex-row gap-2 mb-6">
-  <input type="url" name="url" required placeholder="Paste a recipe URL (e.g. from Allrecipes, BBC Good Food…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
+  <input type="url" name="url" required placeholder="Paste a recipe URL (e.g. from BBC Good Food, Serious Eats…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2.5 hover:bg-emerald-700">Import recipe</button>
 </form>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
