@@ -242,6 +242,7 @@ app.get('/app', async (c) => {
   ]);
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
+  const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
@@ -266,6 +267,27 @@ ${recipes.results.length === 0 ? `
   ${entries.results.length === 0 ? `<form method="post" action="/app/plan/copy-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
+  </form>` : ''}
+</div>
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+  ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
+    <input type="hidden" name="week" value="${days[0]}">
+    <input name="name" required maxlength="60" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
+    <button class="rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-100">Save menu</button>
+  </form>` : ''}
+  ${menus.results.length && entries.results.length === 0 ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
+    <input type="hidden" name="week" value="${days[0]}">
+    <select name="menu_id" class="rounded-lg border border-stone-300 px-2 py-1.5">
+      ${menus.results.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
+    </select>
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-3 py-1.5 hover:bg-emerald-700">Apply menu</button>
+  </form>` : ''}
+  ${menus.results.length ? `<form method="post" action="/app/menus/delete" class="flex gap-2" data-confirm="Delete this saved menu?">
+    <input type="hidden" name="week" value="${days[0]}">
+    <select name="menu_id" class="rounded-lg border border-stone-300 px-2 py-1.5">
+      ${menus.results.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
+    </select>
+    <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-stone-100">Delete menu</button>
   </form>` : ''}
 </div>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
@@ -349,6 +371,59 @@ app.post('/app/plan/copy-week', async (c) => {
   return c.redirect(`/app?week=${week}`);
 });
 
+app.post('/app/menus', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = String(f.week || '');
+  const name = String(f.name || '').trim().slice(0, 60);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week) || !name) return c.redirect('/app');
+  const days = weekDates(week);
+  const entries = await c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, days[0], days[6]).all();
+  if (!entries.results.length) return c.redirect(`/app?week=${week}`);
+  const menuId = uid();
+  const stmts = [c.env.DB.prepare('INSERT INTO menus (id, household_id, name) VALUES (?, ?, ?)').bind(menuId, h.id, name)];
+  for (const e of entries.results) {
+    stmts.push(c.env.DB.prepare('INSERT INTO menu_entries (id, menu_id, dow, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(uid(), menuId, days.indexOf(e.date), e.meal, e.recipe_id, e.note));
+  }
+  await c.env.DB.batch(stmts);
+  return c.redirect(`/app?week=${week}`);
+});
+
+app.post('/app/menus/apply', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = String(f.week || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
+  const menu = await c.env.DB.prepare('SELECT id FROM menus WHERE id = ? AND household_id = ?').bind(String(f.menu_id || ''), h.id).first();
+  if (!menu) return c.redirect(`/app?week=${week}`);
+  const days = weekDates(week);
+  const entries = await c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
+  const stmts = entries.results
+    .filter((e) => e.dow >= 0 && e.dow <= 6)
+    .map((e) => c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, days[e.dow], e.meal, e.recipe_id, e.note));
+  if (stmts.length) {
+    await c.env.DB.batch(stmts);
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect(`/app?week=${week}`);
+});
+
+app.post('/app/menus/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const menu = await c.env.DB.prepare('SELECT id FROM menus WHERE id = ? AND household_id = ?').bind(String(f.menu_id || ''), h.id).first();
+  if (menu) {
+    await c.env.DB.batch([
+      c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id = ?').bind(menu.id),
+      c.env.DB.prepare('DELETE FROM menus WHERE id = ?').bind(menu.id),
+    ]);
+  }
+  return c.redirect(`/app?week=${String(f.week || '')}`);
+});
+
 app.post('/app/plan/to-list', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -366,6 +441,8 @@ app.post('/app/plan/to-list', async (c) => {
     }
   }
   const merged = mergeIngredients(labels);
+  const staples = await c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all();
+  for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
   const existing = await c.env.DB.prepare('SELECT label FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const seen = new Set(existing.results.map((r) => String(r.label).toLowerCase()));
   const stmts = [];
@@ -610,7 +687,8 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
   <div class="flex gap-2">
-    ${shareLink ? `<a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>` : ''}
+    ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
+    <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>` : ''}
     ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Clear checked</button></form>` : ''}
   </div>
 </div>
@@ -640,6 +718,48 @@ ${cats.map((cat) => `
 </div>
 `;
 }
+
+app.get('/app/staples', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const staples = await c.env.DB.prepare('SELECT * FROM staples WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all();
+  const body = `<div class="max-w-2xl">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+  <h1 class="text-2xl font-bold">Staples</h1>
+  <a href="/app/list" class="text-sm text-emerald-700 underline">Back to grocery list</a>
+</div>
+<p class="text-sm text-stone-600 mb-4">Items you always want on the list — they're added automatically every time you click “Add week's ingredients”.</p>
+<form method="post" action="/app/staples/add" class="flex gap-2 mb-5 max-w-md">
+  <input name="label" required placeholder="Add staple (e.g. milk)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
+</form>
+${staples.results.length === 0 ? `<p class="text-stone-500 text-sm">No staples yet.</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
+${staples.results.map((s) => `<li class="flex items-center justify-between px-3 py-2.5 text-sm">
+  <span>${esc(s.label)} <span class="ml-2 text-xs text-stone-400">${esc(s.category)}</span></span>
+  <form method="post" action="/app/staples/delete"><input type="hidden" name="id" value="${s.id}"><button aria-label="Remove" class="text-stone-400 hover:text-red-600">✕</button></form>
+</li>`).join('')}
+</ul>`}
+</div>`;
+  return c.html(page({ title: 'Staples', body, user, path: '/app/staples', noindex: true }));
+});
+
+app.post('/app/staples/add', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const label = String(f.label || '').trim().slice(0, 200);
+  if (label) {
+    await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+      .bind(uid(), h.id, label, categorize(label)).run();
+  }
+  return c.redirect('/app/staples');
+});
+
+app.post('/app/staples/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  await c.env.DB.prepare('DELETE FROM staples WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
+  return c.redirect('/app/staples');
+});
 
 app.get('/app/list/version', async (c) => {
   const h = c.get('household');
