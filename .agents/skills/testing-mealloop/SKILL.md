@@ -29,6 +29,8 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) �
 - All client JS is in static `/app.js` (data-copy buttons, form[data-confirm] dialogs, .toggle-form check-off, 5s version poll) — after CSP changes check the browser console for violations.
 - Tags are normalized to slugs (lowercase, spaces→dashes, max 10); tag filter is `/app/recipes?tag=<slug>`; favorites sort first via `ORDER BY favorite DESC`.
 - Confirm-dialog cancel tests should verify state via a reload (token/recipe unchanged).
+- Staples (/app/staples) are appended by name (case-insensitive) on every "Add week's ingredients" click; menu forms on /app render conditionally — Save input only on weeks WITH entries, Apply select only on EMPTY weeks (Delete select whenever any menu exists).
+- The nav "Planner" link always lands on the CURRENT week — use /app?week=YYYY-MM-DD explicitly to avoid polluting the grocery list with the current week's ingredients.
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).
