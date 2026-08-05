@@ -3,15 +3,26 @@
 export async function importRecipeFromUrl(url) {
   const res = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; MealLoopBot/1.0; +https://mealloop.zalize.com)',
-      Accept: 'text/html,application/xhtml+xml',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Upgrade-Insecure-Requests': '1',
     },
     redirect: 'follow',
   });
-  if (!res.ok) throw new Error(`Fetch failed (${res.status})`);
+  if (!res.ok) {
+    throw new Error(
+      res.status === 403 || res.status === 429
+        ? 'this site blocks automated access — you can copy the recipe in manually below'
+        : `the page could not be loaded (HTTP ${res.status})`
+    );
+  }
   const html = await res.text();
   const recipe = extractRecipe(html);
-  if (!recipe) throw new Error('No recipe data found on that page');
+  if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
   recipe.source_url = url;
   return recipe;
 }

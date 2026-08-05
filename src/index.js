@@ -7,9 +7,17 @@ import { GUIDES } from './guides.js';
 
 const app = new Hono();
 
-// ---------- first-party cookie-free analytics ----------
+// ---------- security headers + first-party cookie-free analytics ----------
 app.use('*', async (c, next) => {
   await next();
+  try {
+    c.res = new Response(c.res.body, c.res);
+    c.res.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    c.res.headers.set('X-Frame-Options', 'DENY');
+    c.res.headers.set('X-Content-Type-Options', 'nosniff');
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'");
+  } catch {}
   try {
     const ct = c.res.headers.get('content-type') || '';
     if (c.req.method === 'GET' && ct.includes('text/html') && c.res.status === 200) {

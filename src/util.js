@@ -33,11 +33,11 @@ export function weekDates(startParam) {
 }
 
 const CATEGORY_RULES = [
-  ['Produce', /\b(onion|garlic|tomato|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|mushroom|ginger|scallion|herb)/i],
-  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|fish|salmon|shrimp|tuna|steak)/i],
+  ['Canned & Sauces', /\b(stock|broth|passata|sauce|canned|paste|beans|soup|vinegar|soy)/i],
+  ['Produce', /\b(onion|garlic|tomato(es)?|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|mushroom|ginger|scallion|herb)/i],
+  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|prosciutto|pancetta|chorizo|mince|fish|salmon|shrimp|prawn|tuna|steak)/i],
   ['Dairy & Eggs', /\b(milk|butter|cheese|cream|yogurt|egg[s]?|mozzarella|parmesan|provolone|cheddar)/i],
   ['Bakery & Grains', /\b(bread|flour|pasta|rice|noodle|tortilla|panko|crumb|oat|quinoa)/i],
-  ['Canned & Sauces', /\b(sauce|canned|broth|stock|paste|tomato sauce|beans|soup|vinegar|soy)/i],
   ['Spices & Baking', /\b(salt|sugar|spice|cumin|paprika|oregano|cinnamon|baking|yeast|vanilla|pepper\b)/i],
   ['Oils & Condiments', /\b(oil|olive oil|mayo|mustard|ketchup|honey|syrup)/i],
 ];
