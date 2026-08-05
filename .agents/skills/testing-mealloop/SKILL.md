@@ -24,6 +24,8 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) �
 - Share sync test: get link from /app/share, open /s/<token> in incognito, check an item there, and watch the logged-in /app/list tab — it polls /app/list/version every 5s and reloads on version change.
 - List check-off is optimistic (inline JS fetch POST to .../toggle with X-Requested-With: fetch).
 - Household/share token is auto-created on first /app visit.
+- Quantity merging keys on ingredient name+unit — to test merge math exactly, plan on an empty future week (`/app?week=YYYY-MM-DD`) so previously planned recipes don't add into the totals.
+- "Copy last week's plan" renders only when the viewed week has zero entries.
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).
