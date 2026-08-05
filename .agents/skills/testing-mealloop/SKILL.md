@@ -14,6 +14,7 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) â
 - Fallback if email doesn't arrive: read the code from KV:
   `CLOUDFLARE_API_TOKEN=$CLOUDFLARE_GLOBAL_API_TOKEN CLOUDFLARE_ACCOUNT_ID=ddff52d24ee44e21a021c15eaffcc86d npx wrangler kv key get "code:<email>" --namespace-id a02f5b9e979e4f9fb8dbe95a0cd4f983 --remote`
 - Codes expire in 10 min; session cookie `ml_session` lasts 30 days.
+- Rate limits: max 3 code sends per email per 10 min; 5 wrong verify attempts invalidate the code. Once send-limited, /login won't render the code form again â€” use one fresh Mail.tm mailbox per limit you're testing.
 
 ## Key flows / gotchas
 - Recipe import: Allrecipes/Dotdash Meredith block ALL Cloudflare-egress fetches, including Browser Rendering (they serve a ~651-byte empty document). Expect the friendly-error/manual-entry fallback there; test import with BBC Good Food URLs (e.g. https://www.bbcgoodfood.com/recipes/classic-lasagne-0) instead.
