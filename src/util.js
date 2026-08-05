@@ -46,3 +46,53 @@ export function categorize(label) {
   for (const [cat, re] of CATEGORY_RULES) if (re.test(label)) return cat;
   return 'Other';
 }
+
+const UNITS = 'g|kg|ml|l|oz|lb|lbs|tbsp|tsp|cup|cups|clove|cloves|can|cans|pack|packs|sprig|sprigs|slice|slices|bunch|bunches|handful';
+const VULGAR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3 };
+const TIGHT_UNITS = new Set(['g', 'kg', 'ml', 'l', 'oz']);
+
+// "750g lean beef mince" -> { qty: 750, unit: 'g', name: 'lean beef mince' }
+export function parseIngredient(label) {
+  const raw = String(label).trim();
+  const m = raw.match(new RegExp(`^(\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:[.,]\\d+)?|[${Object.keys(VULGAR).join('')}])\\s*(${UNITS})?\\b\\.?\\s*(.*)$`, 'i'));
+  if (!m || !m[3]) return { qty: null, unit: null, name: raw };
+  return { qty: toNumber(m[1]), unit: m[2] ? m[2].toLowerCase() : null, name: m[3].trim() };
+}
+
+function toNumber(s) {
+  if (VULGAR[s] !== undefined) return VULGAR[s];
+  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+  const frac = s.match(/^(\d+)\/(\d+)$/);
+  if (frac) return Number(frac[1]) / Number(frac[2]);
+  return Number(s.replace(',', '.'));
+}
+
+function nameKey(name) {
+  return name.toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+export function formatIngredient({ qty, unit, name }) {
+  if (qty == null) return name;
+  const n = Math.round(qty * 100) / 100;
+  if (!unit) return `${n} ${name}`;
+  return TIGHT_UNITS.has(unit) ? `${n}${unit} ${name}` : `${n} ${unit} ${name}`;
+}
+
+// Sums quantities of the same ingredient+unit; keeps unparsed labels as-is.
+export function mergeIngredients(labels) {
+  const out = [];
+  const index = new Map();
+  for (const label of labels) {
+    const parsed = parseIngredient(label);
+    const key = `${nameKey(parsed.name)}|${parsed.unit || ''}`;
+    const at = index.get(key);
+    if (at === undefined) {
+      index.set(key, out.push(parsed) - 1);
+    } else if (parsed.qty != null && out[at].qty != null) {
+      out[at].qty += parsed.qty;
+    }
+    // same key but unquantifiable on either side: treat as duplicate, keep first
+  }
+  return out.map(formatIngredient);
+}

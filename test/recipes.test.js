@@ -55,3 +55,12 @@ test('isPublicHttpUrl rejects internal targets and accepts public sites', async 
   assert.equal(isPublicHttpUrl('http://intranet/'), false);
   assert.equal(isPublicHttpUrl('http://foo.internal/'), false);
 });
+
+test('mergeIngredients sums duplicate quantities and dedupes', async () => {
+  const { mergeIngredients } = await import('../src/util.js');
+  assert.deepEqual(
+    mergeIngredients(['2 tbsp olive oil', '1 tbsp olive oil', '750g beef mince', '250g beef mince', 'nutmeg', 'nutmeg', '1/2 cup milk', '½ cup milk']),
+    ['3 tbsp olive oil', '1000g beef mince', 'nutmeg', '1 cup milk']
+  );
+  assert.deepEqual(mergeIngredients(['2 onions', '1 onion']), ['2 onions', '1 onion']); // plural differs — kept separate
+});

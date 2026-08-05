@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -263,6 +263,10 @@ ${recipes.results.length === 0 ? `
     <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700">Add week's ingredients to grocery list</button>
   </form>
   <a href="/app/share" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>
+  ${entries.results.length === 0 ? `<form method="post" action="/app/plan/copy-week" class="inline">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
+  </form>` : ''}
 </div>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
@@ -325,6 +329,26 @@ app.post('/app/plan/delete', async (c) => {
   return c.redirect(`/app?week=${f.week || ''}`);
 });
 
+app.post('/app/plan/copy-week', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = String(f.week || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
+  const days = weekDates(week);
+  const prevDays = weekDates(shiftDays(week, -7));
+  const prev = await c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, prevDays[0], prevDays[6]).all();
+  const stmts = prev.results.map((e) =>
+    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note)
+  );
+  if (stmts.length) {
+    await c.env.DB.batch(stmts);
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect(`/app?week=${week}`);
+});
+
 app.post('/app/plan/to-list', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -332,21 +356,27 @@ app.post('/app/plan/to-list', async (c) => {
     `SELECT DISTINCT r.id, r.ingredients_json FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ?`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
-  // Idempotent: skip ingredients whose label is already on the list.
-  const existing = await c.env.DB.prepare('SELECT label FROM shopping_items WHERE household_id = ?').bind(h.id).all();
-  const seen = new Set(existing.results.map((r) => String(r.label).toLowerCase()));
-  const stmts = [];
+  // Merge duplicate ingredients across recipes (summing quantities), then skip
+  // labels already on the list so the button stays idempotent.
+  const labels = [];
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      const key = label.toLowerCase();
-      if (!label || seen.has(key)) continue;
-      seen.add(key);
-      stmts.push(
-        c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, recipe_id) VALUES (?, ?, ?, ?, ?)')
-          .bind(uid(), h.id, label, categorize(label), row.id)
-      );
+      if (label) labels.push(label);
     }
+  }
+  const merged = mergeIngredients(labels);
+  const existing = await c.env.DB.prepare('SELECT label FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const seen = new Set(existing.results.map((r) => String(r.label).toLowerCase()));
+  const stmts = [];
+  for (const label of merged) {
+    const key = label.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    stmts.push(
+      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label))
+    );
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
@@ -369,9 +399,19 @@ app.get('/app/recipes', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
   const err = c.req.query('err');
-  const recipes = await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY created_at DESC').bind(h.id).all();
+  const q = String(c.req.query('q') || '').trim().slice(0, 100);
+  const recipes = q
+    ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY created_at DESC")
+        .bind(h.id, `%${q}%`, `%${q}%`).all()
+    : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY created_at DESC').bind(h.id).all();
   const body = `
-<h1 class="text-2xl font-bold mb-4">Recipes</h1>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-2xl font-bold">Recipes</h1>
+  <form method="get" action="/app/recipes" class="flex gap-2">
+    <input type="search" name="q" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
+    <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
+  </form>
+</div>
 ${err ? `<p class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
 <form method="post" action="/app/recipes/import" class="flex flex-col sm:flex-row gap-2 mb-6">
   <input type="url" name="url" required placeholder="Paste a recipe URL (e.g. from BBC Good Food, Serious Eats…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
@@ -387,7 +427,7 @@ ${recipes.results.map((r) => `
     </div>
   </a>`).join('')}
 </div>
-${recipes.results.length === 0 ? `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>` : ''}
+${recipes.results.length === 0 ? (q ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
 <details class="mt-8">
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or add a recipe manually</summary>
   <form method="post" action="/app/recipes/new" class="mt-3 max-w-lg space-y-2">
