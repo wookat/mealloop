@@ -1,8 +1,19 @@
 // Server-side recipe import: fetch a URL and extract schema.org/Recipe JSON-LD.
 
 export async function importRecipeFromUrl(url) {
-  const res = await fetch(url, {
+  try {
+    return await fetchAndExtract(url, url);
+  } catch (e) {
+    if (!/blocks automated access/.test(e.message)) throw e;
+    // Fallback: fetch through a rendering proxy for sites that block datacenter egress.
+    return fetchAndExtract(`https://r.jina.ai/${url}`, url, { 'X-Return-Format': 'html' });
+  }
+}
+
+async function fetchAndExtract(fetchUrl, sourceUrl, extraHeaders = {}) {
+  const res = await fetch(fetchUrl, {
     headers: {
+      ...extraHeaders,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
       Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
@@ -23,7 +34,7 @@ export async function importRecipeFromUrl(url) {
   const html = await res.text();
   const recipe = extractRecipe(html);
   if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
-  recipe.source_url = url;
+  recipe.source_url = sourceUrl;
   return recipe;
 }
 
