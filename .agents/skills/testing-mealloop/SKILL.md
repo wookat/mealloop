@@ -26,6 +26,14 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) �
 - Household/share token is auto-created on first /app visit.
 - Quantity merging keys on ingredient name+unit — to test merge math exactly, plan on an empty future week (`/app?week=YYYY-MM-DD`) so previously planned recipes don't add into the totals.
 - "Copy last week's plan" renders only when the viewed week has zero entries.
+- All client JS is in static `/app.js` (data-copy buttons, form[data-confirm] dialogs, .toggle-form check-off, 5s version poll) — after CSP changes check the browser console for violations.
+- Tags are normalized to slugs (lowercase, spaces→dashes, max 10); tag filter is `/app/recipes?tag=<slug>`; favorites sort first via `ORDER BY favorite DESC`.
+- Confirm-dialog cancel tests should verify state via a reload (token/recipe unchanged).
+- Staples (/app/staples) are appended by name (case-insensitive) on every "Add week's ingredients" click; menu forms on /app render conditionally — Save input only on weeks WITH entries, Apply select only on EMPTY weeks (Delete select whenever any menu exists).
+- The nav "Planner" link always lands on the CURRENT week — use /app?week=YYYY-MM-DD explicitly to avoid polluting the grocery list with the current week's ingredients.
+- Category selects on /app/list use `data-autosubmit` + a `__custom` prompt in /app.js — Cancel must revert the select with no reload; the share page has no category selects.
+- Snacks toggle is per-household (`households.snacks`) and hides-but-keeps snack plan_entries when turned off.
+- Grocery scaling multiplies ingredient quantities before merge and uses MAX(scale) per recipe per week; existing-item dedupe is by exact lowercase label, so scaled lines coexist with unscaled ones (e.g. "3 cups flour" + "4 cups flour").
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).
