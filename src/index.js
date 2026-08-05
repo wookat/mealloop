@@ -366,7 +366,7 @@ app.post('/app/recipes/import', async (c) => {
   try {
     const parsed = new URL(url);
     if (!/^https?:$/.test(parsed.protocol)) throw new Error('Invalid URL');
-    const r = await importRecipeFromUrl(url);
+    const r = await importRecipeFromUrl(url, c.env);
     const id = uid();
     await c.env.DB.prepare(
       `INSERT INTO recipes (id, household_id, title, source_url, image_url, description, prep_minutes, cook_minutes, servings, ingredients_json, steps_json, created_by)

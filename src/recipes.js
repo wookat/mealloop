@@ -1,12 +1,28 @@
 // Server-side recipe import: fetch a URL and extract schema.org/Recipe JSON-LD.
+import puppeteer from '@cloudflare/puppeteer';
 
-export async function importRecipeFromUrl(url) {
+export async function importRecipeFromUrl(url, env) {
   try {
     return await fetchAndExtract(url, url);
   } catch (e) {
-    if (!/blocks automated access/.test(e.message)) throw e;
-    // Fallback: fetch through a rendering proxy for sites that block datacenter egress.
-    return fetchAndExtract(`https://r.jina.ai/${url}`, url, { 'X-Return-Format': 'html' });
+    if (!/blocks automated access/.test(e.message) || !env?.BROWSER) throw e;
+    // Fallback: render with a real headless browser for sites that block datacenter fetches.
+    return browserExtract(url, env);
+  }
+}
+
+async function browserExtract(url, env) {
+  const browser = await puppeteer.launch(env.BROWSER);
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    const html = await page.content();
+    const recipe = extractRecipe(html);
+    if (!recipe) throw new Error('no recipe data was found on that page — you can add it manually below');
+    recipe.source_url = url;
+    return recipe;
+  } finally {
+    await browser.close();
   }
 }
 

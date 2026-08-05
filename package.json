@@ -25,6 +25,7 @@
   },
   "homepage": "https://github.com/wookat/mealloop#readme",
   "dependencies": {
+    "@cloudflare/puppeteer": "^1.3.0",
     "hono": "^4.13.0"
   },
   "devDependencies": {
