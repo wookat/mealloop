@@ -34,6 +34,9 @@ app.use('*', async (c, next) => {
 });
 
 // ---------- marketing ----------
+const FEATURED_SLUGS = ['meal-planning-for-picky-eaters', 'batch-cooking-for-busy-weeks', 'meal-planning-on-a-budget'];
+const FEATURED_GUIDES = FEATURED_SLUGS.map((s) => GUIDES.find((g) => g.slug === s)).filter(Boolean);
+
 const LANDING_FAQ = [
   ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
   ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
@@ -85,6 +88,17 @@ app.get('/', async (c) => {
     </details>`).join('')}
   </div>
   <p class="mt-6 text-center text-sm text-stone-600">More questions? Read our <a class="text-emerald-700 underline" href="/guides">meal planning guides</a>.</p>
+</section>
+<section class="py-8">
+  <h2 class="text-2xl font-bold text-center">From the guides</h2>
+  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+    ${FEATURED_GUIDES.map((g) => `
+    <a href="/guides/${g.slug}" class="rounded-2xl bg-white border border-stone-200 p-5 hover:border-emerald-400 block">
+      <h3 class="font-semibold text-stone-900 leading-snug">${esc(g.title)}</h3>
+      <p class="mt-1.5 text-sm text-stone-600">${esc(g.excerpt)}</p>
+    </a>`).join('')}
+  </div>
+  <p class="mt-5 text-center text-sm"><a class="text-emerald-700 underline" href="/guides">All guides →</a></p>
 </section>
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',

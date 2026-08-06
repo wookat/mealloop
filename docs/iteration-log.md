@@ -763,3 +763,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide `stop-deciding-whats-for-dinner-every-night` ("decide once a week, then just cook"): decision fatigue / hungry-decision takeaway bias / no-list side effect; weekly 10-minute sitting + visible family plan + rotation. Sitemap 23→24, IndexNow 200. /guides ItemList now 20 items.
 
 **Evidence:** live verification (`test-report-iter69.md` + recording): breadcrumb + h1 exact; both h2 sections + 3 bullets + CTA; More guides wraps to first 3; Article+BreadcrumbList JSON-LD exact (single script, og-card image, org logo); listed last of 20 on /guides, ItemList 20 items with position 20 = new guide; sitemap 24 locs; og:type=article (R67 intact); 375px + Console/Issues clean. Note: ~1 min stale-CDN 404 right after deploy, self-resolved.
+
+## Round 70 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data / ③ SEO: the landing page (138 views since 8/1, 3rd-most public path) linked to the 20-guide cluster only via two small text links — no guide content surfaced on the highest-intent page; internal linking to the cluster was weak.
+
+**Fixes shipped:**
+- "From the guides" section on `/` between the FAQ and the FAQPage JSON-LD: 3 featured whole-card links (`FEATURED_SLUGS`: picky-eaters, batch-cooking, budget) with title + excerpt from `src/guides.js`, plus an "All guides →" link. Escaped output; no new JSON-LD.
+
+**Evidence:** live verification (`test-report-iter70.md` + recording): exactly 3 cards in order with character-identical titles/excerpts; whole-card link proven by body-text click → correct guide; "All guides →" → /guides (20 guides); FAQ accordions + email form + FAQPage JSON-LD (still the only ld+json, 6 questions) intact with correct document order; 375px single-column stack, 375/375 no overflow; Console/Issues clean; logged-out CTA regression passed. Not re-tested: logged-in CTA variant (unchanged code path).
