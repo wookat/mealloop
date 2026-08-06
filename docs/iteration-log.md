@@ -713,3 +713,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Share-page day cards mirror R61: today (UTC) gets emerald border + ring + emerald heading; past days get `opacity-60 print:opacity-100` (entries inherit dimming). No anchor link — the share grid is compact by design.
 
 **Evidence:** live verification (`test-report-iter64.md` + recording): current week past/today/future rendering; next week shows zero ring/dim, fully past week shows all 7 dimmed, “This week” restores; print preview full contrast; 375px + Console/Issues clean; read-only round.
+
+## Round 65 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: mainstream list apps show shopping progress at a glance; MealLoop's list heading gave no count — mid-shop you had to scan/scroll to judge what's left.
+
+**Fixes shipped:**
+- Grocery-list h1 progress summary: `N to buy[ · M checked]`, `all done 🎉 · M checked` when nothing left, no span on an empty list. Rendered in shared `listBody`, so /app/list and the anonymous share list both show it; counts follow the shown (store-filtered) items.
+
+**Evidence:** live verification (`test-report-iter65.md` + recording): exact counts through add/check/uncheck transitions incl. full check-all (“all done 🎉 · 37 checked”, fully reversed); share page shows the identical summary anonymously; store filter scopes counts to the filtered view; fixtures/stores cleaned, production restored; 375px + Console/Issues clean. Untested: empty-list no-span state (would require deleting standing items).

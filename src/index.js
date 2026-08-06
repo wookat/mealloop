@@ -1243,7 +1243,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Grocery list</h1>
+  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : 'all done 🎉'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
