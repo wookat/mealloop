@@ -216,3 +216,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `data-confirm` on Clear checked; Copy list now strips all sub-spans (sources + notes).
 
 **Evidence:** live verification (`test-report-iter17.md` + recording): note add/edit/clear, share-page read-only display + ~10s poll sync, confirm cancel/OK paths, clipboard clean of notes/sources, console clean, 375/375 with popup open, full cleanup.
+
+## Round 18 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX (P2): Samsung Food and Plan to Eat both offer a cooking view; MealLoop's recipe steps were small text with nothing keeping the phone screen awake at the stove.
+
+**Fixes shipped:**
+- Cook mode on recipe detail (app + anonymous share view): button next to the Steps heading (only when steps exist) enlarges steps/ingredients, makes steps tap-to-mark-done (client-only), and holds a Screen Wake Lock while active (re-acquired on tab return; failures silently ignored).
+
+**Evidence:** live verification (`test-report-iter18.md` + recording): toggle/mark-done/inert-outside-mode on app and share pages, stepless recipe shows no button, console clean, 375/375 in cook mode, recipe-detail regression (favorite/tags/plan CTA) passed, fixtures cleaned.

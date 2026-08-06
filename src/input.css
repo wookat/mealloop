@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+/* Cook mode: large hands-free steps with tap-to-mark-done. */
+.cook-mode .steps-list li {
+  font-size: 1.25rem;
+  line-height: 1.8rem;
+  cursor: pointer;
+  padding: 0.375rem 0;
+}
+.cook-mode .steps-list li.done {
+  opacity: 0.4;
+}
+.cook-mode .steps-list li.done span:last-child {
+  text-decoration: line-through;
+}
+.cook-mode section > ul li {
+  font-size: 1.05rem;
+  line-height: 1.6rem;
+}

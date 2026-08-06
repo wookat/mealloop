@@ -734,8 +734,11 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
     <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
-    <h2 class="font-semibold text-lg mb-2">Steps</h2>
-    <ol class="space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="font-semibold text-lg">Steps</h2>
+      ${steps.length ? `<button type="button" data-cook-mode class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Cook mode</button>` : ''}
+    </div>
+    <ol class="steps-list space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
   </section>
 </div>
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
