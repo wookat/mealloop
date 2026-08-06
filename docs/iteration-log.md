@@ -418,3 +418,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New `addListItem` helper used by both `POST /app/list/add` and the anonymous share-page `POST /s/:token/add`: match by `ingredientKey` — checked hit is unchecked with label replaced ("buy again"); unchecked hit merges labels via `mergeIngredients` ("2 lemons" + "1 lemon" → "3 lemons"); no hit inserts normally.
 
 **Evidence:** live verification (`test-report-iter36.md` + recording): quantity merge, buy-again uncheck, share-page anonymous dedupe, non-matching fresh insert, store-filter back param, share version-poll; Console/Issues clean; fixtures cleaned. Notes: merging a quantified add into an unquantified existing label keeps the existing label (mergeIngredients semantics); the share add's 500-item cap is source-verified only.
+
+## Round 37 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ③ visual: floating `<details>` popovers (✎ Edit item, Edit stores…) stayed open until their summary was clicked again — unexpected vs standard menu/popover behavior and awkward on mobile.
+
+**Fixes shipped:**
+- `public/app.js`: any open `details.relative` popover closes on an outside click, and on Escape (which also refocuses its summary). Non-floating details blocks (planner "+ add", recipes paste/manual) are intentionally unaffected.
+
+**Evidence:** live verification (`test-report-iter37.md` + recording): inside clicks keep the popover open and typable; outside click and Escape close both popovers (Escape refocus proven via `document.activeElement`); popover saves still persist; non-floating details stay open on outside clicks; Console/Issues clean; fixtures cleaned.
