@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -1131,16 +1131,12 @@ app.post('/app/list/move', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const id = String(f.id || '');
-  const dir = String(f.dir) === 'up' ? -1 : 1;
   const item = await c.env.DB.prepare('SELECT id, category, checked FROM shopping_items WHERE id = ? AND household_id = ?').bind(id, h.id).first();
   if (item) {
     const rows = await c.env.DB.prepare('SELECT id FROM shopping_items WHERE household_id = ? AND category = ? AND checked = ? ORDER BY COALESCE(sort_index, 1000000), created_at')
       .bind(h.id, item.category, item.checked).all();
-    const ids = rows.results.map((r) => r.id);
-    const i = ids.indexOf(id);
-    const j = i + dir;
-    if (i !== -1 && j >= 0 && j < ids.length) {
-      [ids[i], ids[j]] = [ids[j], ids[i]];
+    const ids = swapAdjacent(rows.results.map((r) => r.id), id, String(f.dir));
+    if (ids) {
       await c.env.DB.batch(ids.map((x, idx) => c.env.DB.prepare('UPDATE shopping_items SET sort_index = ? WHERE id = ? AND household_id = ?').bind(idx, x, h.id)));
       await bumpVersion(c.env, h.id);
     }

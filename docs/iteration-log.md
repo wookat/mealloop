@@ -651,3 +651,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Cook mode tap-to-dim ingredients: ingredients `<ul>` got class `ingredients-list`; app.js binds bullet rows (`li.flex` only — R38 section headings stay non-clickable); CSS scoped to `.cook-mode` (cursor, opacity 0.4 + line-through). Client-side only, no persistence; works on the share recipe page too.
 
 **Evidence:** live verification (`test-report-iter58.md` + recording): tap dims+strikes, re-tap restores; steps regression; no effect outside cook mode; heading row non-clickable (temp 'For the garnish:' fixture, restored); exit clears all styling; incognito share page works incl. 375px; Console/Issues clean.
+
+## Round 59 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: the R56 move route's swap logic was inline SQL/array code with no unit coverage; boundary/missing-id branches only exercised via manual production tests.
+
+**Fixes shipped:**
+- Extracted pure helper `swapAdjacent(arr, value, dir)` into src/util.js (returns null for boundary/missing → no DB write, no version bump) and rewired POST /app/list/move to use it. 7 new unit tests (immutability, both directions, boundary/missing/empty) — suite 18→19.
+- ⑤ data check: guide pages are starting to register views (batch-cooking 9, leftovers 8 since 8/1) — still QA-dominated overall.
+
+**Evidence:** live smoke regression (`test-report-iter59.md` + recording): swap + reload persistence, boundary no-op, Console/Issues clean, fixtures cleaned.

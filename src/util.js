@@ -190,6 +190,16 @@ export function sanitizeImageUrl(v) {
   }
 }
 
+// Swaps an element with its neighbour; returns a new array, or null if no move happened.
+export function swapAdjacent(arr, value, dir) {
+  const i = arr.indexOf(value);
+  const j = i + (dir === 'up' ? -1 : 1);
+  if (i === -1 || j < 0 || j >= arr.length) return null;
+  const out = arr.slice();
+  [out[i], out[j]] = [out[j], out[i]];
+  return out;
+}
+
 // User-entered prep/cook minutes: positive integer up to 6000, else null.
 export function clampMinutes(v) {
   const n = Math.round(Number(String(v ?? '').trim()));

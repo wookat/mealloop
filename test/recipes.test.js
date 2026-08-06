@@ -174,3 +174,16 @@ test('clampMinutes keeps positive integers up to 6000', async () => {
   assert.equal(clampMinutes(''), null);
   assert.equal(clampMinutes(undefined), null);
 });
+
+test('swapAdjacent moves within bounds only', async () => {
+  const { swapAdjacent } = await import('../src/util.js');
+  assert.deepEqual(swapAdjacent(['a', 'b', 'c'], 'b', 'up'), ['b', 'a', 'c']);
+  assert.deepEqual(swapAdjacent(['a', 'b', 'c'], 'b', 'down'), ['a', 'c', 'b']);
+  assert.equal(swapAdjacent(['a', 'b', 'c'], 'a', 'up'), null);
+  assert.equal(swapAdjacent(['a', 'b', 'c'], 'c', 'down'), null);
+  assert.equal(swapAdjacent(['a', 'b', 'c'], 'x', 'up'), null);
+  assert.equal(swapAdjacent([], 'a', 'down'), null);
+  const orig = ['a', 'b', 'c'];
+  swapAdjacent(orig, 'b', 'up');
+  assert.deepEqual(orig, ['a', 'b', 'c']); // input not mutated
+});
