@@ -304,6 +304,10 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
   </form>` : ''}
+  ${entries.results.length === 0 && recipes.results.length > 0 ? `<form method="post" action="/app/plan/fill-week" class="inline">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
+  </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
@@ -409,6 +413,34 @@ app.post('/app/plan/copy-week', async (c) => {
     await bumpVersion(c.env, h.id);
   }
   return c.redirect(`/app?week=${week}`);
+});
+
+app.post('/app/plan/fill-week', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const days = weekDates(String(f.week || ''));
+  const existing = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, days[0], days[6]).first();
+  if (existing.n > 0) return c.redirect(`/app?week=${days[0]}`);
+  const [recipes, recent] = await Promise.all([
+    c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
+    c.env.DB.prepare('SELECT DISTINCT recipe_id FROM plan_entries WHERE household_id = ? AND recipe_id IS NOT NULL AND date BETWEEN ? AND ?')
+      .bind(h.id, shiftDays(days[0], -14), shiftDays(days[0], -1)).all(),
+  ]);
+  if (recipes.results.length === 0) return c.redirect(`/app?week=${days[0]}`);
+  const recentIds = new Set(recent.results.map((r) => r.recipe_id));
+  // Rotate: prefer recipes not planned in the previous two weeks.
+  const fresh = recipes.results.filter((r) => !recentIds.has(r.id));
+  const pool = fresh.length >= 4 ? fresh : recipes.results;
+  const bytes = crypto.getRandomValues(new Uint32Array(pool.length));
+  const shuffled = pool.map((r, i) => [bytes[i], r]).sort((a, b) => a[0] - b[0]).map(([, r]) => r);
+  const stmts = days.map((d, i) =>
+    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, d, 'dinner', shuffled[i % shuffled.length].id, '', 1)
+  );
+  await c.env.DB.batch(stmts);
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${days[0]}`);
 });
 
 app.post('/app/menus', async (c) => {

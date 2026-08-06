@@ -193,3 +193,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 6-question FAQ section on "/" (native `<details>` accordions; free/no-signup/share/import/units/privacy) + FAQPage JSON-LD (inline data block — CSP-safe, verified) + cross-link to /guides.
 
 **Evidence:** live verification (`test-report-iter15.md` + recording): FAQ renders desktop + 375/375, valid JSON-LD with 6 Questions in page source, console clean (no CSP violation), login/planner/list smoke passed.
+
+## Round 16 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ⑤ data (P2): the landing signup blurb promises "meal rotation" but nothing delivered it; an empty week required picking each dinner by hand — the highest-friction moment of the weekly loop.
+
+**Fixes shipped:**
+- "Fill dinners from recipe box" button on empty weeks: `POST /app/plan/fill-week` fills one dinner per day Mon–Sun from up to 100 recipes (favorites first), preferring recipes not planned in the previous two weeks (rotation; falls back to full pool when fresh <4), crypto-shuffled, cycling if fewer than 7; guards against non-empty weeks.
+
+**Evidence:** live verification (`test-report-iter16.md` + 2 recordings): fill/hide/no-duplicate/share-sync/cleanup all passed; rotation branch proven deterministically (Test Soup/Stew planned in prior week were excluded from the fill; with a broken filter each would have appeared); console clean, 375/375.
