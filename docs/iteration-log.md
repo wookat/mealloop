@@ -324,3 +324,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `listBody` gains `extraQuery` (share page passes `week=<date>`) and computes a single validated `back` URL; hidden `back` inputs added to the add, toggle (non-JS fallback), and note forms; store tab links preserve the week param. Routes `/app/list/add|toggle|note` and `/s/:token/add|toggle` redirect only to prefix-validated back values (open-redirect safe).
 
 **Evidence:** live verification (`test-report-iter27.md` + recording): add/note on a filtered tab keep `?store=`; share tabs and anonymous add keep `week=` + `store=`; tampered back values (external URL, cross-page path) fall back to the plain page; JS toggle sync regression passed; 375/375; console + Issues clean; cleanup to zero stores.
+
+## Round 28 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P2): checked items stayed inline within their categories, cluttering long lists mid-shop; competitors (Samsung Food, AnyList pattern) group them at the bottom. ③ visual: item-note popup input lacked an explicit autocomplete attribute.
+
+**Fixes shipped:**
+- Checked items now render in one bottom "Checked off (N)" section (stone-50, print:hidden, same row markup so store/note/category controls stay functional); category sections render unchecked items only, so a fully-checked category's header disappears. Server-rendered — works on all devices. Note input gains `autocomplete="off"`.
+
+**Evidence:** live verification (`test-report-iter28.md` + recording): check/uncheck moves rows between sections on the version-poll re-render; controls work on checked rows; share page shows the same grouping; Copy list excludes checked and print hides the section; Clear checked empties it; 375/375; console + Issues clean; fixtures cleaned.
