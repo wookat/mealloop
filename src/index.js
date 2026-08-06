@@ -37,7 +37,7 @@ app.use('*', async (c, next) => {
 const LANDING_FAQ = [
   ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
   ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
-  ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, you can add the recipe manually in seconds.'],
+  ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, just paste the whole recipe text — we split it into title, ingredients and steps for you.'],
   ['Does the grocery list update for everyone in real time?', 'Yes. Checking an item on your phone shows up for everyone else viewing the list within a few seconds \u2014 handy when two people split the store.'],
   ['Can I switch between metric and imperial units?', 'Yes. One switch converts the whole grocery list and every recipe between grams/millilitres and ounces, pounds and fluid ounces \u2014 originals are kept, so you can switch back anytime.'],
   ['What about my privacy?', 'MealLoop is cookie-free until you log in, uses no third-party trackers or ads, and only collects aggregate page counts. Your recipes and plans stay yours.'],
@@ -695,9 +695,9 @@ app.post('/app/recipes/import', async (c) => {
     return c.redirect(`/app/recipes/${id}`);
   } catch (e) {
     const friendly = /HTTP \d|blocked|Timed out|abort/i.test(e.message)
-      ? "We couldn't fetch that page — the site may be blocking automated access or the link may be wrong. You can add the recipe manually below."
+      ? "We couldn't fetch that page — the site may be blocking automated access or the link may be wrong. Copy the recipe text and paste it below instead."
       : /No recipe/i.test(e.message)
-        ? "We couldn't find a recipe on that page — try the recipe's own page, or add it manually below."
+        ? "We couldn't find a recipe on that page — try the recipe's own page, or paste the recipe text below."
         : `Import failed: ${e.message}`;
     return c.redirect(`/app/recipes?err=${encodeURIComponent(friendly)}&url=${encodeURIComponent(url.slice(0, 300))}`);
   }

@@ -387,3 +387,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - All informational `text-stone-400` → `text-stone-500` (≈4.79:1 vs white, 4.58:1 vs stone-50); grocery green notice gains `role="status"`, recipes amber error notice `role="alert"`.
 
 **Evidence:** live verification (`test-report-iter33.md` + recording): zero `text-stone-400` in served DOM; contrast measured 4.79:1/4.58:1 via WCAG luminance in DevTools; role attributes confirmed on both notices; toggle/category/store/staples/share regressions passed; Console + Issues clean; 375/375; fixtures cleaned. Planner Move… select colour source-verified only (no planner entries this round).
+
+## Round 34 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data/growth: still no organic traffic; pSEO is the main long-line acquisition lever. Round 32's paste-parsing is a differentiator vs anti-bot walls (Allrecipes-class sites) but had no landing/SEO surface.
+- ② UX: URL-import error messages still pointed to the manual form instead of the (better) paste box.
+
+**Fixes shipped:**
+- New guide `/guides/save-recipes-from-sites-that-block-importers` (sitemap 16→17 locs, IndexNow 200); landing FAQ import answer now mentions paste-parsing (FAQPage JSON-LD updated with it); both URL-import error messages now direct to pasting the recipe text.
+
+**Evidence:** live verification (`test-report-iter34.md` + recording): guide listed + renders, sitemap 17 locs with new URL, FAQ + JSON-LD (6 questions) contain new wording, failed import shows new message with role=alert and paste box below; Console/Issues clean; 375/375. Coverage note: the "no recipe found" error branch is source-verified only (needs a fetchable page without recipe data).

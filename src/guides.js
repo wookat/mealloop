@@ -183,4 +183,19 @@ export const GUIDES = [
       p('This works from a plain web page too — including a recipe someone shared with you by link — so the person cooking doesn\'t need an account or an install to get a proper hands-free view.'),
     ].join(''),
   },
+  {
+    slug: 'save-recipes-from-sites-that-block-importers',
+    title: 'When a recipe site blocks importers: save it by pasting the text',
+    excerpt: 'Some big recipe sites block automated importers. Copy-paste still works — if your planner can parse plain text.',
+    body: [
+      p('A growing number of recipe sites put anti-bot walls in front of their pages, so even well-behaved importers get blocked. You should not have to retype a recipe field by field — the whole thing is already on your clipboard.'),
+      h2('The paste-and-parse workflow'),
+      ul([
+        'Select the recipe on the original page — title, ingredients and method — and copy it.',
+        'Paste it into a planner that understands the standard layout: a title line, an <strong>“Ingredients”</strong> heading, then a <strong>“Method”</strong> or <strong>“Instructions”</strong> heading.',
+        'Bullets and step numbers should be cleaned up automatically, and the ingredients should flow straight into your grocery list.',
+      ]),
+      p('This keeps the recipe usable — scaled servings, unit conversion, cook mode, and a link-shareable copy for whoever is cooking — without violating anyone\'s terms by scraping around a block.'),
+    ].join(''),
+  },
 ];
