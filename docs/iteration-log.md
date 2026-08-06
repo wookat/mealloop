@@ -534,3 +534,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - “★ Favourites” filter chip (shown only when ≥1 favourite exists; solid amber when active; `✕ Clear filter` covers tag and fav; fav-specific empty state).
 
 **Evidence:** live verification (`test-report-iter47.md` + recording): quick action lands on the planner with banner + preselected dropdown and the entry adds end-to-end; card title/image still open the recipe; chip lifecycle proven in both directions (0 favourites → chip hidden + empty state; restored → filters exactly the favourites); tag chips and search regressions clean; 375/375; Console/Issues clean; fixtures restored.
+
+## Round 48 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual / ④ competitor: competitors push native apps; MealLoop’s “no app needed” stance still benefits from Add-to-Home-Screen — the site had no web app manifest, icons, or theme-color.
+
+**Fixes shipped:**
+- PWA install metadata: `public/manifest.webmanifest` (id/start_url `/app`, standalone, theme `#059669`, 192/512 icons incl. maskable), new emerald plate-logo icons, and manifest/apple-touch-icon/theme-color tags in the layout head on every page. Intentionally no service worker (no offline claim).
+
+**Evidence:** live verification (`test-report-iter48.md` + recording): manifest 200 `application/manifest+json` and parses in DevTools Application → Manifest with all 3 icon entries; icons 200 png at 192/512; exactly one manifest/theme-color/apple-touch-icon tag on `/`, `/login`, `/guides`, `/app/list`; no CSP violations; Chrome install icon appears in the omnibox; homepage//app/list visuals unchanged; 375/375; Console/Issues clean; read-only round. Notes: actual install not performed on the test box; `id` field added post-test to silence the DevTools note (curl-verified); Richer-Install-UI screenshot warnings accepted.
