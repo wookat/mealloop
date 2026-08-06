@@ -129,7 +129,7 @@ app.get('/privacy', (c) =>
 <h2 class="font-semibold text-lg pt-2">Retention</h2>
 <ul class="list-disc pl-5 space-y-1">
 <li>Login codes: 10 minutes. Session tokens: 30 days (or until you log out).</li>
-<li>Account and meal-planning content: until you ask us to delete it.</li>
+<li>Account and meal-planning content: until you delete your account yourself on the Share &amp; account page, or ask us to.</li>
 <li>Newsletter emails: until you unsubscribe. Aggregate page counts and search terms: 24 months (they contain no personal data).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Your rights</h2>
@@ -1164,14 +1164,51 @@ app.get('/app/share', async (c) => {
   <button class="text-sm text-stone-500 hover:text-red-600 hover:underline">Reset link (revokes the old one)</button>
 </form>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
+<div class="mt-12 rounded-xl border border-stone-200 bg-white p-5 text-left">
+  <h2 class="font-semibold">Account</h2>
+  <p class="mt-1 text-sm text-stone-600">Signed in as <strong>${esc(user.email)}</strong>.</p>
+  <form method="post" action="/app/account/delete" class="mt-3" data-confirm="Permanently delete your account and ALL household data (recipes, plans, grocery list)? This cannot be undone and the share link will stop working.">
+    <button class="text-sm text-red-600 hover:underline">Delete account &amp; all data</button>
+  </form>
+  <p class="mt-1.5 text-xs text-stone-400">Removes your recipes, meal plans, grocery list, staples, saved menus and login — immediately and permanently.</p>
+</div>
 </div>`;
-  return c.html(page({ title: 'Share', body, user, path: '/app/share', noindex: true }));
+  return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
 });
 
 app.post('/app/share/rotate', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('UPDATE households SET share_token = ? WHERE id = ?').bind(token(20), h.id).run();
   return c.redirect('/app/share');
+});
+
+app.post('/app/account/delete', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const members = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM household_members WHERE household_id = ?').bind(h.id).first();
+  const stmts = [];
+  if (Number(members?.n || 1) <= 1) {
+    stmts.push(
+      c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id IN (SELECT id FROM menus WHERE household_id = ?)').bind(h.id),
+      c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM households WHERE id = ?').bind(h.id)
+    );
+  } else {
+    stmts.push(c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ? AND user_id = ?').bind(h.id, user.id));
+  }
+  stmts.push(
+    c.env.DB.prepare('DELETE FROM email_intents WHERE email = ?').bind(user.email),
+    c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id)
+  );
+  await c.env.DB.batch(stmts);
+  await logout(c);
+  c.header('Set-Cookie', clearCookie());
+  return c.redirect('/');
 });
 
 async function shareHousehold(c) {
