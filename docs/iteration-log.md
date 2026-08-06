@@ -501,3 +501,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - “Clear week” button on the planner (shown only when the week has entries) with a count-aware confirm (“Remove all N entries…”, singular for 1); `POST /app/plan/clear-week` deletes only that week’s entries and bumps the version.
 
 **Evidence:** live verification (`test-report-iter44.md` + recording): button absent on empty weeks; confirm shows exact count, cancel preserves, confirm clears all and hides the button; singular wording at N=1; adjacent week untouched; already-open share tab self-updated within ~10s via the version poll (closing the R41 gap); Save-menu form hides after clearing; 375/375; Console/Issues clean; fixtures cleaned via the button itself. Notes: hover styling and invalid-week validation source-verified only.
+
+## Round 45 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth: the R41 aisle-order feature had no acquisition surface; “grocery list by aisle / stop backtracking” is a searched pain with direct product fit.
+
+**Fixes shipped:**
+- New guide `/guides/organize-grocery-list-by-store-aisle` (“How to organize your grocery list by store aisle (and stop backtracking)”) — sitemap 18→19 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter45.md` + recording): guide listed with exact excerpt and navigates; h1 + both h2 steps + 3-bullet list + CTA render; title/meta exact; sitemap exactly 19 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: IndexNow 200 shell-verified only.

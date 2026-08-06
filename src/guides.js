@@ -215,4 +215,21 @@ export const GUIDES = [
       p('Bonus: printing from your own recipe box means the recipe never disappears behind a redesign, a paywall, or a dead link.'),
     ].join(''),
   },
+  {
+    slug: 'organize-grocery-list-by-store-aisle',
+    title: 'How to organize your grocery list by store aisle (and stop backtracking)',
+    excerpt: 'A list sorted the way you walk your store turns a 40-minute shop into 20. Here\'s how to set one up.',
+    body: [
+      p('Most grocery lists are sorted by whatever order you typed things in — so you grab pasta, walk to dairy, then discover parmesan three aisles back. The fix is a list grouped by aisle, sorted in the order <em>you</em> walk <em>your</em> store.'),
+      h2('Step 1: group items into aisles'),
+      p('Start with broad sections every supermarket shares: produce, meat &amp; seafood, dairy &amp; eggs, bakery &amp; grains, canned goods, spices, oils. A good list app assigns these automatically as you add items, and lets you add custom sections ("Asian aisle", "Pet food") for your store\'s quirks.'),
+      h2('Step 2: put the aisles in walking order'),
+      ul([
+        'Think about your actual route: most stores funnel you into produce first and keep frozen/chilled near the checkout end.',
+        'Reorder the sections once to match — produce at the top, the aisle nearest the exit at the bottom.',
+        'If different people shop different stores, per-store filters plus one shared aisle order still beat a flat list.',
+      ]),
+      p('Do this once and every future list comes out pre-sorted: you sweep the store in one pass, and whoever you share the list with walks the same route — no backtracking, no forgotten parmesan.'),
+    ].join(''),
+  },
 ];
