@@ -17,3 +17,21 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `src/layout.js`: skip link (`sr-only focus:not-sr-only`), `aria-current="page"` + active nav styling, `og:*` + `twitter:card` meta on indexable pages, `id="main"`.
 
 **Evidence:** curl header/meta checks post-deploy; D1 query shows 0 `/s/%` rows.
+
+## Round 2 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX walkthrough (P1): scaling a real *imported* recipe garbled grocery lines — the round-6 pluralizer appended "s" to whole descriptive names ("…finely choppeds") and range quantities mis-scaled ("2-3 sprigs" ×2 → "4 -3 sprigs"). Manual test recipes had hidden this.
+- ② UX (P2): import error surfaced raw "HTTP 404" jargon and cleared the pasted URL.
+- ③ Visual (P2): "Log out" wrapped mid-word in the 375px header.
+- ② UX (P2, deferred): scaled/unscaled duplicate lines coexist (exact-label dedupe); share page always shows current week while list may be for a future week.
+- Regression of round 1 (skip link, aria-current, OG meta, console): all passed.
+
+**Fixes shipped:**
+- `parseIngredient`: range quantities (`2-3`, `1–2`) now parse as unquantified → never scaled/merged.
+- `formatIngredient`: plurality adjustment restricted to names of ≤2 words; long descriptive names pass through untouched.
+- Import errors: friendly copy (blocked/no-recipe cases) + pasted URL preserved in the input.
+- Header logout button `whitespace-nowrap`.
+- Tests extended to 9 (imported-recipe descriptive names + ranges).
+
+**Evidence:** `test-report-iter1.md` + recording; unit tests 9/9; live regression next round.

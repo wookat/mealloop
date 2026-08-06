@@ -510,7 +510,7 @@ ${tagSet.length ? `<div class="flex flex-wrap gap-1.5 mb-4">
   ${tagSet.map((t) => `<a href="/app/recipes?tag=${encodeURIComponent(t)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${t === tag ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}">#${esc(t)}</a>`).join('')}
 </div>` : ''}
 <form method="post" action="/app/recipes/import" class="flex flex-col sm:flex-row gap-2 mb-6">
-  <input type="url" name="url" required placeholder="Paste a recipe URL (e.g. from BBC Good Food, Serious Eats…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
+  <input type="url" name="url" required value="${esc(String(c.req.query('url') || ''))}" placeholder="Paste a recipe URL (e.g. from BBC Good Food, Serious Eats…)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2.5 hover:bg-emerald-700">Import recipe</button>
 </form>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -558,7 +558,12 @@ app.post('/app/recipes/import', async (c) => {
     ).bind(id, h.id, r.title, r.source_url, r.image_url, r.description, r.prep_minutes, r.cook_minutes, r.servings, JSON.stringify(r.ingredients), JSON.stringify(r.steps), user.id).run();
     return c.redirect(`/app/recipes/${id}`);
   } catch (e) {
-    return c.redirect(`/app/recipes?err=${encodeURIComponent(`Import failed: ${e.message}`)}`);
+    const friendly = /HTTP \d|blocked|Timed out|abort/i.test(e.message)
+      ? "We couldn't fetch that page — the site may be blocking automated access or the link may be wrong. You can add the recipe manually below."
+      : /No recipe/i.test(e.message)
+        ? "We couldn't find a recipe on that page — try the recipe's own page, or add it manually below."
+        : `Import failed: ${e.message}`;
+    return c.redirect(`/app/recipes?err=${encodeURIComponent(friendly)}&url=${encodeURIComponent(url.slice(0, 300))}`);
   }
 });
 

@@ -34,6 +34,8 @@ description: How to E2E test the MealLoop production app (mealloop.zalize.com) �
 - Category selects on /app/list use `data-autosubmit` + a `__custom` prompt in /app.js — Cancel must revert the select with no reload; the share page has no category selects.
 - Snacks toggle is per-household (`households.snacks`) and hides-but-keeps snack plan_entries when turned off.
 - Grocery scaling multiplies ingredient quantities before merge and uses MAX(scale) per recipe per week; existing-item dedupe is by exact lowercase label, so scaled lines coexist with unscaled ones (e.g. "3 cups flour" + "4 cups flour").
+- For scaling/pluralization tests, always include one *imported* recipe (descriptive multi-word ingredient names, ranges like "2-3") — clean manual test names hide formatIngredient bugs. Range quantities are deliberately left unscaled/unmerged.
+- Chrome min window width (~532px) blocks a real 375px window; use devtools device toolbar (F12 then Ctrl+Shift+M). URL-bar autocomplete may hijack "/" to "/login" — press Delete before Enter.
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).

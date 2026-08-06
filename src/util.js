@@ -69,6 +69,8 @@ function canonicalUnit(unit, qty) {
 // "750g lean beef mince" -> { qty: 750, unit: 'g', name: 'lean beef mince' }
 export function parseIngredient(label) {
   const raw = String(label).trim();
+  // Range quantities ("2-3 sprigs rosemary") can't be scaled or summed safely.
+  if (/^\d+(?:[.,]\d+)?\s*[-–—]\s*\d/.test(raw)) return { qty: null, unit: null, name: raw };
   const m = raw.match(new RegExp(`^(\\d+\\s+\\d+\\/\\d+|\\d+\\/\\d+|\\d+(?:[.,]\\d+)?|[${Object.keys(VULGAR).join('')}])\\s*(${UNITS})?\\b\\.?\\s*(.*)$`, 'i'));
   if (!m || !m[3]) return { qty: null, unit: null, name: raw };
   const { unit, qty } = canonicalUnit(m[2] ? m[2].toLowerCase() : null, toNumber(m[1]));
@@ -108,8 +110,12 @@ export function formatIngredient({ qty, unit, name }) {
   const n = Math.round(qty * 100) / 100;
   if (!unit) {
     const words = name.split(' ');
-    const last = words[words.length - 1];
-    words[words.length - 1] = n === 1 ? singular(last) : (singular(last) === last ? plural(last) : last);
+    // Only adjust plurality of short plain names ("onion", "red onion") — long
+    // descriptive names ("celery sticks finely chopped") must pass through as-is.
+    if (words.length <= 2) {
+      const last = words[words.length - 1];
+      words[words.length - 1] = n === 1 ? singular(last) : (singular(last) === last ? plural(last) : last);
+    }
     return `${n} ${words.join(' ')}`;
   }
   const u = COUNT_UNITS.has(unit) && n !== 1 ? (unit === 'bunch' ? 'bunches' : `${unit}s`) : unit;

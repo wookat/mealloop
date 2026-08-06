@@ -33,7 +33,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<meta property="og:type"
         ? `<a href="/app" ${path === '/app' ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Planner</a>
            <a href="/app/recipes" ${path.startsWith('/app/recipes') ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Recipes</a>
            <a href="/app/list" ${path.startsWith('/app/list') ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>List</a>
-           <form method="post" action="/logout" class="inline"><button class="px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100">Log out</button></form>`
+           <form method="post" action="/logout" class="inline"><button class="px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 whitespace-nowrap">Log out</button></form>`
         : `<a href="/login" class="px-3 py-1.5 rounded-lg hover:bg-stone-100">Log in</a>
            <a href="/login" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Get started free</a>`}
     </nav>
