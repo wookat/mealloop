@@ -151,3 +151,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Display-only `convertUnits()` — imperial: g→oz (lb ≥454g), ml→fl oz; metric: oz→g, lb→g/kg; cups/tbsp/counts/unparsed labels pass through; stored labels never mutated. Applied on /app/list, recipe detail, and share pages (share follows household setting, no toggle for anonymous viewers).
 
 **Evidence:** remote migration applied; live verification (`test-report-iter11.md` + recording): 1500g→3.31 lb, 8 oz→227g, round-trip back to "as written" restores originals exactly, share page follows setting and live-syncs on change, console clean, 375/375. P3 noted: composite "2 x 400g cans" labels intentionally unconverted.
+
+## Round 12 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data (P1 growth): analytics remain internal-only (top paths /s 132, /app/list 103, /, /app/recipes; intents 0); guides — the only organic acquisition surface — get single-digit views. More indexable content is the highest-leverage lever.
+
+**Fixes shipped:**
+- Two new pSEO guides (total 10): `metric-imperial-recipe-conversion` (rides the Round 11 feature) and `shared-grocery-list-without-an-app` (core differentiator query); auto-included in /guides + sitemap (now 14 URLs).
+- IndexNow submitted for both guides + /guides + sitemap (HTTP 200).
+
+**Evidence:** both live with HTTP 200 on production; sitemap `<loc>` count 12→14; IndexNow 200.

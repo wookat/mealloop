@@ -120,4 +120,36 @@ export const GUIDES = [
       p('If you want nutrition analytics and social recipe discovery, it is worth a look. If you mainly need “plan the week, one shared list, everyone can see it”, a lighter web-first planner with a no-signup family link gets you there with far fewer taps.'),
     ].join(''),
   },
+  {
+    slug: 'metric-imperial-recipe-conversion',
+    title: 'Metric vs imperial in recipes: convert once, cook anywhere',
+    excerpt: 'Grams or ounces? How to handle recipes that mix unit systems without a calculator at the stove.',
+    body: [
+      p('Half the internet\'s best recipes are written in grams and millilitres, the other half in ounces, pounds and cups. Mixed-unit weeks are normal — a British stew next to an American casserole — and converting by hand at the stove is where mistakes happen.'),
+      h2('The conversions that matter'),
+      ul([
+        '<strong>Weight:</strong> 1 oz ≈ 28 g, 1 lb ≈ 454 g. Weight converts exactly, so prefer it when a recipe offers both.',
+        '<strong>Volume:</strong> 1 fl oz ≈ 30 ml, 1 US cup = 240 ml. Fine for liquids.',
+        '<strong>Cups of dry ingredients don\'t convert cleanly.</strong> A cup of flour is ~120 g but a cup of sugar is ~200 g — density matters, so keep cups as cups unless the recipe gives weights.',
+      ]),
+      h2('Let the planner do it'),
+      p('A good meal planner converts display units for the whole grocery list and every recipe in one switch — grams to pounds and ounces, or the reverse — while keeping the original amounts untouched underneath, so nothing drifts after repeated conversions. Everyone in the household sees the same units, including on the shared list.'),
+    ].join(''),
+  },
+  {
+    slug: 'shared-grocery-list-without-an-app',
+    title: 'A shared family grocery list — without making everyone install an app',
+    excerpt: 'The fastest way to a live, synced grocery list for the whole household: one link, no accounts.',
+    body: [
+      p('The usual family grocery workflow — screenshots of a note, a text thread, or “can you also grab…” calls — breaks the moment two people shop in parallel or the plan changes mid-week.'),
+      h2('Why app-based sharing fails at home'),
+      ul([
+        'Everyone must install the same app and create an account — the least-motivated family member never does.',
+        'Grandparents, teenagers and partners on different platforms fall out of sync.',
+        'Paid tiers often gate the one feature families need: multi-member sync.',
+      ]),
+      h2('The link-first alternative'),
+      p('A web-first list that lives at a single private link fixes this: anyone with the link opens it in a browser, sees the week\'s plan and the live list, and checks items off — changes sync to everyone in seconds. No install, no sign-up, and you can rotate the link any time to revoke access.'),
+    ].join(''),
+  },
 ];
