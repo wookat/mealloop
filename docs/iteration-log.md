@@ -408,3 +408,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - The ✎ note popover is now an "Edit item" popover: required Item name input (prefilled, maxlength 200) above the note input, both via POST /app/list/note; non-empty label renames the item (dedupe keys derive from label at runtime, so renames are safe).
 
 **Evidence:** live verification (`test-report-iter35.md` + recording): rename+note, note-only, rename-only paths; rename persists after reload and on the read-only share page; store-filter back param preserved after edit; toggle/category/Copy list regressions; popover fits at 375px; Console/Issues clean; fixtures fully cleaned. Coverage note: the server's empty-label branch and the 200-char slice are source-verified only (UI enforces required + maxlength).
+
+## Round 36 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (Round 35 testing finding): the grocery Add form inserted duplicate rows on repeated submits — no dedupe on manual insert, unlike the plan→list and recipe→list paths.
+
+**Fixes shipped:**
+- New `addListItem` helper used by both `POST /app/list/add` and the anonymous share-page `POST /s/:token/add`: match by `ingredientKey` — checked hit is unchecked with label replaced ("buy again"); unchecked hit merges labels via `mergeIngredients` ("2 lemons" + "1 lemon" → "3 lemons"); no hit inserts normally.
+
+**Evidence:** live verification (`test-report-iter36.md` + recording): quantity merge, buy-again uncheck, share-page anonymous dedupe, non-matching fresh insert, store-filter back param, share version-poll; Console/Issues clean; fixtures cleaned. Notes: merging a quantified add into an unquantified existing label keeps the existing label (mergeIngredients semantics); the share add's 500-item cap is source-verified only.

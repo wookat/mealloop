@@ -908,15 +908,32 @@ app.get('/app/list', async (c) => {
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
+// Adding an item that already exists (same normalized key) merges quantities
+// into the unchecked item, or unchecks a checked one ("buy again"), instead
+// of inserting a duplicate row.
+async function addListItem(env, householdId, label) {
+  const key = ingredientKey(label);
+  const existing = await env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(householdId).all();
+  const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+  if (hit) {
+    if (hit.checked) {
+      await env.DB.prepare('UPDATE shopping_items SET checked = 0, label = ? WHERE id = ?').bind(label, hit.id).run();
+    } else {
+      const merged = mergeIngredients([hit.label, label])[0] || label;
+      if (merged !== hit.label) await env.DB.prepare('UPDATE shopping_items SET label = ? WHERE id = ?').bind(merged, hit.id).run();
+    }
+  } else {
+    await env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+      .bind(uid(), householdId, label, categorize(label)).run();
+  }
+  await bumpVersion(env, householdId);
+}
+
 app.post('/app/list/add', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const label = String(f.label || '').trim().slice(0, 200);
-  if (label) {
-    await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-      .bind(uid(), h.id, label, categorize(label)).run();
-    await bumpVersion(c.env, h.id);
-  }
+  if (label) await addListItem(c.env, h.id, label);
   const back = String(f.back || '');
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
@@ -1309,11 +1326,7 @@ app.post('/s/:token/add', async (c) => {
   const f = await c.req.parseBody();
   const label = String(f.label || '').trim().slice(0, 200);
   const count = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM shopping_items WHERE household_id = ?').bind(h.id).first();
-  if (label && count.n < 500) {
-    await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-      .bind(uid(), h.id, label, categorize(label)).run();
-    await bumpVersion(c.env, h.id);
-  }
+  if (label && count.n < 500) await addListItem(c.env, h.id, label);
   const back = String(f.back || '');
   return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });
