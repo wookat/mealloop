@@ -683,3 +683,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Past-day cards (date < today UTC) get `opacity-60 print:opacity-100` — dimmed on screen, full contrast in print.
 
 **Evidence:** live verification (`test-report-iter61.md` + recording): desktop dimming (past dimmed, today ringed, future normal); 375px “Today” click anchors today's card below the sticky header; return from ?week=next anchors correctly; print preview shows past days at full contrast; Console/Issues clean; read-only round.
+
+## Round 62 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA / ② UX: POST /app/staples/add accepted the same label repeatedly — each duplicate staple then got re-added to the grocery list on every “Add week's ingredients”.
+
+**Fixes shipped:**
+- Case-insensitive duplicate guard on staples add: `lower(label)` match within the household → silent no-insert, normal redirect. Distinct labels unaffected.
+
+**Evidence:** live verification (`test-report-iter62.md` + recording): exact and case-variant resubmits leave exactly one row (original casing preserved); distinct label still inserts; ✕ removal regression; fixtures cleaned; Console/Issues clean.

@@ -1344,8 +1344,12 @@ app.post('/app/staples/add', async (c) => {
   const f = await c.req.parseBody();
   const label = String(f.label || '').trim().slice(0, 200);
   if (label) {
-    await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-      .bind(uid(), h.id, label, categorize(label)).run();
+    const existing = await c.env.DB.prepare('SELECT id FROM staples WHERE household_id = ? AND lower(label) = lower(?)')
+      .bind(h.id, label).first();
+    if (!existing) {
+      await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label)).run();
+    }
   }
   return c.redirect('/app/staples');
 });
