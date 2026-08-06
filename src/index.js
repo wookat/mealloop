@@ -960,7 +960,7 @@ ${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
+    <ul class="ingredients-list space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <div class="flex items-center justify-between mb-2">

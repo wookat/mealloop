@@ -641,3 +641,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide `meal-planning-for-picky-eaters` (“Meal planning for picky eaters — without cooking two dinners”): plan around the overlap, plan swaps into recipe notes, repetition as a feature, shared no-signup plan kills the 6pm ambush. Sitemap 21→22, IndexNow 200.
 
 **Evidence:** live verification (`test-report-iter57.md` + recording): guide renders with R55 breadcrumb+JSON-LD (11/11 field checks), listed last of 18 on /guides with exact title/excerpt, More guides wraps to first 3, 375px wrap clean, Console/Issues clean; read-only round.
+
+## Round 58 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: cook mode (R18) lets you tap steps done, but mise en place — checking off ingredients as you prep — had no equivalent; cooks lose their place in the ingredient list on the phone at the counter.
+
+**Fixes shipped:**
+- Cook mode tap-to-dim ingredients: ingredients `<ul>` got class `ingredients-list`; app.js binds bullet rows (`li.flex` only — R38 section headings stay non-clickable); CSS scoped to `.cook-mode` (cursor, opacity 0.4 + line-through). Client-side only, no persistence; works on the share recipe page too.
+
+**Evidence:** live verification (`test-report-iter58.md` + recording): tap dims+strikes, re-tap restores; steps regression; no effect outside cook mode; heading row non-clickable (temp 'For the garnish:' fixture, restored); exit clears all styling; incognito share page works incl. 375px; Console/Issues clean.
