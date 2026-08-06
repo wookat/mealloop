@@ -523,3 +523,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 46b: version poll now also runs on any page with a `[data-poll data-version data-base]` marker; share recipe page carries it, so open share recipe tabs self-update.
 
 **Evidence:** live verification (`test-report-iter46.md` + recording): no-note recipe clean; multi-line note renders with line breaks, XSS probe escaped; note visible on share view with no edit controls; clearing removes callout; open share recipe tab self-reloaded ~14s after app-side save and self-dropped the callout after clearing (46b); /app/list toggle+poll and share-planner poll regressions clean; 375/375; Console/Issues clean; fixtures reverted. Note: the note prints (accepted); initial deploy failed the share-tab check — fixed same round.
+
+## Round 47 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: planning a recipe from the recipe box took two hops (open recipe → “Add to your week plan”); no way to browse only favourites despite the ★ toggle existing since R4.
+
+**Fixes shipped:**
+- “+ Plan this week” quick action on every recipe card (→ `/app?recipe=<id>` preselect flow from R14); cards restructured to an outer div with inner link so the action isn’t nested inside the card anchor.
+- “★ Favourites” filter chip (shown only when ≥1 favourite exists; solid amber when active; `✕ Clear filter` covers tag and fav; fav-specific empty state).
+
+**Evidence:** live verification (`test-report-iter47.md` + recording): quick action lands on the planner with banner + preselected dropdown and the entry adds end-to-end; card title/image still open the recipe; chip lifecycle proven in both directions (0 favourites → chip hidden + empty state; restored → filters exactly the favourites); tag chips and search regressions clean; 375/375; Console/Issues clean; fixtures restored.

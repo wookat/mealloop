@@ -638,6 +638,7 @@ app.get('/app/recipes', async (c) => {
   const err = c.req.query('err');
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
+  const fav = c.req.query('fav') === '1';
   if (q) {
     // Aggregate search terms (no user/household attribution) to learn what people look for.
     const term = q.toLowerCase().slice(0, 60);
@@ -652,8 +653,11 @@ app.get('/app/recipes', async (c) => {
     : tag
       ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY favorite DESC, created_at DESC")
           .bind(h.id, `%,${tag},%`).all()
-      : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC').bind(h.id).all();
+      : fav
+        ? await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? AND favorite = 1 ORDER BY created_at DESC').bind(h.id).all()
+        : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC').bind(h.id).all();
   const allTags = await c.env.DB.prepare('SELECT tags FROM recipes WHERE household_id = ? AND tags != \'\'').bind(h.id).all();
+  const anyFav = await c.env.DB.prepare('SELECT 1 FROM recipes WHERE household_id = ? AND favorite = 1 LIMIT 1').bind(h.id).first();
   const tagSet = [...new Set(allTags.results.flatMap((r) => r.tags.split(',')).filter(Boolean))].sort();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -664,8 +668,9 @@ app.get('/app/recipes', async (c) => {
   </form>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
-${tagSet.length ? `<div class="flex flex-wrap gap-1.5 mb-4">
-  ${tag ? `<a href="/app/recipes" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300">✕ Clear filter</a>` : ''}
+${tagSet.length || anyFav ? `<div class="flex flex-wrap gap-1.5 mb-4">
+  ${tag || fav ? `<a href="/app/recipes" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300">✕ Clear filter</a>` : ''}
+  ${anyFav ? `<a href="/app/recipes?fav=1" class="px-2.5 py-1 rounded-full text-xs font-medium ${fav ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}">★ Favourites</a>` : ''}
   ${tagSet.map((t) => `<a href="/app/recipes?tag=${encodeURIComponent(t)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${t === tag ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}">#${esc(t)}</a>`).join('')}
 </div>` : ''}
 <form method="post" action="/app/recipes/import" class="flex flex-col sm:flex-row gap-2 mb-6">
@@ -674,16 +679,21 @@ ${tagSet.length ? `<div class="flex flex-wrap gap-1.5 mb-4">
 </form>
 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
 ${recipes.results.map((r) => `
-  <a href="/app/recipes/${r.id}" class="rounded-xl bg-white border border-stone-200 overflow-hidden hover:border-emerald-400">
-    ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="h-36 w-full object-cover" loading="lazy">` : `<div class="h-36 w-full bg-stone-100 flex items-center justify-center text-stone-300 text-4xl">🍽</div>`}
-    <div class="p-3">
-      <h3 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h3>
-      <p class="text-xs text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes}m`, r.cook_minutes && `Cook ${r.cook_minutes}m`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
-      ${r.tags ? `<p class="mt-1.5 flex flex-wrap gap-1">${r.tags.split(',').filter(Boolean).map((t) => `<span class="px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-800">#${esc(t)}</span>`).join('')}</p>` : ''}
+  <div class="relative rounded-xl bg-white border border-stone-200 overflow-hidden hover:border-emerald-400">
+    <a href="/app/recipes/${r.id}" class="block">
+      ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="h-36 w-full object-cover" loading="lazy">` : `<div class="h-36 w-full bg-stone-100 flex items-center justify-center text-stone-300 text-4xl">🍽</div>`}
+      <div class="p-3 pb-2">
+        <h3 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h3>
+        <p class="text-xs text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes}m`, r.cook_minutes && `Cook ${r.cook_minutes}m`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
+        ${r.tags ? `<p class="mt-1.5 flex flex-wrap gap-1">${r.tags.split(',').filter(Boolean).map((t) => `<span class="px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-800">#${esc(t)}</span>`).join('')}</p>` : ''}
+      </div>
+    </a>
+    <div class="px-3 pb-2.5">
+      <a href="/app?recipe=${r.id}" class="inline-block rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100" aria-label="Plan ${esc(r.title)} this week">+ Plan this week</a>
     </div>
-  </a>`).join('')}
+  </div>`).join('')}
 </div>
-${recipes.results.length === 0 ? (q || tag ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || `#${tag}`)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
+${recipes.results.length === 0 ? (q || tag || fav ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || (tag ? `#${tag}` : '★ Favourites'))}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
 <details class="mt-8"${c.req.query('paste') !== undefined ? ' open' : ''}>
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or paste a whole recipe</summary>
   <form method="post" action="/app/recipes/paste" class="mt-3 max-w-lg space-y-2">
