@@ -258,3 +258,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round fixes: shrunk row selects (375/375 restored) and hidden `back` input so store/category changes preserve the active `?store=` filter.
 
 **Evidence:** live verification (`test-report-iter21.md` incl. 21b addendum + recording): store creation/tabs/filtering/Any-store reassignment/share-page tabs/regressions passed; both 21b fixes re-verified (375/375; filter preserved). Known limitation: no store-removal UI yet (store names persist) — queued for a future round.
+
+## Round 22 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA (P1, Round 21's known limitation): no way to remove a registered store — test/typo names persisted forever and cluttered the tab row.
+- ① QA (found during this round's testing, fixed same round): the Edit stores popup (`left-0 w-56`) overflowed a 375px viewport to 425px when open.
+
+**Fixes shipped:**
+- Store removal: an "Edit stores…" `<details>` toggle at the end of the pill row (app only, never on the share page) lists each store with a ✕ button; `POST /app/stores/delete` (native confirm via data-confirm) drops the name from `households.stores`, resets matching `shopping_items.store` to '' (items go back to "Any store"), and bumps the sync version. Removing the last store hides the whole tab row.
+- Same-round fix: popup anchored `right-0` instead of `left-0` (375/375 restored with the popup open).
+
+**Evidence:** live verification (`test-report-iter22.md` incl. 22b addendum + recording): cancel path preserved the store; removing Costco removed its tab, kept the assigned item, and reset its select to "Any store"; removing the last store (Aldi) hid the tab row; share page shows no edit UI; 22b re-verified 375/375 with popup open (was 425/375); console clean; production restored to zero stores.

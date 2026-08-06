@@ -840,6 +840,22 @@ app.post('/app/list/store', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/stores/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const store = String(f.store || '');
+  const stores = (h.stores || '').split(',').filter(Boolean);
+  if (store && stores.includes(store)) {
+    await c.env.DB.batch([
+      c.env.DB.prepare('UPDATE households SET stores = ? WHERE id = ?')
+        .bind(stores.filter((s) => s !== store).join(','), h.id),
+      c.env.DB.prepare("UPDATE shopping_items SET store = '' WHERE household_id = ? AND store = ?").bind(h.id, store),
+    ]);
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect('/app/list');
+});
+
 app.post('/app/list/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -883,9 +899,19 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     </form>` : ''}
   </div>
 </div>
-${stores.length ? `<div class="flex flex-wrap gap-1.5 mb-4 print:hidden">
+${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hidden">
   <a href="${base}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
   ${stores.map((s) => `<a href="${base}?store=${encodeURIComponent(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
+  ${editable ? `<details class="relative">
+    <summary class="cursor-pointer list-none px-2 py-1 rounded-full text-xs text-stone-500 hover:bg-stone-100">Edit stores…</summary>
+    <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+      ${stores.map((s) => `<form method="post" action="/app/stores/delete" data-confirm="Remove store “${esc(s)}”? Items assigned to it go back to Any store." class="flex items-center justify-between gap-2 px-1 py-1 text-sm">
+        <span>${esc(s)}</span>
+        <input type="hidden" name="store" value="${esc(s)}">
+        <button aria-label="Remove store ${esc(s)}" class="text-stone-400 hover:text-red-600">✕</button>
+      </form>`).join('')}
+    </div>
+  </details>` : ''}
 </div>` : ''}
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
