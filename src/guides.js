@@ -296,4 +296,20 @@ export const GUIDES = [
       p('Budget weeks don\'t need special recipes — they need the boring maths done for you. Merge the week\'s ingredients into one aisle-sorted list so you buy each thing once at the right amount, keep pantry staples on an automatic list so you never emergency-buy them at a corner-shop markup, and rotate the two or three cheap dinners your family already likes. The plan doesn\'t have to be clever; it has to be visible to everyone who shops.'),
     ].join(''),
   },
+  {
+    slug: 'stop-deciding-whats-for-dinner-every-night',
+    title: 'Stop deciding what\'s for dinner every night',
+    excerpt: 'The 6pm "what\'s for dinner?" question is a decision-fatigue problem. Decide once a week, then just cook.',
+    body: [
+      p('The hardest part of dinner is rarely the cooking — it\'s the deciding. By 6pm everyone is tired, nobody has a suggestion, and the discussion itself takes longer than a stir-fry. The fix isn\'t inspiration; it\'s moving the decision to a moment when you have energy, and making it once for the whole week.'),
+      h2('Why the nightly decision fails'),
+      ul([
+        'Decision fatigue is real: after a full day, "anything is fine" and "not that" are the only answers anyone gives.',
+        'Deciding hungry biases you toward takeaway — the option with zero decisions attached.',
+        'Nightly decisions can\'t drive a shopping list, so even when you pick a meal, an ingredient is missing.',
+      ]),
+      h2('Decide once, on your terms'),
+      p('Pick the week\'s dinners in one 10-minute sitting — coffee in hand, recipe box open — and put them on a plan the whole family can see. The question "what\'s for dinner?" becomes "look at the plan", the shopping list writes itself from the chosen recipes, and the 6pm negotiation disappears. If choosing still feels like work, let a rotation choose for you: a two-week cycle of meals your family already likes needs no creativity at all.'),
+    ].join(''),
+  },
 ];

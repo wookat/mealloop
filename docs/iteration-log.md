@@ -753,3 +753,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New `test/layout.test.js` covering `page()` meta: og:type article only when `ogType==='article'`, bogus values fall back to website, noindex robots meta, canonical URL. Suite 19→20 green. No production code change.
 
 **Evidence:** live QA closure (`test-report-iter68.md` + recording): lowercase fixture "avocado toast QA68" sorts 3rd (first non-fav) in A–Z — a case-sensitive sort would have placed it last — COLLATE NOCASE proven, fixture removed and box restored; disposable account (fresh signup) showed empty list with plain "Grocery list" h1 (no span) + empty hint, then "1 to buy" → "all done 🎉 · 1 checked" transitions; self-serve GDPR deletion killed the session and the household share link (404). Standing QA data untouched.
+
+## Round 69 — 2026-08-06
+
+**Findings (by driver):**
+- ④/⑤ growth: "what's for dinner" decision fatigue is the highest-frequency pain in the category (competitor content leans on it heavily) but no guide addressed it; guide cluster stood at 19.
+
+**Fixes shipped:**
+- New pSEO guide `stop-deciding-whats-for-dinner-every-night` ("decide once a week, then just cook"): decision fatigue / hungry-decision takeaway bias / no-list side effect; weekly 10-minute sitting + visible family plan + rotation. Sitemap 23→24, IndexNow 200. /guides ItemList now 20 items.
+
+**Evidence:** live verification (`test-report-iter69.md` + recording): breadcrumb + h1 exact; both h2 sections + 3 bullets + CTA; More guides wraps to first 3; Article+BreadcrumbList JSON-LD exact (single script, og-card image, org logo); listed last of 20 on /guides, ItemList 20 items with position 20 = new guide; sitemap 24 locs; og:type=article (R67 intact); 375px + Console/Issues clean. Note: ~1 min stale-CDN 404 right after deploy, self-resolved.
