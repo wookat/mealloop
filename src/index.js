@@ -997,7 +997,11 @@ app.post('/app/list/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const note = String(f.note || '').trim().slice(0, 140);
-  await c.env.DB.prepare('UPDATE shopping_items SET note = ? WHERE id = ? AND household_id = ?')
+  const label = String(f.label || '').trim().slice(0, 200);
+  if (label) {
+    await c.env.DB.prepare('UPDATE shopping_items SET label = ?, note = ? WHERE id = ? AND household_id = ?')
+      .bind(label, note, String(f.id || ''), h.id).run();
+  } else await c.env.DB.prepare('UPDATE shopping_items SET note = ? WHERE id = ? AND household_id = ?')
     .bind(note, String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   const back = String(f.back || '');
@@ -1045,12 +1049,15 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
           </select>
         </form>
         <details class="relative print:hidden">
-          <summary aria-label="${i.note ? 'Edit note' : 'Add note'}" title="${i.note ? 'Edit note' : 'Add note'}" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
-          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 flex w-64 gap-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+          <summary aria-label="Edit item" title="Edit item" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
+          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
             <input type="hidden" name="id" value="${i.id}">
             <input type="hidden" name="back" value="${back}">
-            <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
-            <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+            <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
+            <div class="flex gap-1">
+              <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+              <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+            </div>
           </form>
         </details>
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">

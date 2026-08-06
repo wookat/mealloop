@@ -398,3 +398,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New guide `/guides/save-recipes-from-sites-that-block-importers` (sitemap 16→17 locs, IndexNow 200); landing FAQ import answer now mentions paste-parsing (FAQPage JSON-LD updated with it); both URL-import error messages now direct to pasting the recipe text.
 
 **Evidence:** live verification (`test-report-iter34.md` + recording): guide listed + renders, sitemap 17 locs with new URL, FAQ + JSON-LD (6 questions) contain new wording, failed import shows new message with role=alert and paste box below; Console/Issues clean; 375/375. Coverage note: the "no recipe found" error branch is source-verified only (needs a fetchable page without recipe data).
+
+## Round 35 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: grocery items imported from recipes often carry typos or awkward phrasing (upstream JSON-LD data) but could only be renamed by deleting + re-adding; Plan to Eat supports editing list items in place.
+
+**Fixes shipped:**
+- The ✎ note popover is now an "Edit item" popover: required Item name input (prefilled, maxlength 200) above the note input, both via POST /app/list/note; non-empty label renames the item (dedupe keys derive from label at runtime, so renames are safe).
+
+**Evidence:** live verification (`test-report-iter35.md` + recording): rename+note, note-only, rename-only paths; rename persists after reload and on the read-only share page; store-filter back param preserved after edit; toggle/category/Copy list regressions; popover fits at 375px; Console/Issues clean; fixtures fully cleaned. Coverage note: the server's empty-label branch and the 200-char slice are source-verified only (UI enforces required + maxlength).
