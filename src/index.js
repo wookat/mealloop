@@ -855,7 +855,8 @@ app.post('/app/list/add', async (c) => {
       .bind(uid(), h.id, label, categorize(label)).run();
     await bumpVersion(c.env, h.id);
   }
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/list/toggle', async (c) => {
@@ -864,7 +865,8 @@ app.post('/app/list/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 1 - checked WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   if (c.req.header('X-Requested-With') === 'fetch') return c.json({ ok: true });
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/settings/units', async (c) => {
@@ -936,7 +938,8 @@ app.post('/app/list/note', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET note = ? WHERE id = ? AND household_id = ?')
     .bind(note, String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/list/clear', async (c) => {
@@ -948,9 +951,16 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '' }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '' }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
+  const qs = (store) => {
+    const p = new URLSearchParams(extraQuery);
+    if (store) p.set('store', store);
+    const s = p.toString();
+    return s ? `?${s}` : '';
+  };
+  const back = `${base}${qs(storeFilter)}`;
   return `
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -973,8 +983,8 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   </div>
 </div>
 ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hidden">
-  <a href="${base}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
-  ${stores.map((s) => `<a href="${base}?store=${encodeURIComponent(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
+  <a href="${base}${qs('')}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
+  ${stores.map((s) => `<a href="${base}${qs(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
   ${editable ? `<details class="relative">
     <summary class="cursor-pointer list-none px-2 py-1 rounded-full text-xs text-stone-500 hover:bg-stone-100">Edit stores…</summary>
     <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
@@ -988,6 +998,7 @@ ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hi
 </div>` : ''}
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
+  <input type="hidden" name="back" value="${back}">
   <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
@@ -1002,6 +1013,7 @@ ${cats.map((cat) => `
       <li class="flex items-center${i.checked ? ' print:hidden' : ''}">
         <form method="post" action="${base}/toggle" class="toggle-form flex-1">
           <input type="hidden" name="id" value="${i.id}">
+          <input type="hidden" name="back" value="${back}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
             <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
@@ -1009,7 +1021,7 @@ ${cats.map((cat) => `
         </form>
         ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
           <input type="hidden" name="id" value="${i.id}">
-          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
+          <input type="hidden" name="back" value="${back}">
           <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-20">
             <option value=""${!i.store ? ' selected' : ''}>Any store</option>
             ${stores.map((s) => `<option value="${esc(s)}"${s === i.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}
@@ -1020,13 +1032,14 @@ ${cats.map((cat) => `
           <summary aria-label="${i.note ? 'Edit note' : 'Add note'}" title="${i.note ? 'Edit note' : 'Add note'}" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
           <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 flex w-64 gap-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
             <input type="hidden" name="id" value="${i.id}">
+            <input type="hidden" name="back" value="${back}">
             <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
             <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
           </form>
         </details>
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
-          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
+          <input type="hidden" name="back" value="${back}">
           <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-24">
             ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
             <option value="__custom">New category…</option>
@@ -1150,7 +1163,7 @@ app.get('/s/:token', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter });
+  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' });
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 
@@ -1170,7 +1183,8 @@ app.post('/s/:token/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 1 - checked WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   if (c.req.header('X-Requested-With') === 'fetch') return c.json({ ok: true });
-  return c.redirect(`/s/${h.share_token}`);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });
 
 app.post('/s/:token/add', async (c) => {
@@ -1184,7 +1198,8 @@ app.post('/s/:token/add', async (c) => {
       .bind(uid(), h.id, label, categorize(label)).run();
     await bumpVersion(c.env, h.id);
   }
-  return c.redirect(`/s/${h.share_token}`);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });
 
 app.get('/s/:token/version', async (c) => {

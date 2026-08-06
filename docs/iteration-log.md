@@ -314,3 +314,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Recipe editing: owner recipe detail gains an "Edit recipe" link → `GET/POST /app/recipes/:id/edit` with a pre-filled form (title input; ingredients and steps as one-per-line textareas with adaptive rows). POST trims lines, filters blanks, updates title/ingredients/steps, bumps sync version; empty title redirects back; Cancel discards.
 
 **Evidence:** live verification (`test-report-iter26.md` + recording): fixture with "2 olive oil" corrected to "2 tbsp olive oil" plus title change and appended step, all reflected on detail; Cancel discards; empty title blocked client-side and (forced) server-side; share view has zero edit/delete controls; display-unit conversion still applies to edited ingredients; 375/375; console + Issues clean; fixtures deleted.
+
+## Round 27 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA / ② UX (P2, same class as the Round 21b filter-drop): several grocery-list mutations still dropped the active context on redirect — add/note/toggle-fallback lost `?store=` on /app/list, and the share page lost both `?week=` and `?store=` on anonymous add and on store tab clicks.
+
+**Fixes shipped:**
+- `listBody` gains `extraQuery` (share page passes `week=<date>`) and computes a single validated `back` URL; hidden `back` inputs added to the add, toggle (non-JS fallback), and note forms; store tab links preserve the week param. Routes `/app/list/add|toggle|note` and `/s/:token/add|toggle` redirect only to prefix-validated back values (open-redirect safe).
+
+**Evidence:** live verification (`test-report-iter27.md` + recording): add/note on a filtered tab keep `?store=`; share tabs and anonymous add keep `week=` + `store=`; tampered back values (external URL, cross-page path) fall back to the plain page; JS toggle sync regression passed; 375/375; console + Issues clean; cleanup to zero stores.
