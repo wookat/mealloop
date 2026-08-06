@@ -155,7 +155,16 @@ function legalBody(title, inner) {
 
 // ---------- pSEO guides ----------
 app.get('/guides', (c) => {
-  const body = `<div class="py-8 max-w-2xl mx-auto">
+  const body = `<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: GUIDES.map((g, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: g.title,
+      url: `https://mealloop.zalize.com/guides/${g.slug}`,
+    })),
+  })}</script><div class="py-8 max-w-2xl mx-auto">
 <h1 class="text-3xl font-bold">Meal planning guides</h1>
 <p class="mt-2 text-stone-600">Practical guides for planning family meals without the chaos.</p>
 <ul class="mt-6 space-y-3">
@@ -317,7 +326,7 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   <div class="flex items-center gap-2 text-sm print:hidden">
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
     <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
-    <a href="/app" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
+    <a href="/app#today" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
     <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
@@ -370,7 +379,7 @@ ${recipes.results.length === 0 ? `
 </div>
 <div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
-  <div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3">
+  <div${d === today() ? ' id="today"' : ''} class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200 scroll-mt-20' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
     <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
     ${mealsFor(h).map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
@@ -1335,8 +1344,12 @@ app.post('/app/staples/add', async (c) => {
   const f = await c.req.parseBody();
   const label = String(f.label || '').trim().slice(0, 200);
   if (label) {
-    await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-      .bind(uid(), h.id, label, categorize(label)).run();
+    const existing = await c.env.DB.prepare('SELECT id FROM staples WHERE household_id = ? AND lower(label) = lower(?)')
+      .bind(h.id, label).first();
+    if (!existing) {
+      await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label)).run();
+    }
   }
   return c.redirect('/app/staples');
 });
@@ -1444,8 +1457,8 @@ app.get('/s/:token', async (c) => {
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);
-    return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500' : 'border-stone-200'} p-3">
-      <h3 class="text-sm font-semibold">${dayLabel(d)}</h3>
+    return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
+      <h3 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h3>
       ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}

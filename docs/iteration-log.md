@@ -662,3 +662,54 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - ⑤ data check: guide pages are starting to register views (batch-cooking 9, leftovers 8 since 8/1) — still QA-dominated overall.
 
 **Evidence:** live smoke regression (`test-report-iter59.md` + recording): swap + reload persistence, boundary no-op, Console/Issues clean, fixtures cleaned.
+
+## Round 60 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth/③ visual: structured-data coverage was complete on guide pages (R55) but the /guides hub itself had none — an ItemList completes the picture for search engines crawling the guide cluster.
+
+**Fixes shipped:**
+- /guides listing emits a single ItemList JSON-LD script: 18 ListItems, position 1..18, name = guide title, absolute url per guide.
+
+**Evidence:** live verification (`test-report-iter60.md` + recording): exactly 1 ld+json script on /guides, parses as ItemList with positions 1..18 and names character-identical to the visible card order; listing visual regression clean (no breadcrumbs, 18 cards); strict CSP — Console/Issues clean; 375px clean; read-only round.
+
+## Round 61 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ③ visual: on mobile the 7 day cards stack, so mid-week you scroll past dead days to find today; the “Today” nav link reloaded /app at the top; past days looked identical to upcoming ones.
+
+**Fixes shipped:**
+- Today's card gets `id="today"` + `scroll-mt-20`; the “Today” control links to `/app#today` (returns to current week and anchors, offset for the sticky header).
+- Past-day cards (date < today UTC) get `opacity-60 print:opacity-100` — dimmed on screen, full contrast in print.
+
+**Evidence:** live verification (`test-report-iter61.md` + recording): desktop dimming (past dimmed, today ringed, future normal); 375px “Today” click anchors today's card below the sticky header; return from ?week=next anchors correctly; print preview shows past days at full contrast; Console/Issues clean; read-only round.
+
+## Round 62 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA / ② UX: POST /app/staples/add accepted the same label repeatedly — each duplicate staple then got re-added to the grocery list on every “Add week's ingredients”.
+
+**Fixes shipped:**
+- Case-insensitive duplicate guard on staples add: `lower(label)` match within the household → silent no-insert, normal redirect. Distinct labels unaffected.
+
+**Evidence:** live verification (`test-report-iter62.md` + recording): exact and case-variant resubmits leave exactly one row (original casing preserved); distinct label still inserts; ✕ removal regression; fixtures cleaned; Console/Issues clean.
+
+## Round 63 — 2026-08-06
+
+**Findings (by driver):**
+- ④/⑤ growth: budget meal planning is an evergreen high-intent search topic (competitor content leans on it); MealLoop's staples + merged aisle-sorted list are a native answer but no guide targeted it.
+
+**Fixes shipped:**
+- New pSEO guide `meal-planning-on-a-budget` (“cut the grocery bill without coupons”): top-up trips/duplicates/waste as the real leaks; one merged list + staples + cheap-dinner rotation. Sitemap 22→23, IndexNow 200. /guides ItemList now 19 items.
+
+**Evidence:** live verification (`test-report-iter63.md` + recording): guide renders with breadcrumb + JSON-LD (14/14 field checks); listed last of 19 on /guides with exact title/excerpt; ItemList 19 items, position 19 = new guide; More guides wraps to first 3; 375px clean; Console/Issues clean; read-only round.
+
+## Round 64 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data / ③ visual: /s is the top path in first-party analytics (520 views since 8/1) yet the share page's week grid had none of R61's orientation cues — family members opening the link mid-week saw 7 identical cards.
+
+**Fixes shipped:**
+- Share-page day cards mirror R61: today (UTC) gets emerald border + ring + emerald heading; past days get `opacity-60 print:opacity-100` (entries inherit dimming). No anchor link — the share grid is compact by design.
+
+**Evidence:** live verification (`test-report-iter64.md` + recording): current week past/today/future rendering; next week shows zero ring/dim, fully past week shows all 7 dimmed, “This week” restores; print preview full contrast; 375px + Console/Issues clean; read-only round.
