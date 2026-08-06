@@ -739,6 +739,45 @@ function normalizeTag(s) {
   return s.toLowerCase().trim().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').slice(0, 30);
 }
 
+app.get('/app/recipes/:id/edit', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
+  if (!r) return c.notFound();
+  const ingredients = JSON.parse(r.ingredients_json || '[]');
+  const steps = JSON.parse(r.steps_json || '[]');
+  const body = `<div class="max-w-2xl mx-auto">
+<h1 class="text-2xl font-bold">Edit recipe</h1>
+<form method="post" action="/app/recipes/${r.id}/edit" class="mt-5 space-y-4">
+  <label class="block"><span class="text-sm font-medium">Title</span>
+    <input name="title" required maxlength="200" value="${esc(r.title)}" autocomplete="off" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"></label>
+  <label class="block"><span class="text-sm font-medium">Ingredients <span class="font-normal text-stone-500">(one per line)</span></span>
+    <textarea name="ingredients" rows="${Math.min(Math.max(ingredients.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(ingredients.join('\n'))}</textarea></label>
+  <label class="block"><span class="text-sm font-medium">Steps <span class="font-normal text-stone-500">(one per line)</span></span>
+    <textarea name="steps" rows="${Math.min(Math.max(steps.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(steps.join('\n'))}</textarea></label>
+  <div class="flex items-center gap-3">
+    <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Save changes</button>
+    <a href="/app/recipes/${r.id}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  </div>
+</form>
+</div>`;
+  return c.html(page({ title: `Edit · ${r.title}`, body, user, path: `/app/recipes/${r.id}/edit`, noindex: true }));
+});
+
+app.post('/app/recipes/:id/edit', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  const f = await c.req.parseBody();
+  const title = String(f.title || '').trim().slice(0, 200);
+  if (!title) return c.redirect(`/app/recipes/${id}/edit`);
+  const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ? WHERE id = ? AND household_id = ?')
+    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), id, h.id).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/recipes/${id}`);
+});
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -780,7 +819,10 @@ ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
   <input name="tags" aria-label="Tags" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
   <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Save tags</button>
 </form>` : ''}
-${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
+${canEdit ? `<div class="mt-4 flex items-center gap-4">
+  <a href="/app/recipes/${r.id}/edit" class="text-sm text-emerald-700 hover:underline">Edit recipe</a>
+  <form method="post" action="/app/recipes/${r.id}/delete" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>
+</div>` : ''}
 </article>`;
 }
 

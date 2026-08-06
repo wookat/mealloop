@@ -304,3 +304,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round fix (25b): `autocomplete="off"` on the Save-menu and day-card note inputs — every user-facing input now carries an explicit autocomplete attribute.
 
 **Evidence:** live verification (`test-report-iter25.md` incl. 25b addendum + recording): leftovers note created next day/same meal with original untouched; leftovers option absent on note entries; Sunday leftovers land on next week's Monday; normal moves regression passed; 375/375; console clean; Issues panel "No issues detected" on an entry-bearing week after 25b; fixtures cleaned (weeks 2026-12-14/21 empty).
+
+## Round 26 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA (P1, long-standing gap): imported recipes with bad source data (e.g. BBC's "2 olive oil" JSON-LD) could not be corrected — the only options were living with the error or deleting and re-typing the whole recipe manually.
+
+**Fixes shipped:**
+- Recipe editing: owner recipe detail gains an "Edit recipe" link → `GET/POST /app/recipes/:id/edit` with a pre-filled form (title input; ingredients and steps as one-per-line textareas with adaptive rows). POST trims lines, filters blanks, updates title/ingredients/steps, bumps sync version; empty title redirects back; Cancel discards.
+
+**Evidence:** live verification (`test-report-iter26.md` + recording): fixture with "2 olive oil" corrected to "2 tbsp olive oil" plus title change and appended step, all reflected on detail; Cancel discards; empty title blocked client-side and (forced) server-side; share view has zero edit/delete controls; display-unit conversion still applies to edited ingredients; 375/375; console + Issues clean; fixtures deleted.
