@@ -839,7 +839,7 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [] }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
   return `
@@ -863,8 +863,8 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     </form>` : ''}
   </div>
 </div>
-${editable ? `
-<form method="post" action="/app/list/add" class="flex gap-2 mb-5 max-w-md print:hidden">
+${canAdd ? `
+<form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
   <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
@@ -1014,7 +1014,7 @@ app.get('/s/:token', async (c) => {
   }).join('')}
   </div>
 </section>`;
-  const body = planHtml + listBody(h, items.results, { editable: false, base: `/s/${h.share_token}`, shareLink: false });
+  const body = planHtml + listBody(h, items.results, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS });
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 
@@ -1034,6 +1034,20 @@ app.post('/s/:token/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 1 - checked WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   if (c.req.header('X-Requested-With') === 'fetch') return c.json({ ok: true });
+  return c.redirect(`/s/${h.share_token}`);
+});
+
+app.post('/s/:token/add', async (c) => {
+  const h = await shareHousehold(c);
+  if (!h) return c.notFound();
+  const f = await c.req.parseBody();
+  const label = String(f.label || '').trim().slice(0, 200);
+  const count = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM shopping_items WHERE household_id = ?').bind(h.id).first();
+  if (label && count.n < 500) {
+    await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+      .bind(uid(), h.id, label, categorize(label)).run();
+    await bumpVersion(c.env, h.id);
+  }
   return c.redirect(`/s/${h.share_token}`);
 });
 

@@ -236,3 +236,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 2 new guides: `dinner-rotation-two-weeks` and `cook-from-your-phone-without-screen-lock`; auto-included in `/guides` and sitemap (14→16 locs); IndexNow submitted (200).
 
 **Evidence:** live verification (`test-report-iter19.md` + recording): both pages styled correctly (no raw HTML), listed on /guides, canonical/og:url/description correct via curl, console clean, 375/375.
+
+## Round 20 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P2): family members on the share link could only check items off — the classic "we're also out of milk" moment forced a text message to the owner. Competitors solve this with per-member accounts; MealLoop's no-signup model should solve it on the link itself.
+
+**Fixes shipped:**
+- Anonymous add on the share page: the same Add item form (COMMON_ITEMS suggestions) now renders on `/s/<token>` and POSTs to `/s/<token>/add` (≤200 chars, auto-categorized, version bump for sync; silently ignored past a 500-item household cap). Share page stays otherwise read-only (no clear/units/note/category controls).
+
+**Evidence:** live verification (`test-report-iter20.md` + recording): anonymous add categorized correctly and synced to an already-open owner tab without reload, owner add regression, read-only controls intact, console clean, 375/375, cleanup done. 500-item cap verified in code only (not exercised against production).
