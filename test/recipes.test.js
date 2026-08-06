@@ -79,3 +79,19 @@ test('scaleIngredient multiplies quantities and passes through unquantified labe
   assert.equal(scaleIngredient('nutmeg', 3), 'nutmeg');
   assert.equal(scaleIngredient('2 tbsp olive oil', 1), '2 tbsp olive oil');
 });
+
+test('descriptive names and ranges are not mangled by scaling', async () => {
+  const { scaleIngredient, parseIngredient } = await import('../src/util.js');
+  assert.equal(scaleIngredient('8 rashers smoked streaky bacon finely chopped', 2), '16 rashers smoked streaky bacon finely chopped');
+  assert.equal(scaleIngredient('12 cherry tomatoes sliced in half', 2), '24 cherry tomatoes sliced in half');
+  assert.equal(scaleIngredient('2-3 sprigs rosemary leaves picked and chopped', 2), '2-3 sprigs rosemary leaves picked and chopped');
+  assert.equal(parseIngredient('2-3 sprigs rosemary').qty, null);
+  assert.equal(scaleIngredient('1 red onion', 2), '2 red onions');
+});
+
+test('ingredientKey matches scaled/unscaled variants of the same item', async () => {
+  const { ingredientKey } = await import('../src/util.js');
+  assert.equal(ingredientKey('2 red onions'), ingredientKey('1 red onion'));
+  assert.equal(ingredientKey('3 cups flour'), ingredientKey('4 cups flour'));
+  assert.notEqual(ingredientKey('milk'), ingredientKey('500ml milk'));
+});
