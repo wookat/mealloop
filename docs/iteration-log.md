@@ -365,3 +365,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Self-serve account deletion: /app/share is now "Share & account" with an Account card (signed-in email + "Delete account & all data", confirm-guarded) → `POST /app/account/delete`: for a sole-member household batch-deletes menu_entries, menus, staples, plan_entries, shopping_items, recipes, household_members, households, plus email_intents for that email and the users row; kills the session and redirects to /. Privacy Retention bullet updated to reference self-serve deletion.
 
 **Evidence:** live verification (`test-report-iter31.md` + recording) with a throwaway account: fixtures across every deletion target → confirm-dialog cancel keeps data → delete redirects logged-out, /app→/login, old share token 404s, same-email re-signup gets a fresh empty account/new token; main-account regression untouched; privacy wording live; 375/375; Console + Issues clean; recreated throwaway deleted too (zero residue).
+
+## Round 32 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX (P2): when URL import fails (anti-bot sites like Allrecipes), the fallback was the manual 3-field form — retyping a recipe field-by-field is tedious; users typically have the whole recipe text on their clipboard.
+- ④ competitor: Plan to Eat's clipper has a paste-text mode; Samsung Food pushes OCR/AI import. A no-AI heading-based text parser closes most of that gap in web scope.
+- ⑤ data: analytics still QA-dominated (2026-08-06: 733 PV; search terms still internal stew/onion) — no organic signal to act on yet.
+
+**Fixes shipped:**
+- "Or paste a whole recipe" on /app/recipes → `POST /app/recipes/paste` with `parseRecipeText` (src/recipes.js): title = first non-empty line before an Ingredients-style heading; ingredients between Ingredients and Method/Steps-style headings; steps after; bullets/numbering stripped; parse failure redirects back with an error notice and the pasted text preserved (details re-opened). Manual title input gains autocomplete="off". Unit test added (13 passing).
+
+**Evidence:** live verification (`test-report-iter32.md` + recording): pasted fixture parsed into correct title/3 ingredients/2 steps; "Add ingredients to list" flowed 3 items with attribution; failure path shows notice + preserved text; variant headings ("What you'll need:"/"Instructions:") parse; regression on URL import/manual form; Console/Issues clean; 375/375; fixtures cleaned. Coverage note: 1500-char paste-echo truncation verified in source only.

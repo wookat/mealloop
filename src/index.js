@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
-import { importRecipeFromUrl } from './recipes.js';
+import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
@@ -654,10 +654,17 @@ ${recipes.results.map((r) => `
   </a>`).join('')}
 </div>
 ${recipes.results.length === 0 ? (q || tag ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || `#${tag}`)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
-<details class="mt-8">
+<details class="mt-8"${c.req.query('paste') !== undefined ? ' open' : ''}>
+  <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or paste a whole recipe</summary>
+  <form method="post" action="/app/recipes/paste" class="mt-3 max-w-lg space-y-2">
+    <textarea name="text" required aria-label="Recipe text" rows="10" placeholder="Paste the full recipe text — title first, then an “Ingredients” heading, then a “Method” or “Steps” heading. Bullets and numbering are fine." class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(String(c.req.query('paste') || ''))}</textarea>
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Parse &amp; save</button>
+  </form>
+</details>
+<details class="mt-3">
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or add a recipe manually</summary>
   <form method="post" action="/app/recipes/new" class="mt-3 max-w-lg space-y-2">
-    <input name="title" required aria-label="Title" placeholder="Title" class="w-full rounded-lg border border-stone-300 px-3 py-2">
+    <input name="title" required aria-label="Title" placeholder="Title" autocomplete="off" class="w-full rounded-lg border border-stone-300 px-3 py-2">
     <textarea name="ingredients" aria-label="Ingredients" rows="5" placeholder="Ingredients — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <textarea name="steps" aria-label="Steps" rows="5" placeholder="Steps — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Save recipe</button>
@@ -708,6 +715,23 @@ app.post('/app/recipes/new', async (c) => {
   await c.env.DB.prepare(
     'INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, h.id, title, JSON.stringify(ingredients), JSON.stringify(steps), user.id).run();
+  return c.redirect(`/app/recipes/${id}`);
+});
+
+app.post('/app/recipes/paste', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const text = String(f.text || '').slice(0, 20000);
+  const parsed = parseRecipeText(text);
+  if (!parsed || !parsed.title) {
+    const friendly = "We couldn't split that text — make sure it has the title on the first line, then an “Ingredients” heading, then a “Method” or “Steps” heading. Or use the manual form below.";
+    return c.redirect(`/app/recipes?err=${encodeURIComponent(friendly)}&paste=${encodeURIComponent(text.slice(0, 1500))}`);
+  }
+  const id = uid();
+  await c.env.DB.prepare(
+    'INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(id, h.id, parsed.title, JSON.stringify(parsed.ingredients.map((s) => s.slice(0, 300))), JSON.stringify(parsed.steps.map((s) => s.slice(0, 1000))), user.id).run();
   return c.redirect(`/app/recipes/${id}`);
 });
 

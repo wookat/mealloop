@@ -196,6 +196,26 @@ function text(v) {
   return v.text || v.name || '';
 }
 
+const ING_HEADING = /^(ingredients?|what you('|’)ll need|you('|’)ll need|shopping list)\s*[:.]?$/i;
+const STEP_HEADING = /^(method|steps?|directions?|instructions?|preparation|to make|how to make( it)?)\s*[:.]?$/i;
+
+export function parseRecipeText(raw) {
+  const lines = String(raw || '').split('\n').map((s) => s.replace(/^\s*(?:[-*•‣▪]|\d{1,2}[.)])\s+/, '').trim());
+  let ingAt = -1;
+  let stepAt = -1;
+  lines.forEach((l, i) => {
+    if (ingAt === -1 && ING_HEADING.test(l)) ingAt = i;
+    else if (stepAt === -1 && STEP_HEADING.test(l)) stepAt = i;
+  });
+  if (ingAt === -1 || stepAt === -1 || stepAt < ingAt) return null;
+  const nonEmpty = (arr) => arr.filter(Boolean);
+  const title = nonEmpty(lines.slice(0, ingAt))[0] || '';
+  const ingredients = nonEmpty(lines.slice(ingAt + 1, stepAt));
+  const steps = nonEmpty(lines.slice(stepAt + 1));
+  if (!ingredients.length || !steps.length) return null;
+  return { title: title.slice(0, 200), ingredients, steps };
+}
+
 function clean(s) {
   return s
     .replace(/<[^>]+>/g, '')

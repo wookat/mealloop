@@ -117,3 +117,15 @@ test('convertUnits handles composite "N x amount" labels', async () => {
   assert.equal(convertUnits('3 x 8 oz packs cream cheese', 'metric'), '3 x 227g packs cream cheese');
   assert.equal(convertUnits('2 x 1kg bags flour', 'imperial'), '2 x 2.2 lb bags flour');
 });
+
+test('parseRecipeText splits pasted recipe text', async () => {
+  const { parseRecipeText } = await import('../src/recipes.js');
+  const r = parseRecipeText('Easy Tomato Pasta\n\nIngredients\n- 200g spaghetti\n- 1 can chopped tomatoes\n* 2 cloves garlic\n\nMethod\n1. Boil the pasta.\n2) Simmer the sauce.\nServe hot.');
+  assert.equal(r.title, 'Easy Tomato Pasta');
+  assert.deepEqual(r.ingredients, ['200g spaghetti', '1 can chopped tomatoes', '2 cloves garlic']);
+  assert.deepEqual(r.steps, ['Boil the pasta.', 'Simmer the sauce.', 'Serve hot.']);
+  assert.equal(parseRecipeText('no headings here\njust text'), null);
+  assert.equal(parseRecipeText('Title\nIngredients\n\nSteps\n1. do it'), null); // empty ingredients
+  const h = parseRecipeText('Cake\nWhat you\u2019ll need:\nflour\nInstructions:\nbake');
+  assert.deepEqual([h.title, h.ingredients, h.steps], ['Cake', ['flour'], ['bake']]);
+});
