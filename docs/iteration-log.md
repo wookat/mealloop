@@ -115,4 +115,28 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Migration 0005: `shopping_items.sources` column; to-list records contributing recipe titles per normalized ingredient key (merged items list all recipes, comma-separated, updated in place on re-add).
 - List + share page render a subdued "for <recipe(s)>" subtext under attributed items; Copy list strips the subtext (labels only). Manual adds/staples show no attribution.
 
-**Evidence:** remote D1 migration applied; live regression via testing agent.
+**Evidence:** remote D1 migration applied; live regression via testing agent (`test-report-iter8.md` + recording): shared items list all contributing recipes, staples/manual items unattributed, copy output plain, share-page sync intact, 375px scroll-free.
+
+## Round 9 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data (P2): driver ⑤ mandates search-term analysis but nothing recorded what users search for on /app/recipes — a blind spot for content/pSEO prioritization.
+- ① QA (P3, from round 8 test notes): recipe attribution order was merge-insertion order, not deliberate.
+
+**Fixes shipped:**
+- Migration 0006: `search_terms(day, term, count)` — first-party, cookie-free aggregate recipe-search-term counts (lowercased, ≤60 chars, no user/household attribution, written via `waitUntil`); privacy policy updated to disclose it.
+- Attribution recipe titles now sorted alphabetically (`localeCompare`).
+
+**Evidence:** remote migration applied; live verification (`test-report-iter9.md` + recording): searches "stew"/"STEW "/"onion" produced exactly `{stew: 2, onion: 1}` in D1 with no user data; in-place re-sort to "for Test Soup, Test Stew"; /privacy wording live; console clean, 375/375.
+
+## Round 10 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA / ② UX (P2, from round 8 test notes): removing a recipe from the week left stale "for <recipe>" attribution on unchecked items even after re-running "Add week's ingredients".
+- ③ visual/compliance (P3): privacy Retention section didn't state a period for the new search terms.
+
+**Fixes shipped:**
+- to-list now clears `sources` on unchecked items whose ingredient key is absent from the current generation run (checked items intentionally untouched).
+- Retention bullet: "Aggregate page counts and search terms: 24 months".
+
+**Evidence:** live verification (`test-report-iter10.md` + recording): unplanning Test Onion Salad cleared "1 red onion" attribution, shared items updated to remaining recipe only, checked item preserved, re-planning restored alphabetical attribution; /privacy live; console clean, 375/375.

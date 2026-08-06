@@ -87,7 +87,7 @@ app.get('/privacy', (c) =>
 <li><strong>Email address</strong> — to send login codes and run your account. Legal basis: performance of a contract (Art. 6(1)(b) GDPR).</li>
 <li><strong>Your meal-planning content</strong> (recipes, plan entries, grocery items, household name) — to provide the service. Legal basis: contract.</li>
 <li><strong>Product-update emails</strong>, only if you submit the signup form. Legal basis: consent (Art. 6(1)(a)); withdraw anytime by emailing us.</li>
-<li><strong>Aggregate page counts</strong> (date + page path only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
+<li><strong>Aggregate page counts and recipe-search terms</strong> (date + page path or search text only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Cookies</h2>
 <p>One strictly necessary cookie (<code>ml_session</code>, HttpOnly/Secure/SameSite=Lax, 30 days) is set only after you log in. No analytics or advertising cookies, so no consent banner is required.</p>
@@ -101,7 +101,7 @@ app.get('/privacy', (c) =>
 <ul class="list-disc pl-5 space-y-1">
 <li>Login codes: 10 minutes. Session tokens: 30 days (or until you log out).</li>
 <li>Account and meal-planning content: until you ask us to delete it.</li>
-<li>Newsletter emails: until you unsubscribe. Aggregate page counts: 24 months (they contain no personal data).</li>
+<li>Newsletter emails: until you unsubscribe. Aggregate page counts and search terms: 24 months (they contain no personal data).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Your rights</h2>
 <p>You have the right to access, rectify, erase, restrict or object to processing, to data portability, to withdraw consent, and to lodge a complaint with your supervisory authority. Email <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a> and we will respond within 30 days.</p>
@@ -471,7 +471,7 @@ app.post('/app/plan/to-list', async (c) => {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
-    const sources = [...(sourcesByKey.get(key) || [])].join(', ').slice(0, 200);
+    const sources = [...(sourcesByKey.get(key) || [])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
     const hit = byKey.get(key);
     if (hit) {
       if (!hit.checked && (hit.label !== label || (hit.sources || '') !== sources)) {
@@ -484,6 +484,11 @@ app.post('/app/plan/to-list', async (c) => {
       c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
         .bind(uid(), h.id, label, categorize(label), sources)
     );
+  }
+  for (const r of existing.results) {
+    if (!r.checked && r.sources && !seen.has(ingredientKey(r.label))) {
+      stmts.push(c.env.DB.prepare("UPDATE shopping_items SET sources = '' WHERE id = ?").bind(r.id));
+    }
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
@@ -508,6 +513,14 @@ app.get('/app/recipes', async (c) => {
   const err = c.req.query('err');
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
+  if (q) {
+    // Aggregate search terms (no user/household attribution) to learn what people look for.
+    const term = q.toLowerCase().slice(0, 60);
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('INSERT INTO search_terms (day, term, count) VALUES (?, ?, 1) ON CONFLICT(day, term) DO UPDATE SET count = count + 1')
+        .bind(today(), term).run()
+    );
+  }
   const recipes = q
     ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY favorite DESC, created_at DESC")
         .bind(h.id, `%${q}%`, `%${q}%`).all()

@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS search_terms (
+  day TEXT NOT NULL,
+  term TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (day, term)
+);
