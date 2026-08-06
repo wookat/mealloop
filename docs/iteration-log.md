@@ -34,4 +34,4 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Header logout button `whitespace-nowrap`.
 - Tests extended to 9 (imported-recipe descriptive names + ranges).
 
-**Evidence:** `test-report-iter1.md` + recording; unit tests 9/9; live regression next round.
+**Evidence:** `test-report-iter2.md` + recording; unit tests 9/9; live regression PASSED (clean grocery lines at ×2, range unscaled, friendly import error with URL preserved, 375px header intact, console clean).
