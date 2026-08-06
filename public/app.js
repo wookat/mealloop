@@ -55,6 +55,19 @@
     sel.dataset.prev = sel.value;
   });
 
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('details.relative[open]').forEach(function (d) {
+      if (!d.contains(e.target)) d.removeAttribute('open');
+    });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('details.relative[open]').forEach(function (d) {
+      d.removeAttribute('open');
+      d.querySelector('summary').focus();
+    });
+  });
+
   var cookBtn = document.querySelector('[data-cook-mode]');
   if (cookBtn) {
     var article = cookBtn.closest('article');

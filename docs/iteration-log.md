@@ -377,3 +377,54 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Or paste a whole recipe" on /app/recipes → `POST /app/recipes/paste` with `parseRecipeText` (src/recipes.js): title = first non-empty line before an Ingredients-style heading; ingredients between Ingredients and Method/Steps-style headings; steps after; bullets/numbering stripped; parse failure redirects back with an error notice and the pasted text preserved (details re-opened). Manual title input gains autocomplete="off". Unit test added (13 passing).
 
 **Evidence:** live verification (`test-report-iter32.md` + recording): pasted fixture parsed into correct title/3 ingredients/2 steps; "Add ingredients to list" flowed 3 items with attribution; failure path shows notice + preserved text; variant headings ("What you'll need:"/"Instructions:") parse; regression on URL import/manual form; Console/Issues clean; 375/375; fixtures cleaned. Coverage note: 1500-char paste-echo truncation verified in source only.
+
+## Round 33 — 2026-08-06
+
+**Findings (by driver):**
+- ③ frontend visual/a11y (P2): informational grey text used `text-stone-400` (#a8a29e, ~2.7:1 on white) — fails WCAG AA 4.5:1 for small text: grocery "for <recipe>" sub-lines, "Checked off (N)" heading, staple category labels, Move…/store/category selects, ✕ buttons, account-deletion hint. Dynamic notices (list added-notice, recipes error) had no ARIA live-region roles.
+
+**Fixes shipped:**
+- All informational `text-stone-400` → `text-stone-500` (≈4.79:1 vs white, 4.58:1 vs stone-50); grocery green notice gains `role="status"`, recipes amber error notice `role="alert"`.
+
+**Evidence:** live verification (`test-report-iter33.md` + recording): zero `text-stone-400` in served DOM; contrast measured 4.79:1/4.58:1 via WCAG luminance in DevTools; role attributes confirmed on both notices; toggle/category/store/staples/share regressions passed; Console + Issues clean; 375/375; fixtures cleaned. Planner Move… select colour source-verified only (no planner entries this round).
+
+## Round 34 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data/growth: still no organic traffic; pSEO is the main long-line acquisition lever. Round 32's paste-parsing is a differentiator vs anti-bot walls (Allrecipes-class sites) but had no landing/SEO surface.
+- ② UX: URL-import error messages still pointed to the manual form instead of the (better) paste box.
+
+**Fixes shipped:**
+- New guide `/guides/save-recipes-from-sites-that-block-importers` (sitemap 16→17 locs, IndexNow 200); landing FAQ import answer now mentions paste-parsing (FAQPage JSON-LD updated with it); both URL-import error messages now direct to pasting the recipe text.
+
+**Evidence:** live verification (`test-report-iter34.md` + recording): guide listed + renders, sitemap 17 locs with new URL, FAQ + JSON-LD (6 questions) contain new wording, failed import shows new message with role=alert and paste box below; Console/Issues clean; 375/375. Coverage note: the "no recipe found" error branch is source-verified only (needs a fetchable page without recipe data).
+
+## Round 35 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: grocery items imported from recipes often carry typos or awkward phrasing (upstream JSON-LD data) but could only be renamed by deleting + re-adding; Plan to Eat supports editing list items in place.
+
+**Fixes shipped:**
+- The ✎ note popover is now an "Edit item" popover: required Item name input (prefilled, maxlength 200) above the note input, both via POST /app/list/note; non-empty label renames the item (dedupe keys derive from label at runtime, so renames are safe).
+
+**Evidence:** live verification (`test-report-iter35.md` + recording): rename+note, note-only, rename-only paths; rename persists after reload and on the read-only share page; store-filter back param preserved after edit; toggle/category/Copy list regressions; popover fits at 375px; Console/Issues clean; fixtures fully cleaned. Coverage note: the server's empty-label branch and the 200-char slice are source-verified only (UI enforces required + maxlength).
+
+## Round 36 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (Round 35 testing finding): the grocery Add form inserted duplicate rows on repeated submits — no dedupe on manual insert, unlike the plan→list and recipe→list paths.
+
+**Fixes shipped:**
+- New `addListItem` helper used by both `POST /app/list/add` and the anonymous share-page `POST /s/:token/add`: match by `ingredientKey` — checked hit is unchecked with label replaced ("buy again"); unchecked hit merges labels via `mergeIngredients` ("2 lemons" + "1 lemon" → "3 lemons"); no hit inserts normally.
+
+**Evidence:** live verification (`test-report-iter36.md` + recording): quantity merge, buy-again uncheck, share-page anonymous dedupe, non-matching fresh insert, store-filter back param, share version-poll; Console/Issues clean; fixtures cleaned. Notes: merging a quantified add into an unquantified existing label keeps the existing label (mergeIngredients semantics); the share add's 500-item cap is source-verified only.
+
+## Round 37 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ③ visual: floating `<details>` popovers (✎ Edit item, Edit stores…) stayed open until their summary was clicked again — unexpected vs standard menu/popover behavior and awkward on mobile.
+
+**Fixes shipped:**
+- `public/app.js`: any open `details.relative` popover closes on an outside click, and on Escape (which also refocuses its summary). Non-floating details blocks (planner "+ add", recipes paste/manual) are intentionally unaffected.
+
+**Evidence:** live verification (`test-report-iter37.md` + recording): inside clicks keep the popover open and typable; outside click and Escape close both popovers (Escape refocus proven via `document.activeElement`); popover saves still persist; non-floating details stay open on outside clicks; Console/Issues clean; fixtures cleaned.
