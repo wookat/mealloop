@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -167,7 +167,28 @@ ${GUIDES.map((g) => `<li class="rounded-xl bg-white border border-stone-200 p-4 
 app.get('/guides/:slug', (c) => {
   const g = GUIDES.find((x) => x.slug === c.req.param('slug'));
   if (!g) return c.notFound();
-  const body = `<article class="py-8 max-w-2xl mx-auto space-y-4">
+  const body = `<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Article',
+        headline: g.title,
+        description: g.excerpt,
+        mainEntityOfPage: `https://mealloop.zalize.com/guides/${g.slug}`,
+        image: 'https://mealloop.zalize.com/og-card.png',
+        author: { '@type': 'Organization', name: 'MealLoop', url: 'https://mealloop.zalize.com' },
+        publisher: { '@type': 'Organization', name: 'MealLoop', logo: { '@type': 'ImageObject', url: 'https://mealloop.zalize.com/icon-512.png' } },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Guides', item: 'https://mealloop.zalize.com/guides' },
+          { '@type': 'ListItem', position: 2, name: g.title, item: `https://mealloop.zalize.com/guides/${g.slug}` },
+        ],
+      },
+    ],
+  })}</script><article class="py-8 max-w-2xl mx-auto space-y-4">
+<nav aria-label="Breadcrumb" class="text-sm text-stone-500"><a class="hover:text-emerald-700 hover:underline" href="/guides">Guides</a> <span aria-hidden="true">›</span> <span class="text-stone-700">${esc(g.title)}</span></nav>
 <h1 class="text-3xl font-bold">${esc(g.title)}</h1>
 ${g.body}
 <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
@@ -792,7 +813,10 @@ app.get('/app/recipes/:id', async (c) => {
   const h = c.get('household');
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = recipeBody(r, true, h.units);
+  const stats = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n, MAX(date) AS last FROM plan_entries WHERE household_id = ? AND recipe_id = ? AND date <= date('now')"
+  ).bind(h.id, r.id).first();
+  const body = recipeBody(r, true, h.units, stats);
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
@@ -916,20 +940,27 @@ app.post('/app/recipes/:id/delete', async (c) => {
   return c.redirect('/app/recipes');
 });
 
-function recipeBody(r, canEdit, units = '') {
+function planStatsLine(stats) {
+  if (!stats || !stats.n) return '';
+  const last = new Date(stats.last + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `<p class="text-xs text-stone-400 mt-1 print:hidden">Planned ${stats.n === 1 ? 'once' : `${stats.n} times`} · last on ${last}</p>`;
+}
+
+function recipeBody(r, canEdit, units = '', stats = null) {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
 ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="rounded-2xl w-full max-h-80 object-cover mb-4 print:hidden">` : ''}
 <h1 class="text-3xl font-bold">${esc(r.title)}</h1>
 <p class="text-sm text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes} min`, r.cook_minutes && `Cook ${r.cook_minutes} min`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
+${planStatsLine(stats)}
 ${r.description ? `<p class="mt-3 text-stone-600">${esc(r.description)}</p>` : ''}
 ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" href="${esc(r.source_url)}" rel="noopener nofollow">Original source</a></p>` : ''}
 ${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3"><h2 class="text-sm font-semibold text-amber-800">Notes</h2><p class="mt-1 text-sm text-amber-900 whitespace-pre-line">${esc(r.notes)}</p></div>` : ''}
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
+    <ul class="ingredients-list space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <div class="flex items-center justify-between mb-2">
@@ -963,7 +994,7 @@ app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
   const [items, staples] = await Promise.all([
-    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
     c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all(),
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
@@ -1096,6 +1127,24 @@ app.post('/app/list/note', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/move', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const id = String(f.id || '');
+  const item = await c.env.DB.prepare('SELECT id, category, checked FROM shopping_items WHERE id = ? AND household_id = ?').bind(id, h.id).first();
+  if (item) {
+    const rows = await c.env.DB.prepare('SELECT id FROM shopping_items WHERE household_id = ? AND category = ? AND checked = ? ORDER BY COALESCE(sort_index, 1000000), created_at')
+      .bind(h.id, item.category, item.checked).all();
+    const ids = swapAdjacent(rows.results.map((r) => r.id), id, String(f.dir));
+    if (ids) {
+      await c.env.DB.batch(ids.map((x, idx) => c.env.DB.prepare('UPDATE shopping_items SET sort_index = ? WHERE id = ? AND household_id = ?').bind(idx, x, h.id)));
+      await bumpVersion(c.env, h.id);
+    }
+  }
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
 app.post('/app/list/aisles', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -1157,15 +1206,21 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
         </form>
         <details class="relative print:hidden">
           <summary aria-label="Edit item" title="Edit item" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
-          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-            <input type="hidden" name="id" value="${i.id}">
-            <input type="hidden" name="back" value="${back}">
-            <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
-            <div class="flex gap-1">
-              <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
-              <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+          <div class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+            <form method="post" action="/app/list/note" class="space-y-1">
+              <input type="hidden" name="id" value="${i.id}">
+              <input type="hidden" name="back" value="${back}">
+              <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
+              <div class="flex gap-1">
+                <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+                <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+              </div>
+            </form>
+            <div class="flex gap-1 border-t border-stone-100 pt-1">
+              <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↑ Move up</button></form>
+              <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↓ Move down</button></form>
             </div>
-          </form>
+          </div>
         </details>
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
@@ -1375,7 +1430,7 @@ app.get('/s/:token', async (c) => {
   const isCurrent = days[0] === weekDates()[0];
   const [entries, items] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date').bind(h.id, days[0], days[6]).all(),
-    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
   ]);
   const planHtml = `
 <section class="mb-8">

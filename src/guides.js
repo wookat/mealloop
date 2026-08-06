@@ -264,4 +264,20 @@ export const GUIDES = [
       p('The most common batch-cooking failure is under-buying: you double the recipe in your head but shop from the original quantities. A planner that scales ingredients per planned meal and merges them into one aisle-sorted grocery list closes that gap — 750g of mince twice becomes 1.5kg on the list, and everyone shopping sees the same numbers.'),
     ].join(''),
   },
+  {
+    slug: 'meal-planning-for-picky-eaters',
+    title: 'Meal planning for picky eaters — without cooking two dinners',
+    excerpt: 'One shared plan, small swaps and a bit of repetition beat short-order cooking every night.',
+    body: [
+      p('Feeding a household where one person won\'t touch mushrooms and another lives on pasta usually ends one of two ways: you cook two dinners, or someone eats toast. A shared weekly plan offers a third way — plan meals everyone can see coming, build in the safe swaps, and stop renegotiating dinner at 6pm.'),
+      h2('Plan around the overlap, not the pickiest'),
+      ul([
+        'Start the week with two or three "everyone eats this" dinners — the overlap is usually bigger than it feels on a stressful night.',
+        'For divisive meals, plan the swap into the recipe itself: a note like "plain pasta portion for T" means whoever cooks knows the deal without asking.',
+        'Repetition is a feature: picky eaters do better with familiar meals on a visible rota, and a planner makes the repeats one click instead of a chore.',
+      ]),
+      h2('Let everyone see the week'),
+      p('Half of picky-eater friction is surprise. When the week\'s dinners sit on a shared plan the whole household can open — no app install, no account for the kids — "what\'s for dinner" stops being an ambush. Swaps get requested on Sunday instead of protested on Wednesday, and the grocery list already has the alternative on it.'),
+    ].join(''),
+  },
 ];

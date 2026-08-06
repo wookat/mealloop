@@ -600,3 +600,65 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide `/guides/batch-cooking-for-busy-weeks` (“Batch cooking for busy weeks: cook twice, eat five times”); sitemap 20→21 locs; IndexNow HTTP 200.
 
 **Evidence:** live verification (`test-report-iter53.md` + recording): listed last on /guides with exact title/excerpt; page renders h1 + both h2 sections + bullets + CTA; title/meta exact; More guides wraps to the first 3 guides and navigates; sitemap exactly 21 locs incl. new URL (first fetch was a stale CDN copy — re-fetch fixed); 375/375; Console/Issues clean; read-only round.
+
+## Round 54 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: when deciding what to cook, “have we done this recently?” had no answer on the recipe page — rotation history lived only in the planner (competitors surface last-cooked info).
+
+**Fixes shipped:**
+- Plan-stats line on the logged-in recipe detail page: “Planned once/N times · last on Ddd D Mmm” from COUNT/MAX(date) of `plan_entries` with date ≤ today (UTC) — future-dated entries excluded; never-planned recipes show nothing; share recipe page unaffected; print:hidden (`planStatsLine`, src/index.js).
+
+**Evidence:** live verification (`test-report-iter54.md` + recording): plan Test Stew today → “Planned once · last on Thu 6 Aug”; never-planned recipe → no line; extra far-future 2027 entry → count/date unchanged; share page → no line; print preview hides it; 375/375; Console/Issues clean; fixtures removed. Plural “N times” branch source-verified only.
+
+## Round 55 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth: guide pages had no structured data (Article/Breadcrumb rich-result eligibility) and no visible way back to the guides index except the site nav.
+
+**Fixes shipped:**
+- JSON-LD @graph on every guide page: Article (headline/description/canonical/og-card image, MealLoop org author+publisher w/ icon-512 logo) + BreadcrumbList (Guides → guide).
+- Visible breadcrumb nav “Guides › <title>” above the h1 linking back to /guides.
+
+**Evidence:** live verification (`test-report-iter55.md` + recording): breadcrumb renders and navigates, title matches h1; JSON-LD parses with 11/11 exact field checks on 2 guides; strict CSP — zero console errors (ld+json is data, not executed); CTA/More guides//guides listing regression clean; 375px long-title breadcrumb wraps cleanly; read-only round.
+
+## Round 56 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: manual reorder of list items within a category — long-standing backlog item; Plan to Eat's July content push (“best app for a multi-store shopper”, “stop wasting mental energy on your shopping list”) keeps list ergonomics front and centre. Competitor recheck (Plan to Eat blog Jan–Jul 2026): content/podcast-led growth, no major new web product feature to counter.
+
+**Fixes shipped:**
+- Per-item “↑ Move up / ↓ Move down” in the ✎ Edit-item popup → new POST /app/list/move: swaps among same-category same-checked-state items, writes normalized `sort_index` (migration 0012). /app/list and share page order by `category, COALESCE(sort_index, 1000000), created_at`, so custom order syncs to the family share page.
+
+**Evidence:** live verification (`test-report-iter56.md` + recording): reorder + persistence after reload; boundary moves are silent no-ops; rename+note regression after popup restructure; incognito share page shows the custom order; checked-off section isolated; 375px popup fits, Console/Issues clean; fixtures removed.
+
+## Round 57 — 2026-08-06
+
+**Findings (by driver):**
+- ④/⑤ growth: Plan to Eat's 2026 content calendar leans on picky-eater / family-friction topics (“3 dinner strategies for picky eaters”, Mar 2026); MealLoop's no-signup family share is a strong native answer but had no guide targeting that search intent.
+
+**Fixes shipped:**
+- New pSEO guide `meal-planning-for-picky-eaters` (“Meal planning for picky eaters — without cooking two dinners”): plan around the overlap, plan swaps into recipe notes, repetition as a feature, shared no-signup plan kills the 6pm ambush. Sitemap 21→22, IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter57.md` + recording): guide renders with R55 breadcrumb+JSON-LD (11/11 field checks), listed last of 18 on /guides with exact title/excerpt, More guides wraps to first 3, 375px wrap clean, Console/Issues clean; read-only round.
+
+## Round 58 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: cook mode (R18) lets you tap steps done, but mise en place — checking off ingredients as you prep — had no equivalent; cooks lose their place in the ingredient list on the phone at the counter.
+
+**Fixes shipped:**
+- Cook mode tap-to-dim ingredients: ingredients `<ul>` got class `ingredients-list`; app.js binds bullet rows (`li.flex` only — R38 section headings stay non-clickable); CSS scoped to `.cook-mode` (cursor, opacity 0.4 + line-through). Client-side only, no persistence; works on the share recipe page too.
+
+**Evidence:** live verification (`test-report-iter58.md` + recording): tap dims+strikes, re-tap restores; steps regression; no effect outside cook mode; heading row non-clickable (temp 'For the garnish:' fixture, restored); exit clears all styling; incognito share page works incl. 375px; Console/Issues clean.
+
+## Round 59 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: the R56 move route's swap logic was inline SQL/array code with no unit coverage; boundary/missing-id branches only exercised via manual production tests.
+
+**Fixes shipped:**
+- Extracted pure helper `swapAdjacent(arr, value, dir)` into src/util.js (returns null for boundary/missing → no DB write, no version bump) and rewired POST /app/list/move to use it. 7 new unit tests (immutability, both directions, boundary/missing/empty) — suite 18→19.
+- ⑤ data check: guide pages are starting to register views (batch-cooking 9, leftovers 8 since 8/1) — still QA-dominated overall.
+
+**Evidence:** live smoke regression (`test-report-iter59.md` + recording): swap + reload persistence, boundary no-op, Console/Issues clean, fixtures cleaned.

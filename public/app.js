@@ -85,7 +85,7 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible' && article.classList.contains('cook-mode')) requestWake();
     });
-    article.querySelectorAll('.steps-list li').forEach(function (li) {
+    article.querySelectorAll('.steps-list li, .ingredients-list li.flex').forEach(function (li) {
       li.addEventListener('click', function () {
         if (article.classList.contains('cook-mode')) li.classList.toggle('done');
       });

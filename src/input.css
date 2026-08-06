@@ -17,6 +17,15 @@
   font-size: 1.05rem;
   line-height: 1.6rem;
 }
+.cook-mode .ingredients-list li.flex {
+  cursor: pointer;
+}
+.cook-mode .ingredients-list li.flex.done {
+  opacity: 0.4;
+}
+.cook-mode .ingredients-list li.flex.done span:last-child {
+  text-decoration: line-through;
+}
 
 /* Printed week plan: fridge-friendly compact grid. */
 @media print {
