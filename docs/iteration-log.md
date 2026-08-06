@@ -246,3 +246,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Anonymous add on the share page: the same Add item form (COMMON_ITEMS suggestions) now renders on `/s/<token>` and POSTs to `/s/<token>/add` (≤200 chars, auto-categorized, version bump for sync; silently ignored past a 500-item household cap). Share page stays otherwise read-only (no clear/units/note/category controls).
 
 **Evidence:** live verification (`test-report-iter20.md` + recording): anonymous add categorized correctly and synced to an already-open owner tab without reload, owner add regression, read-only controls intact, console clean, 375/375, cleanup done. 500-item cap verified in code only (not exercised against production).
+
+## Round 21 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor (P1 backlog item): multiple store lists is Plan to Eat's headline capability MealLoop lacked entirely.
+- ① QA (found during this round's testing, fixed same round): the third row control pushed /app/list to 380px at a 375px viewport; store/category changes dropped the active store filter.
+
+**Fixes shipped:**
+- Multiple stores (lean model): `households.stores` (≤10 names) + `shopping_items.store` (default "Any store"), migration `0009_stores.sql`. Per-row store select with "New store…" prompt (`POST /app/list/store`; new names auto-registered). With ≥1 store, pill tabs (All stores + each store) filter the list on `/app/list` and the share page; filtered tabs show that store's items plus unassigned ones.
+- Same-round fixes: shrunk row selects (375/375 restored) and hidden `back` input so store/category changes preserve the active `?store=` filter.
+
+**Evidence:** live verification (`test-report-iter21.md` incl. 21b addendum + recording): store creation/tabs/filtering/Any-store reassignment/share-page tabs/regressions passed; both 21b fixes re-verified (375/375; filter preserved). Known limitation: no store-removal UI yet (store names persist) — queued for a future round.

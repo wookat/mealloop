@@ -766,7 +766,10 @@ app.get('/app/list', async (c) => {
   const notice = added === undefined ? '' : Number(added) > 0
     ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from this week's plan.`
     : "Everything from this week's plan is already on the list.";
-  const body = listBody(h, items.results, { editable: true, base: '/app/list', shareLink: true, notice, suggestions });
+  const stores = (h.stores || '').split(',').filter(Boolean);
+  const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
+  const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
+  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -817,7 +820,24 @@ app.post('/app/list/category', async (c) => {
       .bind(category, String(f.id || ''), h.id).run();
     await bumpVersion(c.env, h.id);
   }
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
+app.post('/app/list/store', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const store = String(f.store || '').replace(/,/g, '').trim().slice(0, 30);
+  await c.env.DB.prepare('UPDATE shopping_items SET store = ? WHERE id = ? AND household_id = ?')
+    .bind(store, String(f.id || ''), h.id).run();
+  const stores = (h.stores || '').split(',').filter(Boolean);
+  if (store && !stores.includes(store) && stores.length < 10) {
+    await c.env.DB.prepare('UPDATE households SET stores = ? WHERE id = ?')
+      .bind([...stores, store].join(','), h.id).run();
+  }
+  await bumpVersion(c.env, h.id);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/list/note', async (c) => {
@@ -839,7 +859,7 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '' }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
   return `
@@ -863,6 +883,10 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     </form>` : ''}
   </div>
 </div>
+${stores.length ? `<div class="flex flex-wrap gap-1.5 mb-4 print:hidden">
+  <a href="${base}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
+  ${stores.map((s) => `<a href="${base}?store=${encodeURIComponent(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
+</div>` : ''}
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
   <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
@@ -884,7 +908,16 @@ ${cats.map((cat) => `
             <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
           </button>
         </form>
-        ${editable ? `<details class="relative print:hidden">
+        ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
+          <input type="hidden" name="id" value="${i.id}">
+          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
+          <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-20">
+            <option value=""${!i.store ? ' selected' : ''}>Any store</option>
+            ${stores.map((s) => `<option value="${esc(s)}"${s === i.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}
+            <option value="__custom">New store…</option>
+          </select>
+        </form>
+        <details class="relative print:hidden">
           <summary aria-label="${i.note ? 'Edit note' : 'Add note'}" title="${i.note ? 'Edit note' : 'Add note'}" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
           <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 flex w-64 gap-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
             <input type="hidden" name="id" value="${i.id}">
@@ -892,9 +925,10 @@ ${cats.map((cat) => `
             <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
           </form>
         </details>
-        <form method="post" action="/app/list/category" class="pr-2 print:hidden">
+        <form method="post" action="/app/list/category" class="pr-1 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
-          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-1 py-0.5 max-w-28">
+          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
+          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-24">
             ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
             <option value="__custom">New category…</option>
           </select>
@@ -1014,7 +1048,10 @@ app.get('/s/:token', async (c) => {
   }).join('')}
   </div>
 </section>`;
-  const body = planHtml + listBody(h, items.results, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS });
+  const stores = (h.stores || '').split(',').filter(Boolean);
+  const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
+  const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
+  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter });
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 
