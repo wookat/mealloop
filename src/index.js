@@ -640,7 +640,8 @@ app.post('/app/plan/to-list', async (c) => {
     }
   }
   const merged = mergeIngredients(labels);
-  const staples = await c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all();
+  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const stapleCats = new Map(staples.results.map((s) => [ingredientKey(s.label), s.category]));
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
@@ -663,7 +664,7 @@ app.post('/app/plan/to-list', async (c) => {
     added++;
     stmts.push(
       c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
-        .bind(uid(), h.id, label, categorize(label), sources)
+        .bind(uid(), h.id, label, stapleCats.get(key) || categorize(label), sources)
     );
   }
   for (const r of existing.results) {
@@ -1350,9 +1351,17 @@ app.get('/app/staples', async (c) => {
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>
 ${staples.results.length === 0 ? `<p class="text-stone-500 text-sm">No staples yet.</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
-${staples.results.map((s) => `<li class="flex items-center justify-between px-3 py-2.5 text-sm">
-  <span>${esc(s.label)} <span class="ml-2 text-xs text-stone-500">${esc(s.category)}</span></span>
-  <form method="post" action="/app/staples/delete"><input type="hidden" name="id" value="${s.id}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
+${staples.results.map((s) => `<li class="flex items-center justify-between gap-2 px-3 py-2.5 text-sm">
+  <span>${esc(s.label)}</span>
+  <span class="flex items-center gap-2">
+    <form method="post" action="/app/staples/category">
+      <input type="hidden" name="id" value="${s.id}">
+      <select name="category" data-autosubmit aria-label="Category for ${esc(s.label)}" class="rounded border border-stone-200 text-xs text-stone-600 px-1 py-0.5 bg-white">
+        ${[...new Set([...STANDARD_CATEGORIES, s.category])].map((cat) => `<option${cat === s.category ? ' selected' : ''}>${esc(cat)}</option>`).join('')}
+      </select>
+    </form>
+    <form method="post" action="/app/staples/delete"><input type="hidden" name="id" value="${s.id}"><button aria-label="Remove ${esc(s.label)}" class="text-stone-500 hover:text-red-600">✕</button></form>
+  </span>
 </li>`).join('')}
 </ul>`}
 </div>`;
@@ -1370,6 +1379,17 @@ app.post('/app/staples/add', async (c) => {
       await c.env.DB.prepare('INSERT INTO staples (id, household_id, label, category) VALUES (?, ?, ?, ?)')
         .bind(uid(), h.id, label, categorize(label)).run();
     }
+  }
+  return c.redirect('/app/staples');
+});
+
+app.post('/app/staples/category', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const category = String(f.category || '').trim().slice(0, 100);
+  if (category) {
+    await c.env.DB.prepare('UPDATE staples SET category = ? WHERE id = ? AND household_id = ?')
+      .bind(category, String(f.id || ''), h.id).run();
   }
   return c.redirect('/app/staples');
 });

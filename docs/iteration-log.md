@@ -773,3 +773,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "From the guides" section on `/` between the FAQ and the FAQPage JSON-LD: 3 featured whole-card links (`FEATURED_SLUGS`: picky-eaters, batch-cooking, budget) with title + excerpt from `src/guides.js`, plus an "All guides →" link. Escaped output; no new JSON-LD.
 
 **Evidence:** live verification (`test-report-iter70.md` + recording): exactly 3 cards in order with character-identical titles/excerpts; whole-card link proven by body-text click → correct guide; "All guides →" → /guides (20 guides); FAQ accordions + email form + FAQPage JSON-LD (still the only ld+json, 6 questions) intact with correct document order; 375px single-column stack, 375/375 no overflow; Console/Issues clean; logged-out CTA regression passed. Not re-tested: logged-in CTA variant (unchanged code path).
+
+## Round 71 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA: staples were auto-categorized once by `categorize()` with no way to fix a wrong bucket ("QA71 fixture bar" → Other), and even a correct staple category was ignored when "Add week's ingredients" inserted the item — it re-ran `categorize()`.
+
+**Fixes shipped:**
+- Each /app/staples row gets a `data-autosubmit` category select (STANDARD_CATEGORIES + current) posting to household-scoped `POST /app/staples/category`; ✕ delete aria-labels now include the staple label.
+- "Add week's ingredients" inserts staples with the staple's stored category (`stapleCats.get(key) || categorize(label)`); recipe ingredients unchanged.
+
+**Evidence:** live verification (`test-report-iter71.md` + recording): milk row shows Dairy & Eggs selected; fixture staple defaulted to Other, select change auto-submitted and persisted across reload; with fixture set to Spices & Baking, "Add week's ingredients" landed it under Spices & Baking (old behavior would be Other); cleanup restored the list to 35 to buy and staples to milk only; 375px + Console/Issues clean. Note: the propagation test re-attached display-only "for <recipe>" source sub-labels to existing unchecked items (normal recompute, self-corrects next run).
