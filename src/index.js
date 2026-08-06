@@ -309,6 +309,10 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
   </form>` : ''}
+  ${entries.results.length ? `<form method="post" action="/app/plan/clear-week" class="inline" data-confirm="Remove all ${entries.results.length} entr${entries.results.length === 1 ? 'y' : 'ies'} from this week? This can't be undone.">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-500 hover:text-red-600 hover:bg-stone-100">Clear week</button>
+  </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
@@ -425,6 +429,18 @@ app.post('/app/plan/move', async (c) => {
     await bumpVersion(c.env, h.id);
   }
   return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/clear-week', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = String(f.week || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
+  const days = weekDates(week);
+  await c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, days[0], days[6]).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${week}`);
 });
 
 app.post('/app/plan/copy-week', async (c) => {
@@ -794,6 +810,8 @@ app.get('/app/recipes/:id/edit', async (c) => {
     <textarea name="ingredients" rows="${Math.min(Math.max(ingredients.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(ingredients.join('\n'))}</textarea></label>
   <label class="block"><span class="text-sm font-medium">Steps <span class="font-normal text-stone-500">(one per line)</span></span>
     <textarea name="steps" rows="${Math.min(Math.max(steps.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(steps.join('\n'))}</textarea></label>
+  <label class="block"><span class="text-sm font-medium">Notes <span class="font-normal text-stone-500">(shared with your household — “double the sauce”, “kids loved it”)</span></span>
+    <textarea name="notes" rows="3" maxlength="2000" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(r.notes || '')}</textarea></label>
   <div class="flex items-center gap-3">
     <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Save changes</button>
     <a href="/app/recipes/${r.id}" class="text-sm text-stone-500 hover:underline">Cancel</a>
@@ -811,8 +829,9 @@ app.post('/app/recipes/:id/edit', async (c) => {
   if (!title) return c.redirect(`/app/recipes/${id}/edit`);
   const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
-  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ? WHERE id = ? AND household_id = ?')
-    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), id, h.id).run();
+  const notes = String(f.notes || '').trim().slice(0, 2000);
+  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ?, notes = ? WHERE id = ? AND household_id = ?')
+    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), notes, id, h.id).run();
   await bumpVersion(c.env, h.id);
   return c.redirect(`/app/recipes/${id}`);
 });
@@ -872,6 +891,7 @@ ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="rounded-2xl w-full
 <p class="text-sm text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes} min`, r.cook_minutes && `Cook ${r.cook_minutes} min`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
 ${r.description ? `<p class="mt-3 text-stone-600">${esc(r.description)}</p>` : ''}
 ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" href="${esc(r.source_url)}" rel="noopener nofollow">Original source</a></p>` : ''}
+${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3"><h2 class="text-sm font-semibold text-amber-800">Notes</h2><p class="mt-1 text-sm text-amber-900 whitespace-pre-line">${esc(r.notes)}</p></div>` : ''}
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
@@ -1354,7 +1374,7 @@ app.get('/s/:token/r/:id', async (c) => {
   if (!h) return c.notFound();
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = `<p class="mb-4 text-sm print:hidden"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
+  const body = `<p class="mb-4 text-sm print:hidden" data-poll data-version="${h.version}" data-base="/s/${h.share_token}"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
   return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
 });
 
