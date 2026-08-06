@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -621,7 +621,7 @@ app.get('/app/recipes/:id', async (c) => {
   const h = c.get('household');
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = recipeBody(r, true);
+  const body = recipeBody(r, true, h.units);
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
@@ -656,7 +656,7 @@ app.post('/app/recipes/:id/delete', async (c) => {
   return c.redirect('/app/recipes');
 });
 
-function recipeBody(r, canEdit) {
+function recipeBody(r, canEdit, units = '') {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
@@ -668,7 +668,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(i)}</span></li>`).join('')}</ul>
+    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <h2 class="font-semibold text-lg mb-2">Steps</h2>
@@ -725,6 +725,16 @@ app.post('/app/list/toggle', async (c) => {
   return c.redirect('/app/list');
 });
 
+app.post('/app/settings/units', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const units = ['metric', 'imperial'].includes(String(f.units)) ? String(f.units) : '';
+  await c.env.DB.prepare('UPDATE households SET units = ? WHERE id = ?').bind(units, h.id).run();
+  await bumpVersion(c.env, h.id);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app') ? back : '/app/list');
+});
+
 app.post('/app/settings/snacks', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -765,7 +775,16 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
-    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>` : ''}
+    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
+    <form method="post" action="/app/settings/units" class="flex items-center gap-1">
+      <input type="hidden" name="back" value="/app/list">
+      <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
+        <option value=""${!h.units ? ' selected' : ''}>Units: as written</option>
+        <option value="metric"${h.units === 'metric' ? ' selected' : ''}>Units: metric</option>
+        <option value="imperial"${h.units === 'imperial' ? ' selected' : ''}>Units: imperial</option>
+      </select>
+      <noscript><button class="px-2 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Set</button></noscript>
+    </form>` : ''}
   </div>
 </div>
 ${editable ? `
@@ -786,7 +805,7 @@ ${cats.map((cat) => `
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/category" class="pr-2 print:hidden">
@@ -920,7 +939,7 @@ app.get('/s/:token/r/:id', async (c) => {
   if (!h) return c.notFound();
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false);
+  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
   return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
 });
 

@@ -140,3 +140,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Retention bullet: "Aggregate page counts and search terms: 24 months".
 
 **Evidence:** live verification (`test-report-iter10.md` + recording): unplanning Test Onion Salad cleared "1 red onion" attribution, shared items updated to remaining recipe only, checked item preserved, re-planning restored alphabetical attribution; /privacy live; console clean, 375/375.
+
+## Round 11 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor (P2, backlog "公制/英制切换"): Plan to Eat/Samsung Food both offer a unit preference; MealLoop always showed labels as imported — a real friction for mixed-unit households.
+
+**Fixes shipped:**
+- Migration 0007: `households.units` ('' as-written / 'metric' / 'imperial'); "Units:" select in the list action row (auto-submit, no-JS fallback), `POST /app/settings/units`.
+- Display-only `convertUnits()` — imperial: g→oz (lb ≥454g), ml→fl oz; metric: oz→g, lb→g/kg; cups/tbsp/counts/unparsed labels pass through; stored labels never mutated. Applied on /app/list, recipe detail, and share pages (share follows household setting, no toggle for anonymous viewers).
+
+**Evidence:** remote migration applied; live verification (`test-report-iter11.md` + recording): 1500g→3.31 lb, 8 oz→227g, round-trip back to "as written" restores originals exactly, share page follows setting and live-syncs on change, console clean, 375/375. P3 noted: composite "2 x 400g cans" labels intentionally unconverted.

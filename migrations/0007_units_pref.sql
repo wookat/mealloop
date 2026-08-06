@@ -1,0 +1,1 @@
+ALTER TABLE households ADD COLUMN units TEXT NOT NULL DEFAULT '';
