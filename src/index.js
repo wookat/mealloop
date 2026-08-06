@@ -437,7 +437,7 @@ app.post('/app/plan/to-list', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const rows = await c.env.DB.prepare(
-    `SELECT r.id, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
+    `SELECT r.id, r.title, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.id`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
   // Merge duplicate ingredients across recipes (summing quantities). Existing
@@ -445,16 +445,23 @@ app.post('/app/plan/to-list', async (c) => {
   // (checked) instead of duplicated, so the button stays idempotent even when
   // scales change between clicks.
   const labels = [];
+  const sourcesByKey = new Map();
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      if (label) labels.push(scaleIngredient(label, row.scale));
+      if (!label) continue;
+      const scaled = scaleIngredient(label, row.scale);
+      labels.push(scaled);
+      const key = ingredientKey(scaled);
+      const set = sourcesByKey.get(key) || new Set();
+      set.add(row.title);
+      sourcesByKey.set(key, set);
     }
   }
   const merged = mergeIngredients(labels);
   const staples = await c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all();
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
-  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
   const stmts = [];
@@ -464,17 +471,18 @@ app.post('/app/plan/to-list', async (c) => {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
+    const sources = [...(sourcesByKey.get(key) || [])].join(', ').slice(0, 200);
     const hit = byKey.get(key);
     if (hit) {
-      if (!hit.checked && hit.label !== label) {
-        stmts.push(c.env.DB.prepare('UPDATE shopping_items SET label = ? WHERE id = ?').bind(label, hit.id));
+      if (!hit.checked && (hit.label !== label || (hit.sources || '') !== sources)) {
+        stmts.push(c.env.DB.prepare('UPDATE shopping_items SET label = ?, sources = ? WHERE id = ?').bind(label, sources, hit.id));
       }
       continue;
     }
     added++;
     stmts.push(
-      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-        .bind(uid(), h.id, label, categorize(label))
+      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label), sources)
     );
   }
   if (stmts.length) await c.env.DB.batch(stmts);
@@ -765,7 +773,7 @@ ${cats.map((cat) => `
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/category" class="pr-2 print:hidden">

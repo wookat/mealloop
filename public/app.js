@@ -19,7 +19,12 @@
         var items = [];
         sec.querySelectorAll('.toggle-form').forEach(function (f) {
           var spans = f.querySelectorAll('span');
-          if (!spans[1].classList.contains('line-through')) items.push('- ' + spans[1].textContent);
+          if (!spans[1].classList.contains('line-through')) {
+            var lbl = spans[1].cloneNode(true);
+            var sub = lbl.querySelector('span');
+            if (sub) lbl.removeChild(sub);
+            items.push('- ' + lbl.textContent.trim());
+          }
         });
         if (items.length) lines.push(sec.querySelector('h2').textContent, items.join('\n'), '');
       });

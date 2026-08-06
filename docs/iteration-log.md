@@ -105,3 +105,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Follow-up (regression run measured scrollWidth 407 vs 375 — pre-existing header nav overflow): header paddings/gaps tightened at small widths (`px-2 sm:px-4` container, `px-2 sm:px-3` nav links, smaller logo) for a truly scroll-free 375px.
 
 **Evidence:** `test-report-iter6.md` + recording (button wrap, print headings, list tidy-up all passed); header fix re-verified live: scrollWidth/clientWidth/scrollX = 375/375/0 (`test-report-iter7.md` + recording), desktop header unaffected.
+
+## Round 8 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P2, backlog item "清单条目菜谱归属"): grocery items didn't say which recipe needed them — in the store you can't tell if "2 red chillis" is skippable without opening every recipe (Plan to Eat shows per-item recipe attribution).
+
+**Fixes shipped:**
+- Migration 0005: `shopping_items.sources` column; to-list records contributing recipe titles per normalized ingredient key (merged items list all recipes, comma-separated, updated in place on re-add).
+- List + share page render a subdued "for <recipe(s)>" subtext under attributed items; Copy list strips the subtext (labels only). Manual adds/staples show no attribution.
+
+**Evidence:** remote D1 migration applied; live regression via testing agent.
