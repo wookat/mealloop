@@ -428,3 +428,55 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `public/app.js`: any open `details.relative` popover closes on an outside click, and on Escape (which also refocuses its summary). Non-floating details blocks (planner "+ add", recipes paste/manual) are intentionally unaffected.
 
 **Evidence:** live verification (`test-report-iter37.md` + recording): inside clicks keep the popover open and typable; outside click and Escape close both popovers (Escape refocus proven via `document.activeElement`); popover saves still persist; non-floating details stay open on outside clicks; Console/Issues clean; fixtures cleaned.
+
+## Round 38 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor patrol (Plan to Eat release notes): they added ingredient header rows; our sectioned recipes ("For the sauce:") rendered headers as bulleted ingredients and pushed them onto the grocery list. Also noted (out of v1 scope): PTE Instagram-reel AI import + nutrition, Samsung Food free calorie tracking — both AI/health directions we deliberately skip.
+
+**Fixes shipped:**
+- New `isIngredientHeading` (trimmed line ends ':', ≤60 chars, no digits): renders as a bold sub-heading (colon stripped, no bullet, no unit conversion) on app + share recipe pages; skipped by recipe→list and plan→list adds. Paste-import passes header lines through, so sectioned pastes now show sections. Unit tests 13→14.
+
+**Evidence:** live verification (`test-report-iter38.md` + recording): sectioned paste fixture rendered headers correctly on app + incognito share pages; recipe→list added only the 2 real items with attribution; weekly add idempotent with no headers; imperial toggle converted normal lines (100g→3.53 oz) while headers stayed untouched; Console/Issues clean; 375/375; fixtures cleaned. Note: the digit-containing negative case is unit-test/source-verified only.
+
+## Round 39 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual / ④ competitor: Plan to Eat is print-oriented; our recipe pages printed nav, buttons, tags form and the photo — no clean cook-from-paper output.
+
+**Fixes shipped:**
+- Recipe pages (app + share) gain a Print button next to Cook mode; on print, `print:hidden` hides the button group, action row, tags form, Edit/Delete row and the photo — printed output is title, meta, description, source link, sectioned ingredients, numbered steps.
+- 39b: testing found the share recipe page's "← Back to …'s week" link still printed (prepended outside recipeBody) — fixed with `print:hidden` and re-verified.
+
+**Evidence:** live verification (`test-report-iter39.md` incl. 39b addendum + recordings): clean Chrome Save-as-PDF previews on app and share pages, section headers bold in print, Cook mode and grocery/planner print regressions pass; Console/Issues clean; 375/375; fixtures cleaned. Notes: verified via print preview (no physical printer); photo hiding proven on the app page only (share fixture had no photo).
+
+## Round 40 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data/growth: pSEO remains the acquisition lever; Round 39's clean recipe printing addresses a widely-searched pain (cluttered recipe-site printouts) but had no landing/SEO surface.
+
+**Fixes shipped:**
+- New guide `/guides/print-a-recipe-without-ads-and-clutter` ("How to print a recipe without the ads, photos and life story") — sitemap 17→18 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter40.md` + recording): guide listed and renders (h1, both h2s, bullets, meta description = excerpt); sitemap has exactly 18 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: IndexNow 200 verified from shell, not re-verified by the testing agent.
+
+## Round 41 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX: Plan to Eat's signature grocery feature is custom aisle (category) order matching how you walk your store; our list rendered categories alphabetically (SQL ORDER BY) — not even a sensible store-walk default.
+
+**Fixes shipped:**
+- Migration 0010 `households.category_order` (JSON array); `sortCategories` in `src/util.js` ranks saved order → store-walk default (Produce first, Other last) → customs alphabetically.
+- `/app/list` gains an "Aisle order…" popover (per-category ↑/↓, edge arrows disabled, `?aisles=1` keeps it open across moves); list sections, per-row category selects, share page and print all follow the saved order; share page has no reorder UI. Unit tests 14→15.
+
+**Evidence:** live verification (`test-report-iter41.md` + recording): default store-walk order replaces alphabetical; reorder moves both popover and sections; custom category reorderable to top; share page follows order without the button; store-filter + `?aisles=1` back param preserved; print uses custom order; Esc/outside-click dismissal; 375/375; Console/Issues clean; fixtures cleaned. Notes: live-poll propagation of an order change onto an already-open share tab not exercised; household `category_order` now stores an explicit default-equivalent JSON (renders identically).
+
+## Round 42 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: “Copy last week’s plan”, “Fill dinners” and “Apply menu” all vanished once a week had a single entry — an arbitrary empty-week-only limitation; Plan to Eat menus apply onto partially-planned weeks.
+
+**Fixes shipped:**
+- All three planner helpers now work on partially-filled weeks, filling only free slots: copy-week and menus/apply skip occupied `date|meal` slots; fill-week (renamed “Fill empty dinners from recipe box”) fills only dinner-less days and hides at 7/7; Apply menu shows whenever menus exist.
+
+**Evidence:** live verification (`test-report-iter42.md` + recording): partial-week copy skips occupied Mon dinner while copying free Tue lunch; fill adds exactly the 5 empty dinners and hides at 7/7; menu apply refills only cleared days, skips a conflicting slot, and a second click is a no-op; empty-week behavior, print, share, menu save/delete regressions pass; 375/375; Console/Issues clean; fixtures cleaned. Notes: copy onto a fully-empty week proven via the same free-slot path (not standalone); fill-week’s 7/7 server no-op proven by button disappearance only.

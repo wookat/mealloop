@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -301,13 +301,13 @@ ${recipes.results.length === 0 ? `
     <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700">Add week's ingredients to grocery list</button>
   </form>
   <a href="/app/share" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>
-  ${entries.results.length === 0 ? `<form method="post" action="/app/plan/copy-week" class="inline">
+  <form method="post" action="/app/plan/copy-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
-  </form>` : ''}
-  ${entries.results.length === 0 && recipes.results.length > 0 ? `<form method="post" action="/app/plan/fill-week" class="inline">
+  </form>
+  ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
-    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
   </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
@@ -316,7 +316,7 @@ ${recipes.results.length === 0 ? `
     <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-100">Save menu</button>
   </form>` : ''}
-  ${menus.results.length && entries.results.length === 0 ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
+  ${menus.results.length ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
     <select name="menu_id" aria-label="Menu" class="rounded-lg border border-stone-300 px-2 py-1.5">
       ${menus.results.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
@@ -434,12 +434,19 @@ app.post('/app/plan/copy-week', async (c) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
   const days = weekDates(week);
   const prevDays = weekDates(shiftDays(week, -7));
-  const prev = await c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
-    .bind(h.id, prevDays[0], prevDays[6]).all();
-  const stmts = prev.results.map((e) =>
-    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note, e.scale)
-  );
+  const [prev, current] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, prevDays[0], prevDays[6]).all(),
+    c.env.DB.prepare('SELECT date, meal FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, days[0], days[6]).all(),
+  ]);
+  const occupied = new Set(current.results.map((e) => `${e.date}|${e.meal}`));
+  const stmts = prev.results
+    .filter((e) => !occupied.has(`${days[prevDays.indexOf(e.date)]}|${e.meal}`))
+    .map((e) =>
+      c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note, e.scale)
+    );
   if (stmts.length) {
     await c.env.DB.batch(stmts);
     await bumpVersion(c.env, h.id);
@@ -451,9 +458,11 @@ app.post('/app/plan/fill-week', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const days = weekDates(String(f.week || ''));
-  const existing = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
-    .bind(h.id, days[0], days[6]).first();
-  if (existing.n > 0) return c.redirect(`/app?week=${days[0]}`);
+  const existing = await c.env.DB.prepare("SELECT DISTINCT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?")
+    .bind(h.id, days[0], days[6]).all();
+  const planned = new Set(existing.results.map((r) => r.date));
+  const empty = days.filter((d) => !planned.has(d));
+  if (empty.length === 0) return c.redirect(`/app?week=${days[0]}`);
   const [recipes, recent] = await Promise.all([
     c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
     c.env.DB.prepare('SELECT DISTINCT recipe_id FROM plan_entries WHERE household_id = ? AND recipe_id IS NOT NULL AND date BETWEEN ? AND ?')
@@ -466,7 +475,7 @@ app.post('/app/plan/fill-week', async (c) => {
   const pool = fresh.length >= 4 ? fresh : recipes.results;
   const bytes = crypto.getRandomValues(new Uint32Array(pool.length));
   const shuffled = pool.map((r, i) => [bytes[i], r]).sort((a, b) => a[0] - b[0]).map(([, r]) => r);
-  const stmts = days.map((d, i) =>
+  const stmts = empty.map((d, i) =>
     c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(uid(), h.id, d, 'dinner', shuffled[i % shuffled.length].id, '', 1)
   );
@@ -503,9 +512,14 @@ app.post('/app/menus/apply', async (c) => {
   const menu = await c.env.DB.prepare('SELECT id FROM menus WHERE id = ? AND household_id = ?').bind(String(f.menu_id || ''), h.id).first();
   if (!menu) return c.redirect(`/app?week=${week}`);
   const days = weekDates(week);
-  const entries = await c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
+  const [entries, current] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all(),
+    c.env.DB.prepare('SELECT date, meal FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, days[0], days[6]).all(),
+  ]);
+  const occupied = new Set(current.results.map((e) => `${e.date}|${e.meal}`));
   const stmts = entries.results
-    .filter((e) => e.dow >= 0 && e.dow <= 6)
+    .filter((e) => e.dow >= 0 && e.dow <= 6 && !occupied.has(`${days[e.dow]}|${e.meal}`))
     .map((e) => c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(uid(), h.id, days[e.dow], e.meal, e.recipe_id, e.note, e.scale));
   if (stmts.length) {
@@ -544,7 +558,7 @@ app.post('/app/plan/to-list', async (c) => {
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      if (!label) continue;
+      if (!label || isIngredientHeading(label)) continue;
       const scaled = scaleIngredient(label, row.scale);
       labels.push(scaled);
       const key = ingredientKey(scaled);
@@ -808,7 +822,7 @@ app.post('/app/recipes/:id/to-list', async (c) => {
   const id = c.req.param('id');
   const r = await c.env.DB.prepare('SELECT title, ingredients_json FROM recipes WHERE id = ? AND household_id = ?').bind(id, h.id).first();
   if (!r) return c.notFound();
-  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter(Boolean));
+  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter((i) => i && !isIngredientHeading(i)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const it of existing.results) if (!byKey.has(ingredientKey(it.label))) byKey.set(ingredientKey(it.label), it);
@@ -853,7 +867,7 @@ function recipeBody(r, canEdit, units = '') {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
-${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="rounded-2xl w-full max-h-80 object-cover mb-4">` : ''}
+${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="rounded-2xl w-full max-h-80 object-cover mb-4 print:hidden">` : ''}
 <h1 class="text-3xl font-bold">${esc(r.title)}</h1>
 <p class="text-sm text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes} min`, r.cook_minutes && `Cook ${r.cook_minutes} min`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
 ${r.description ? `<p class="mt-3 text-stone-600">${esc(r.description)}</p>` : ''}
@@ -861,26 +875,29 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
+    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <div class="flex items-center justify-between mb-2">
       <h2 class="font-semibold text-lg">Steps</h2>
-      ${steps.length ? `<button type="button" data-cook-mode class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Cook mode</button>` : ''}
+      <span class="flex gap-1.5 print:hidden">
+        <button type="button" data-print class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Print</button>
+        ${steps.length ? `<button type="button" data-cook-mode class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Cook mode</button>` : ''}
+      </span>
     </div>
     <ol class="steps-list space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
   </section>
 </div>
-${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
+${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3 print:hidden">
   <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
   ${ingredients.length ? `<form method="post" action="/app/recipes/${r.id}/to-list"><button class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Add ingredients to list</button></form>` : ''}
 </div>
-<form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
+<form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md print:hidden">
   <input name="tags" aria-label="Tags" autocomplete="off" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
   <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Save tags</button>
 </form>` : ''}
-${canEdit ? `<div class="mt-4 flex items-center gap-4">
+${canEdit ? `<div class="mt-4 flex items-center gap-4 print:hidden">
   <a href="/app/recipes/${r.id}/edit" class="text-sm text-emerald-700 hover:underline">Edit recipe</a>
   <form method="post" action="/app/recipes/${r.id}/delete" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>
 </div>` : ''}
@@ -904,7 +921,7 @@ app.get('/app/list', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter });
+  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1' });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -1025,6 +1042,24 @@ app.post('/app/list/note', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/aisles', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const cat = String(f.category || '');
+  const dir = String(f.dir) === 'up' ? -1 : 1;
+  const used = await c.env.DB.prepare('SELECT DISTINCT category FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const order = sortCategories([...new Set([...STANDARD_CATEGORIES, ...used.results.map((r) => r.category)])], h.category_order);
+  const i = order.indexOf(cat);
+  const j = i + dir;
+  if (i !== -1 && j >= 0 && j < order.length) {
+    [order[i], order[j]] = [order[j], order[i]];
+    await c.env.DB.prepare('UPDATE households SET category_order = ? WHERE id = ?').bind(JSON.stringify(order), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
 app.post('/app/list/clear', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ? AND checked = 1').bind(h.id).run();
@@ -1034,12 +1069,13 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '' }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false }) {
   const cats = [...new Set(items.map((i) => i.category))];
-  const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
-  const qs = (store) => {
+  const allCats = sortCategories([...new Set([...STANDARD_CATEGORIES, ...cats])], h.category_order);
+  const qs = (store, aisles) => {
     const p = new URLSearchParams(extraQuery);
     if (store) p.set('store', store);
+    if (aisles) p.set('aisles', '1');
     const s = p.toString();
     return s ? `?${s}` : '';
   };
@@ -1095,7 +1131,20 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
-    ${editable ? `<form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
+    ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
+      <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
+      <div class="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+        <p class="px-1 pb-1 text-xs text-stone-500">Match the order you walk your store.</p>
+        ${allCats.map((cat, idx) => `<div class="flex items-center justify-between gap-2 px-1 py-0.5 text-sm">
+          <span class="truncate">${esc(cat)}</span>
+          <span class="flex gap-1">
+            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} up"${idx === 0 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↑</button></form>
+            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} down"${idx === allCats.length - 1 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↓</button></form>
+          </span>
+        </div>`).join('')}
+      </div>
+    </details>
+    <form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
     <form method="post" action="/app/settings/units" class="flex items-center gap-1">
       <input type="hidden" name="back" value="/app/list">
       <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
@@ -1130,7 +1179,7 @@ ${canAdd ? `
 </form>` : ''}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${items.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
-${[...new Set(open.map((i) => i.category))].map((cat) => `
+${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat) => `
   <section>
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
@@ -1305,7 +1354,7 @@ app.get('/s/:token/r/:id', async (c) => {
   if (!h) return c.notFound();
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
+  const body = `<p class="mb-4 text-sm print:hidden"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
   return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
 });
 

@@ -49,6 +49,24 @@ export function categorize(label) {
 
 export const STANDARD_CATEGORIES = [...CATEGORY_RULES.map(([cat]) => cat), 'Other'];
 
+// Store-walk default: produce first, long-life aisles later, Other last.
+export const DEFAULT_CATEGORY_ORDER = ['Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Bakery & Grains', 'Canned & Sauces', 'Spices & Baking', 'Oils & Condiments', 'Other'];
+
+// Orders grocery categories by the household's saved aisle order (JSON array),
+// then the store-walk default, then alphabetically for unknown customs.
+export function sortCategories(cats, orderJson) {
+  let saved = [];
+  try { saved = JSON.parse(orderJson || '[]'); } catch { /* ignore bad data */ }
+  if (!Array.isArray(saved)) saved = [];
+  const rank = (cat) => {
+    const s = saved.indexOf(cat);
+    if (s !== -1) return s;
+    const d = DEFAULT_CATEGORY_ORDER.indexOf(cat);
+    return saved.length + (d !== -1 ? d : DEFAULT_CATEGORY_ORDER.length);
+  };
+  return [...cats].sort((a, b) => rank(a) - rank(b) || String(a).localeCompare(String(b)));
+}
+
 const UNITS = 'g|kg|ml|l|oz|lb|lbs|tbsp|tsp|cup|cups|clove|cloves|can|cans|pack|packs|sprig|sprigs|slice|slices|bunch|bunches|handful';
 const VULGAR = { '½': 0.5, '¼': 0.25, '¾': 0.75, '⅓': 1 / 3, '⅔': 2 / 3 };
 const TIGHT_UNITS = new Set(['g', 'ml', 'oz']);
@@ -158,6 +176,12 @@ export function convertUnits(label, system) {
     }
   }
   return String(label);
+}
+
+// Section headers inside ingredient lists, e.g. "For the sauce:".
+export function isIngredientHeading(label) {
+  const s = String(label || '').trim();
+  return s.endsWith(':') && s.length <= 60 && !/\d/.test(s);
 }
 
 // Normalized dedupe key ("2 red onions" and "1 red onion" share one key).
