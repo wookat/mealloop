@@ -129,3 +129,13 @@ test('parseRecipeText splits pasted recipe text', async () => {
   const h = parseRecipeText('Cake\nWhat you\u2019ll need:\nflour\nInstructions:\nbake');
   assert.deepEqual([h.title, h.ingredients, h.steps], ['Cake', ['flour'], ['bake']]);
 });
+
+test('isIngredientHeading detects section headers only', async () => {
+  const { isIngredientHeading } = await import('../src/util.js');
+  assert.equal(isIngredientHeading('For the sauce:'), true);
+  assert.equal(isIngredientHeading('  Topping:  '), true);
+  assert.equal(isIngredientHeading('2 cloves garlic'), false);
+  assert.equal(isIngredientHeading('1 tbsp soy sauce:'), false); // contains digits
+  assert.equal(isIngredientHeading('plain flour'), false);
+  assert.equal(isIngredientHeading(''), false);
+});

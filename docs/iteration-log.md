@@ -428,3 +428,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `public/app.js`: any open `details.relative` popover closes on an outside click, and on Escape (which also refocuses its summary). Non-floating details blocks (planner "+ add", recipes paste/manual) are intentionally unaffected.
 
 **Evidence:** live verification (`test-report-iter37.md` + recording): inside clicks keep the popover open and typable; outside click and Escape close both popovers (Escape refocus proven via `document.activeElement`); popover saves still persist; non-floating details stay open on outside clicks; Console/Issues clean; fixtures cleaned.
+
+## Round 38 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor patrol (Plan to Eat release notes): they added ingredient header rows; our sectioned recipes ("For the sauce:") rendered headers as bulleted ingredients and pushed them onto the grocery list. Also noted (out of v1 scope): PTE Instagram-reel AI import + nutrition, Samsung Food free calorie tracking — both AI/health directions we deliberately skip.
+
+**Fixes shipped:**
+- New `isIngredientHeading` (trimmed line ends ':', ≤60 chars, no digits): renders as a bold sub-heading (colon stripped, no bullet, no unit conversion) on app + share recipe pages; skipped by recipe→list and plan→list adds. Paste-import passes header lines through, so sectioned pastes now show sections. Unit tests 13→14.
+
+**Evidence:** live verification (`test-report-iter38.md` + recording): sectioned paste fixture rendered headers correctly on app + incognito share pages; recipe→list added only the 2 real items with attribution; weekly add idempotent with no headers; imperial toggle converted normal lines (100g→3.53 oz) while headers stayed untouched; Console/Issues clean; 375/375; fixtures cleaned. Note: the digit-containing negative case is unit-test/source-verified only.

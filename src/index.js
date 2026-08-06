@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -544,7 +544,7 @@ app.post('/app/plan/to-list', async (c) => {
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      if (!label) continue;
+      if (!label || isIngredientHeading(label)) continue;
       const scaled = scaleIngredient(label, row.scale);
       labels.push(scaled);
       const key = ingredientKey(scaled);
@@ -808,7 +808,7 @@ app.post('/app/recipes/:id/to-list', async (c) => {
   const id = c.req.param('id');
   const r = await c.env.DB.prepare('SELECT title, ingredients_json FROM recipes WHERE id = ? AND household_id = ?').bind(id, h.id).first();
   if (!r) return c.notFound();
-  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter(Boolean));
+  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter((i) => i && !isIngredientHeading(i)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const it of existing.results) if (!byKey.has(ingredientKey(it.label))) byKey.set(ingredientKey(it.label), it);
@@ -861,7 +861,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
+    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => isIngredientHeading(i) ? `<li class="pt-2 font-semibold">${esc(String(i).trim().replace(/:$/, ''))}</li>` : `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <div class="flex items-center justify-between mb-2">

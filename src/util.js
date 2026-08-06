@@ -160,6 +160,12 @@ export function convertUnits(label, system) {
   return String(label);
 }
 
+// Section headers inside ingredient lists, e.g. "For the sauce:".
+export function isIngredientHeading(label) {
+  const s = String(label || '').trim();
+  return s.endsWith(':') && s.length <= 60 && !/\d/.test(s);
+}
+
 // Normalized dedupe key ("2 red onions" and "1 red onion" share one key).
 export function ingredientKey(label) {
   const parsed = parseIngredient(label);
