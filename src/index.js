@@ -278,10 +278,11 @@ app.get('/app', async (c) => {
   const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const body = `
-${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
+${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
-  <div class="flex items-center gap-2 text-sm">
+  <div class="flex items-center gap-2 text-sm print:hidden">
+    <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
     <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
@@ -289,12 +290,12 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   </div>
 </div>
 ${recipes.results.length === 0 ? `
-<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden">
   <h2 class="font-semibold text-emerald-900">Start with one recipe</h2>
   <p class="mt-1 text-sm text-emerald-800">Import a recipe by pasting its URL — then you can drop it into any day below and its ingredients flow into your grocery list.</p>
   <a href="/app/recipes" class="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add your first recipe</a>
 </div>` : ''}
-<div class="mb-4 flex flex-wrap gap-2">
+<div class="mb-4 flex flex-wrap gap-2 print:hidden">
   <form method="post" action="/app/plan/to-list" class="inline">
     <input type="hidden" name="from" value="${days[0]}"><input type="hidden" name="to" value="${days[6]}">
     <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700">Add week's ingredients to grocery list</button>
@@ -309,7 +310,7 @@ ${recipes.results.length === 0 ? `
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
   </form>` : ''}
 </div>
-<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
     <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
@@ -330,7 +331,7 @@ ${recipes.results.length === 0 ? `
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-stone-100">Delete menu</button>
   </form>` : ''}
 </div>
-<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+<div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
   <div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3">
     <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
@@ -353,7 +354,7 @@ ${days.map((d) => `
               <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
             </span>
           </div>`).join('')}
-        <details class="mt-1">
+        <details class="mt-1 print:hidden">
           <summary class="text-xs text-stone-500 cursor-pointer hover:text-emerald-700">+ add</summary>
           <form method="post" action="/app/plan" class="mt-1 space-y-1">
             <input type="hidden" name="date" value="${d}"><input type="hidden" name="meal" value="${meal}"><input type="hidden" name="week" value="${days[0]}">
@@ -739,6 +740,80 @@ function normalizeTag(s) {
   return s.toLowerCase().trim().replace(/[^a-z0-9 -]/g, '').replace(/\s+/g, '-').slice(0, 30);
 }
 
+app.get('/app/recipes/:id/edit', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
+  if (!r) return c.notFound();
+  const ingredients = JSON.parse(r.ingredients_json || '[]');
+  const steps = JSON.parse(r.steps_json || '[]');
+  const body = `<div class="max-w-2xl mx-auto">
+<h1 class="text-2xl font-bold">Edit recipe</h1>
+<form method="post" action="/app/recipes/${r.id}/edit" class="mt-5 space-y-4">
+  <label class="block"><span class="text-sm font-medium">Title</span>
+    <input name="title" required maxlength="200" value="${esc(r.title)}" autocomplete="off" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2"></label>
+  <label class="block"><span class="text-sm font-medium">Ingredients <span class="font-normal text-stone-500">(one per line)</span></span>
+    <textarea name="ingredients" rows="${Math.min(Math.max(ingredients.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(ingredients.join('\n'))}</textarea></label>
+  <label class="block"><span class="text-sm font-medium">Steps <span class="font-normal text-stone-500">(one per line)</span></span>
+    <textarea name="steps" rows="${Math.min(Math.max(steps.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(steps.join('\n'))}</textarea></label>
+  <div class="flex items-center gap-3">
+    <button class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Save changes</button>
+    <a href="/app/recipes/${r.id}" class="text-sm text-stone-500 hover:underline">Cancel</a>
+  </div>
+</form>
+</div>`;
+  return c.html(page({ title: `Edit · ${r.title}`, body, user, path: `/app/recipes/${r.id}/edit`, noindex: true }));
+});
+
+app.post('/app/recipes/:id/edit', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  const f = await c.req.parseBody();
+  const title = String(f.title || '').trim().slice(0, 200);
+  if (!title) return c.redirect(`/app/recipes/${id}/edit`);
+  const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
+  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ? WHERE id = ? AND household_id = ?')
+    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), id, h.id).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/recipes/${id}`);
+});
+
+app.post('/app/recipes/:id/to-list', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  const r = await c.env.DB.prepare('SELECT title, ingredients_json FROM recipes WHERE id = ? AND household_id = ?').bind(id, h.id).first();
+  if (!r) return c.notFound();
+  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter(Boolean));
+  const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const byKey = new Map();
+  for (const it of existing.results) if (!byKey.has(ingredientKey(it.label))) byKey.set(ingredientKey(it.label), it);
+  const stmts = [];
+  let added = 0;
+  const seen = new Set();
+  for (const label of merged) {
+    const key = ingredientKey(label);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hit = byKey.get(key);
+    if (hit) {
+      if (!hit.checked) {
+        const sources = [...new Set([...(hit.sources || '').split(', ').filter(Boolean), r.title])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
+        if (sources !== (hit.sources || '')) stmts.push(c.env.DB.prepare('UPDATE shopping_items SET sources = ? WHERE id = ?').bind(sources, hit.id));
+      }
+      continue;
+    }
+    added++;
+    stmts.push(
+      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label), r.title.slice(0, 200))
+    );
+  }
+  if (stmts.length) await c.env.DB.batch(stmts);
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/list?added=${added}&src=recipe`);
+});
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -775,12 +850,16 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
   <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
+  ${ingredients.length ? `<form method="post" action="/app/recipes/${r.id}/to-list"><button class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Add ingredients to list</button></form>` : ''}
 </div>
 <form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
-  <input name="tags" aria-label="Tags" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
+  <input name="tags" aria-label="Tags" autocomplete="off" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
   <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Save tags</button>
 </form>` : ''}
-${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-4" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>` : ''}
+${canEdit ? `<div class="mt-4 flex items-center gap-4">
+  <a href="/app/recipes/${r.id}/edit" class="text-sm text-emerald-700 hover:underline">Edit recipe</a>
+  <form method="post" action="/app/recipes/${r.id}/delete" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>
+</div>` : ''}
 </article>`;
 }
 
@@ -794,9 +873,10 @@ app.get('/app/list', async (c) => {
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
+  const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : "this week's plan";
   const notice = added === undefined ? '' : Number(added) > 0
-    ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from this week's plan.`
-    : "Everything from this week's plan is already on the list.";
+    ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from ${srcLabel}.`
+    : `Everything from ${srcLabel} is already on the list.`;
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
@@ -813,7 +893,8 @@ app.post('/app/list/add', async (c) => {
       .bind(uid(), h.id, label, categorize(label)).run();
     await bumpVersion(c.env, h.id);
   }
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/list/toggle', async (c) => {
@@ -822,7 +903,8 @@ app.post('/app/list/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 1 - checked WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   if (c.req.header('X-Requested-With') === 'fetch') return c.json({ ok: true });
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/settings/units', async (c) => {
@@ -894,7 +976,8 @@ app.post('/app/list/note', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET note = ? WHERE id = ? AND household_id = ?')
     .bind(note, String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
-  return c.redirect('/app/list');
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
 app.post('/app/list/clear', async (c) => {
@@ -906,9 +989,55 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '' }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '' }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
+  const qs = (store) => {
+    const p = new URLSearchParams(extraQuery);
+    if (store) p.set('store', store);
+    const s = p.toString();
+    return s ? `?${s}` : '';
+  };
+  const back = `${base}${qs(storeFilter)}`;
+  const open = items.filter((i) => !i.checked);
+  const done = items.filter((i) => i.checked);
+  const row = (i) => `
+      <li class="flex items-center${i.checked ? ' print:hidden' : ''}">
+        <form method="post" action="${base}/toggle" class="toggle-form flex-1">
+          <input type="hidden" name="id" value="${i.id}">
+          <input type="hidden" name="back" value="${back}">
+          <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
+            <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
+          </button>
+        </form>
+        ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
+          <input type="hidden" name="id" value="${i.id}">
+          <input type="hidden" name="back" value="${back}">
+          <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-20">
+            <option value=""${!i.store ? ' selected' : ''}>Any store</option>
+            ${stores.map((s) => `<option value="${esc(s)}"${s === i.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}
+            <option value="__custom">New store…</option>
+          </select>
+        </form>
+        <details class="relative print:hidden">
+          <summary aria-label="${i.note ? 'Edit note' : 'Add note'}" title="${i.note ? 'Edit note' : 'Add note'}" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
+          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 flex w-64 gap-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+            <input type="hidden" name="id" value="${i.id}">
+            <input type="hidden" name="back" value="${back}">
+            <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+            <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+          </form>
+        </details>
+        <form method="post" action="/app/list/category" class="pr-1 print:hidden">
+          <input type="hidden" name="id" value="${i.id}">
+          <input type="hidden" name="back" value="${back}">
+          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-24">
+            ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
+            <option value="__custom">New category…</option>
+          </select>
+        </form>` : ''}
+      </li>`;
   return `
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -931,8 +1060,8 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   </div>
 </div>
 ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hidden">
-  <a href="${base}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
-  ${stores.map((s) => `<a href="${base}?store=${encodeURIComponent(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
+  <a href="${base}${qs('')}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
+  ${stores.map((s) => `<a href="${base}${qs(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
   ${editable ? `<details class="relative">
     <summary class="cursor-pointer list-none px-2 py-1 rounded-full text-xs text-stone-500 hover:bg-stone-100">Edit stores…</summary>
     <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
@@ -946,53 +1075,27 @@ ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hi
 </div>` : ''}
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
+  <input type="hidden" name="back" value="${back}">
   <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>` : ''}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
-${cats.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
-${cats.map((cat) => `
-  <section class="${items.filter((i) => i.category === cat).every((i) => i.checked) ? 'print:hidden' : ''}">
+${items.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
+${[...new Set(open.map((i) => i.category))].map((cat) => `
+  <section>
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
-    ${items.filter((i) => i.category === cat).map((i) => `
-      <li class="flex items-center${i.checked ? ' print:hidden' : ''}">
-        <form method="post" action="${base}/toggle" class="toggle-form flex-1">
-          <input type="hidden" name="id" value="${i.id}">
-          <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
-            <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
-          </button>
-        </form>
-        ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
-          <input type="hidden" name="id" value="${i.id}">
-          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
-          <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-20">
-            <option value=""${!i.store ? ' selected' : ''}>Any store</option>
-            ${stores.map((s) => `<option value="${esc(s)}"${s === i.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}
-            <option value="__custom">New store…</option>
-          </select>
-        </form>
-        <details class="relative print:hidden">
-          <summary aria-label="${i.note ? 'Edit note' : 'Add note'}" title="${i.note ? 'Edit note' : 'Add note'}" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
-          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 flex w-64 gap-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-            <input type="hidden" name="id" value="${i.id}">
-            <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
-            <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
-          </form>
-        </details>
-        <form method="post" action="/app/list/category" class="pr-1 print:hidden">
-          <input type="hidden" name="id" value="${i.id}">
-          <input type="hidden" name="back" value="${base}${storeFilter ? `?store=${encodeURIComponent(storeFilter)}` : ''}">
-          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-24">
-            ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
-            <option value="__custom">New category…</option>
-          </select>
-        </form>` : ''}
-      </li>`).join('')}
+    ${open.filter((i) => i.category === cat).map(row).join('')}
     </ul>
   </section>`).join('')}
+${done.length ? `
+  <section class="print:hidden">
+    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-400 mb-1.5">Checked off (${done.length})</h2>
+    <ul class="rounded-xl bg-stone-50 border border-stone-200 divide-y divide-stone-100">
+    ${done.map(row).join('')}
+    </ul>
+  </section>` : ''}
 </div>
 `;
 }
@@ -1108,7 +1211,7 @@ app.get('/s/:token', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter });
+  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' });
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 
@@ -1128,7 +1231,8 @@ app.post('/s/:token/toggle', async (c) => {
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 1 - checked WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   if (c.req.header('X-Requested-With') === 'fetch') return c.json({ ok: true });
-  return c.redirect(`/s/${h.share_token}`);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });
 
 app.post('/s/:token/add', async (c) => {
@@ -1142,7 +1246,8 @@ app.post('/s/:token/add', async (c) => {
       .bind(uid(), h.id, label, categorize(label)).run();
     await bumpVersion(c.env, h.id);
   }
-  return c.redirect(`/s/${h.share_token}`);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });
 
 app.get('/s/:token/version', async (c) => {

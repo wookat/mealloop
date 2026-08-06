@@ -304,3 +304,53 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round fix (25b): `autocomplete="off"` on the Save-menu and day-card note inputs — every user-facing input now carries an explicit autocomplete attribute.
 
 **Evidence:** live verification (`test-report-iter25.md` incl. 25b addendum + recording): leftovers note created next day/same meal with original untouched; leftovers option absent on note entries; Sunday leftovers land on next week's Monday; normal moves regression passed; 375/375; console clean; Issues panel "No issues detected" on an entry-bearing week after 25b; fixtures cleaned (weeks 2026-12-14/21 empty).
+
+## Round 26 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA (P1, long-standing gap): imported recipes with bad source data (e.g. BBC's "2 olive oil" JSON-LD) could not be corrected — the only options were living with the error or deleting and re-typing the whole recipe manually.
+
+**Fixes shipped:**
+- Recipe editing: owner recipe detail gains an "Edit recipe" link → `GET/POST /app/recipes/:id/edit` with a pre-filled form (title input; ingredients and steps as one-per-line textareas with adaptive rows). POST trims lines, filters blanks, updates title/ingredients/steps, bumps sync version; empty title redirects back; Cancel discards.
+
+**Evidence:** live verification (`test-report-iter26.md` + recording): fixture with "2 olive oil" corrected to "2 tbsp olive oil" plus title change and appended step, all reflected on detail; Cancel discards; empty title blocked client-side and (forced) server-side; share view has zero edit/delete controls; display-unit conversion still applies to edited ingredients; 375/375; console + Issues clean; fixtures deleted.
+
+## Round 27 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA / ② UX (P2, same class as the Round 21b filter-drop): several grocery-list mutations still dropped the active context on redirect — add/note/toggle-fallback lost `?store=` on /app/list, and the share page lost both `?week=` and `?store=` on anonymous add and on store tab clicks.
+
+**Fixes shipped:**
+- `listBody` gains `extraQuery` (share page passes `week=<date>`) and computes a single validated `back` URL; hidden `back` inputs added to the add, toggle (non-JS fallback), and note forms; store tab links preserve the week param. Routes `/app/list/add|toggle|note` and `/s/:token/add|toggle` redirect only to prefix-validated back values (open-redirect safe).
+
+**Evidence:** live verification (`test-report-iter27.md` + recording): add/note on a filtered tab keep `?store=`; share tabs and anonymous add keep `week=` + `store=`; tampered back values (external URL, cross-page path) fall back to the plain page; JS toggle sync regression passed; 375/375; console + Issues clean; cleanup to zero stores.
+
+## Round 28 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P2): checked items stayed inline within their categories, cluttering long lists mid-shop; competitors (Samsung Food, AnyList pattern) group them at the bottom. ③ visual: item-note popup input lacked an explicit autocomplete attribute.
+
+**Fixes shipped:**
+- Checked items now render in one bottom "Checked off (N)" section (stone-50, print:hidden, same row markup so store/note/category controls stay functional); category sections render unchecked items only, so a fully-checked category's header disappears. Server-rendered — works on all devices. Note input gains `autocomplete="off"`.
+
+**Evidence:** live verification (`test-report-iter28.md` + recording): check/uncheck moves rows between sections on the version-poll re-render; controls work on checked rows; share page shows the same grouping; Copy list excludes checked and print hides the section; Clear checked empties it; 375/375; console + Issues clean; fixtures cleaned.
+
+## Round 29 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P1): grocery items could only flow from a planned week — cooking a single recipe ad hoc meant retyping its ingredients by hand (both Plan to Eat and Samsung Food support add-to-list from a recipe). ③ visual: tags input lacked an explicit autocomplete attribute. ⑤ data: analytics_daily shows QA-dominated traffic (615/332 PV last two days, guides single digits) — no organic conclusions drawn; competitor blog patrol skipped this round (plantoeat.com/samsungfood.com return 403 to plain fetch; not bypassed).
+
+**Fixes shipped:**
+- "Add ingredients to list" button on owner recipe detail → `POST /app/recipes/:id/to-list`: merges the recipe's ingredients, dedupes against existing items by normalized key (new keys inserted with sources=title; existing unchecked items get the title unioned into sources; checked untouched), redirects to `/app/list?added=N&src=recipe` with recipe-specific notice wording. Tags input gains `autocomplete="off"`.
+
+**Evidence:** live verification (`test-report-iter29.md` + recording): 2 of 3 ingredients added (1 deduped into an existing item's sources); second click idempotent ("Everything from that recipe is already on the list."); share recipe view has no button; weekly add wording regression passed; Issues clean; 375/375; fixtures cleaned.
+
+## Round 30 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor (patrol via public release notes/blogs): Plan to Eat is pushing AI features (nutrition matching, Instagram reel import, ingredient substitutions — out of our v1 scope), plus menu printing/duplication; Samsung Food is pushing AI/health tracking. Web-scope gap we can close cheaply: printing the week plan (fridge-copy use case). ② UX (P2): the planner had no print path — printing /app included nav, buttons, forms and a 7-col layout unfit for paper.
+
+**Fixes shipped:**
+- Printable week plan: planner "Print" button (`data-print`, reuses the existing handler); nav row, action rows, menu forms, "+ add" details, preselect banner, and onboarding card are `print:hidden`; new `@media print` CSS renders `.planner-grid` as a compact 4-column grid with `break-inside: avoid` per day card.
+
+**Evidence:** live verification (`test-report-iter30.md` + recording): print preview shows only title + 7 day cards (4-col, 1 page, entries readable) on filled and empty weeks; screen view regression (add/delete entry) passed; 375/375; console + Issues clean; fixtures cleaned. Onboarding card's print-hiding verified in source only (renders only for zero-recipe households).
