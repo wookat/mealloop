@@ -235,3 +235,12 @@ export function mergeIngredients(labels) {
   }
   return out.map(formatIngredient);
 }
+
+// iCalendar TEXT escaping (RFC 5545 §3.3.11): backslash, semicolon, comma, newline.
+export function icsEscape(s) {
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}

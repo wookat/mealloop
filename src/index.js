@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -1547,7 +1547,6 @@ app.get('/s/:token/calendar.ics', async (c) => {
     `SELECT p.id, p.date, p.meal, p.note, p.scale, r.title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date, p.meal`
   ).bind(h.id, shiftDays(today(), -7), shiftDays(today(), 28)).all();
-  const escIcs = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
   const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
   const events = rows.results.map((e) => {
     const label = e.title ? `${e.title}${e.scale && e.scale !== 1 ? ` \u00d7${e.scale}` : ''}` : (e.note || 'Meal');
@@ -1557,7 +1556,7 @@ app.get('/s/:token/calendar.ics', async (c) => {
       `UID:${e.id}@mealloop.zalize.com`,
       `DTSTAMP:${stamp}`,
       `DTSTART;VALUE=DATE:${e.date.replace(/-/g, '')}`,
-      `SUMMARY:${escIcs(`${meal}: ${label}`)}`,
+      `SUMMARY:${icsEscape(`${meal}: ${label}`)}`,
       'TRANSP:TRANSPARENT',
       'END:VEVENT',
     ].join('\r\n');
@@ -1567,7 +1566,7 @@ app.get('/s/:token/calendar.ics', async (c) => {
     'VERSION:2.0',
     'PRODID:-//MealLoop//meal plan//EN',
     'CALSCALE:GREGORIAN',
-    `X-WR-CALNAME:${escIcs(`${h.name} \u2014 meal plan`)}`,
+    `X-WR-CALNAME:${icsEscape(`${h.name} \u2014 meal plan`)}`,
     'X-PUBLISHED-TTL:PT1H',
     events,
     'END:VCALENDAR',

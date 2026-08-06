@@ -847,3 +847,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide #22 `meal-plan-in-your-family-calendar` ("Put the meal plan in the calendar your family already checks") — cross-promotes the calendar feed. Sitemap 25→26 locs; IndexNow 200.
 
 **Evidence:** live verification (`test-report-iter77.md` + recording): breadcrumb/h1/2×h2+3 bullets/session-aware CTA render; More-guides wraps to first 3; /guides 22 cards + ItemList 22 items (position 22); single @graph [Article, BreadcrumbList] + og:type=article + canonical correct; sitemap 26 locs; 375px + Console/Issues clean.
+
+## Round 78 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two R76 untested edges remained (iCal comma/semicolon escaping and the ×N SUMMARY branch); the feed's escaping was an inline lambda with no unit coverage.
+
+**Fixes shipped:**
+- Extracted `icsEscape` into src/util.js (RFC 5545 TEXT escaping) with unit tests (`test/util.test.js`, suite 20→21); calendar-feed SUMMARY and X-WR-CALNAME now use it.
+
+**Evidence:** live verification (`test-report-iter78.md` + recording): feed regression (8 VEVENTs, structure/CRLF/Content-Type unchanged); live comma fixture "QA78 pasta, salad night" → raw `SUMMARY:Dinner: QA78 pasta\, salad night`; live ×2 recipe fixture → `SUMMARY:Lunch: Test Stew ×2`; fixtures cleaned with byte-identical feed baseline; 375px + Console/Issues clean. Caveat: semicolon/backslash branches proven by unit tests only (same replace-chain code path).

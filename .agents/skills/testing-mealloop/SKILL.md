@@ -106,3 +106,4 @@ Since Round 66 /app/recipes has a Newest|A–Z sort control: ?sort=title = favor
 
 ## Devin Secrets Needed
 - CLOUDFLARE_GLOBAL_API_TOKEN (only for the KV code fallback / wrangler remote).
+- Since Round 78 the feed's escaping lives in src/util.js as exported icsEscape (used for SUMMARY and X-WR-CALNAME in src/index.js; unit-tested in test/util.test.js). Live-proven feed edges: a comma in a note renders as `\,` in raw SUMMARY bytes and a ×2-scaled recipe entry renders `Lunch: Title ×2`. Fixture convention for feed tests: the December future-week convention is OUTSIDE the today−7..today+28 feed window — pick an empty weekday ~3 weeks out instead and compare the feed's SUMMARY list byte-for-byte against a pre-fixture curl baseline after cleanup. The QA household has standing plan entries on some future weeks (e.g. Test Soup/Test Stew on 2026-08-24/25) — don't assume future weeks are empty; verify the chosen fixture day is empty first.
