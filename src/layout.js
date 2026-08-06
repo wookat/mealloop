@@ -9,12 +9,16 @@ export function page({ title, description, body, user, path = '/', noindex = fal
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} · MealLoop</title>
 <meta name="description" content="${esc(desc)}">
-${noindex ? '<meta name="robots" content="noindex">' : `<meta property="og:type" content="website">
+${noindex ? '<meta name="robots" content="noindex">' : ''}
+<meta property="og:type" content="website">
 <meta property="og:site_name" content="MealLoop">
 <meta property="og:title" content="${esc(title)} · MealLoop">
 <meta property="og:description" content="${esc(desc)}">
 <meta property="og:url" content="https://mealloop.zalize.com${esc(path)}">
-<meta name="twitter:card" content="summary">`}
+<meta property="og:image" content="https://mealloop.zalize.com/og-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://mealloop.zalize.com${esc(path)}">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">

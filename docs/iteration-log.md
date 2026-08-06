@@ -480,3 +480,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - All three planner helpers now work on partially-filled weeks, filling only free slots: copy-week and menus/apply skip occupied `date|meal` slots; fill-week (renamed “Fill empty dinners from recipe box”) fills only dinner-less days and hides at 7/7; Apply menu shows whenever menus exist.
 
 **Evidence:** live verification (`test-report-iter42.md` + recording): partial-week copy skips occupied Mon dinner while copying free Tue lunch; fill adds exactly the 5 empty dinners and hides at 7/7; menu apply refills only cleared days, skips a conflicting slot, and a second click is a no-op; empty-week behavior, print, share, menu save/delete regressions pass; 375/375; Console/Issues clean; fixtures cleaned. Notes: copy onto a fully-empty week proven via the same free-slot path (not standalone); fill-week’s 7/7 server no-op proven by button disappearance only.
+
+## Round 43 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth / ③ visual: family share links (our main viral loop) are sent via WhatsApp/iMessage but produced bare link previews — share pages (noindex) emitted no Open Graph tags at all, and no page had an og:image.
+
+**Fixes shipped:**
+- New 1200×630 social card `public/og-card.png` (headline + CTA, brand colors).
+- `src/layout.js` emits og:type/site_name/title/description/url, og:image (+width/height) and `twitter:card=summary_large_image` on every page, including noindex pages (share, /login, app) which keep `robots noindex`.
+
+**Evidence:** live verification (`test-report-iter43.md` + recording): /og-card.png 200 image/png rendering the card; homepage og tags complete with zero noindex; share page has both noindex and og tags (og:url = share path) and renders normally; /login ditto; guide page canonical/description unchanged, no duplicate tags; Console/Issues clean; read-only round, no fixtures. Note: actual WhatsApp/iMessage scraper rendering not exercised — verified the tags and asset they consume.
