@@ -155,7 +155,16 @@ function legalBody(title, inner) {
 
 // ---------- pSEO guides ----------
 app.get('/guides', (c) => {
-  const body = `<div class="py-8 max-w-2xl mx-auto">
+  const body = `<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    itemListElement: GUIDES.map((g, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: g.title,
+      url: `https://mealloop.zalize.com/guides/${g.slug}`,
+    })),
+  })}</script><div class="py-8 max-w-2xl mx-auto">
 <h1 class="text-3xl font-bold">Meal planning guides</h1>
 <p class="mt-2 text-stone-600">Practical guides for planning family meals without the chaos.</p>
 <ul class="mt-6 space-y-3">

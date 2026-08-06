@@ -662,3 +662,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - ⑤ data check: guide pages are starting to register views (batch-cooking 9, leftovers 8 since 8/1) — still QA-dominated overall.
 
 **Evidence:** live smoke regression (`test-report-iter59.md` + recording): swap + reload persistence, boundary no-op, Console/Issues clean, fixtures cleaned.
+
+## Round 60 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth/③ visual: structured-data coverage was complete on guide pages (R55) but the /guides hub itself had none — an ItemList completes the picture for search engines crawling the guide cluster.
+
+**Fixes shipped:**
+- /guides listing emits a single ItemList JSON-LD script: 18 ListItems, position 1..18, name = guide title, absolute url per guide.
+
+**Evidence:** live verification (`test-report-iter60.md` + recording): exactly 1 ld+json script on /guides, parses as ItemList with positions 1..18 and names character-identical to the visible card order; listing visual regression clean (no breadcrumbs, 18 cards); strict CSP — Console/Issues clean; 375px clean; read-only round.
