@@ -339,9 +339,18 @@ ${days.map((d) => `
       return `<div class="mt-2">
         <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
-          <div class="mt-1 flex items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
-            <span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
-            <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
+          <div class="mt-1 flex flex-wrap items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
+            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
+            <span class="flex shrink-0 items-center gap-1 print:hidden">
+              <form method="post" action="/app/plan/move">
+                <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
+                <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 max-w-16 px-0 py-0.5">
+                  <option value="" selected>Move…</option>
+                  ${days.filter((d2) => d2 !== d).map((d2) => `<option value="${d2}">${dayLabel(d2).split(',')[0]}</option>`).join('')}
+                </select>
+              </form>
+              <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
+            </span>
           </div>`).join('')}
         <details class="mt-1">
           <summary class="text-xs text-stone-500 cursor-pointer hover:text-emerald-700">+ add</summary>
@@ -392,6 +401,18 @@ app.post('/app/plan/delete', async (c) => {
   const f = await c.req.parseBody();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/move', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const date = String(f.date || '');
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    await c.env.DB.prepare('UPDATE plan_entries SET date = ? WHERE id = ? AND household_id = ?')
+      .bind(date, String(f.id || ''), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
   return c.redirect(`/app?week=${f.week || ''}`);
 });
 

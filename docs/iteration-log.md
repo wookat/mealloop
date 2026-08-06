@@ -270,3 +270,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round fix: popup anchored `right-0` instead of `left-0` (375/375 restored with the popup open).
 
 **Evidence:** live verification (`test-report-iter22.md` incl. 22b addendum + recording): cancel path preserved the store; removing Costco removed its tab, kept the assigned item, and reset its select to "Any store"; removing the last store (Aldi) hid the tab row; share page shows no edit UI; 22b re-verified 375/375 with popup open (was 425/375); console clean; production restored to zero stores.
+
+## Round 23 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P1): rescheduling a planned meal required delete + re-add (re-picking recipe and scale). Plan to Eat solves this with drag-and-drop; MealLoop had no reschedule path at all.
+- ① QA (found during this round's testing, fixed same round, 2 passes): (23b) the new controls made the ✕ overflow the day card on wide desktop — clicks landed on the adjacent card (elementFromPoint proof); (23c) the 23b fix squeezed labels to one char per line in xl 7-col cards.
+
+**Fixes shipped:**
+- Move planned entries: each planner entry row gets a compact "Move…" select (other 6 days of the visible week, autosubmit) → `POST /app/plan/move` updates the entry's date (scale/meal preserved), bumps sync version, redirect keeps `?week=`.
+- Same-round layout fixes: entry row `flex flex-wrap`, label `min-w-[4rem] break-words`, controls `shrink-0` — controls wrap to a second line on narrow cards; ✕ verified clickable at all widths.
+
+**Evidence:** live verification (`test-report-iter23.md` incl. 23b/23c addenda + recording): recipe (scale ×2 preserved) and note entries moved across days on a non-current week with `?week=` preserved; ✕ elementFromPoint returns the button at 1600px 7-col; labels horizontal; 375/375; console clean; fixtures cleaned (week 2026-12-14 empty).
