@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -614,7 +614,7 @@ ${menus.results.length === 0 ? `<p class="text-stone-500 text-sm">No saved menus
   }
   return `<section class="rounded-xl bg-white border border-stone-200 p-4 mb-4">
   <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <h2 class="text-lg font-bold">${esc(m.name)}</h2>
+    <h2 class="text-lg font-bold break-words min-w-0 max-w-full">${esc(m.name)}</h2>
     <span class="flex items-center gap-2 print:hidden">
       <form method="post" action="/app/menus/rename" class="flex gap-1.5">
         <input type="hidden" name="menu_id" value="${m.id}">
@@ -651,7 +651,7 @@ app.post('/app/menus/duplicate', async (c) => {
   if (menu) {
     const entries = await c.env.DB.prepare('SELECT dow, meal, recipe_id, note, scale FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
     const copyId = uid();
-    const name = `Copy of ${menu.name}`.slice(0, 60);
+    const name = copyName(menu.name);
     const stmts = [c.env.DB.prepare('INSERT INTO menus (id, household_id, name) VALUES (?, ?, ?)').bind(copyId, h.id, name)];
     for (const e of entries.results) {
       stmts.push(c.env.DB.prepare('INSERT INTO menu_entries (id, menu_id, dow, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')

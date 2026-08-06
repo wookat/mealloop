@@ -244,3 +244,8 @@ export function icsEscape(s) {
     .replace(/,/g, '\\,')
     .replace(/\r?\n/g, '\\n');
 }
+
+// Name for a duplicated menu, kept within the 60-char menu name limit.
+export function copyName(name) {
+  return `Copy of ${name}`.slice(0, 60);
+}

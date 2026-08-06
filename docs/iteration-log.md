@@ -867,3 +867,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Swipe week navigation (public/app.js): pages with `a[data-swipe-prev]`/`a[data-swipe-next]` (planner + share page) navigate on a horizontal touch swipe (≥70px, vertical < half horizontal to protect scrolling; swipes starting on form controls/links ignored).
 
 **Evidence:** live verification (`test-report-iter79.md` + recording): click nav regression; device-emulated swipes left/right navigate ?week=±7 on /app and /s; vertical-scroll, short-swipe and form-control guards all hold; desktop mouse drag unaffected; 375px + Console/Issues clean. Caveat: proven via Chrome touch emulation, not a physical device.
+
+## Round 80 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R75's two untested edges were still open (menu-duplicate 60-char name truncation, cross-household adversarial menu_id guard); testing surfaced a new 375px overflow with unbroken long menu names on /app/menus.
+
+**Fixes shipped:**
+- Extracted `copyName` into src/util.js with unit tests (suite 21→22); `/app/menus/duplicate` uses it.
+- 80b: `/app/menus` card h2 gained `break-words min-w-0 max-w-full`, fixing the 375px horizontal overflow with space-free long names.
+
+**Evidence:** live verification (`test-report-iter80.md` + recording): 60-X menu duplicated to a name of exactly 60 chars ("Copy of " + 52 X's); adversarial duplicate POST from a disposable second household with the QA household's menu_id = silent no-op (both households' menu counts unchanged); disposable account GDPR-deleted; 80b re-check: 60-char unbroken name wraps at 375px (scrollWidth 375, was 753); Console/Issues clean; all fixtures cleaned, standing data intact.

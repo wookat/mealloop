@@ -12,3 +12,14 @@ test('icsEscape escapes RFC 5545 TEXT special characters', () => {
   assert.equal(icsEscape(null), '');
   assert.equal(icsEscape('plain text'), 'plain text');
 });
+
+import { copyName } from '../src/util.js';
+
+test('copyName prefixes and truncates to 60 chars', () => {
+  assert.equal(copyName('Busy week'), 'Copy of Busy week');
+  const long = 'X'.repeat(60);
+  const out = copyName(long);
+  assert.equal(out.length, 60);
+  assert.ok(out.startsWith('Copy of X'));
+  assert.equal(copyName(''), 'Copy of ');
+});
