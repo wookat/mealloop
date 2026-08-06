@@ -703,3 +703,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide `meal-planning-on-a-budget` (“cut the grocery bill without coupons”): top-up trips/duplicates/waste as the real leaks; one merged list + staples + cheap-dinner rotation. Sitemap 22→23, IndexNow 200. /guides ItemList now 19 items.
 
 **Evidence:** live verification (`test-report-iter63.md` + recording): guide renders with breadcrumb + JSON-LD (14/14 field checks); listed last of 19 on /guides with exact title/excerpt; ItemList 19 items, position 19 = new guide; More guides wraps to first 3; 375px clean; Console/Issues clean; read-only round.
+
+## Round 64 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data / ③ visual: /s is the top path in first-party analytics (520 views since 8/1) yet the share page's week grid had none of R61's orientation cues — family members opening the link mid-week saw 7 identical cards.
+
+**Fixes shipped:**
+- Share-page day cards mirror R61: today (UTC) gets emerald border + ring + emerald heading; past days get `opacity-60 print:opacity-100` (entries inherit dimming). No anchor link — the share grid is compact by design.
+
+**Evidence:** live verification (`test-report-iter64.md` + recording): current week past/today/future rendering; next week shows zero ring/dim, fully past week shows all 7 dimmed, “This week” restores; print preview full contrast; 375px + Console/Issues clean; read-only round.

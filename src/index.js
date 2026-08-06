@@ -1457,8 +1457,8 @@ app.get('/s/:token', async (c) => {
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);
-    return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500' : 'border-stone-200'} p-3">
-      <h3 class="text-sm font-semibold">${dayLabel(d)}</h3>
+    return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
+      <h3 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h3>
       ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}
