@@ -203,7 +203,7 @@ ${g.body}
 <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
 ${relatedGuides(g)}
 </article>`;
-  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}` }));
+  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}`, ogType: 'article' }));
 });
 
 function relatedGuides(g) {

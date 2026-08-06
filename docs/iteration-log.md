@@ -733,3 +733,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Newest | A–Z sort control on /app/recipes: `?sort=title` → `favorite DESC, title COLLATE NOCASE ASC` (favourites stay pinned); active sort is a non-link pill (aria-current), inactive link preserves q/tag/fav; search form carries a hidden sort input in A–Z mode; unknown ?sort falls back to newest. Applies to all four query variants.
 
 **Evidence:** live verification (`test-report-iter66.md` + recording): default order unchanged; A–Z alphabetical with favourites pinned; sort persists through search and tag filter with params preserved; ?sort=bogus falls back cleanly; 375px wrap + Console/Issues clean. Not separately proven: COLLATE NOCASE with mixed-case titles (all QA titles are Title-case).
+
+## Round 67 — 2026-08-06
+
+**Findings (by driver):**
+- ③/④ SEO/social: every page emitted `og:type=website`, including the 19 guide articles — social scrapers and rich-result consumers treat guides as generic pages despite their Article JSON-LD (R55).
+
+**Fixes shipped:**
+- `page()` accepts an `ogType` param (default `website`, only `article` accepted); guide detail route passes `ogType: 'article'`. All other routes unchanged.
+
+**Evidence:** live verification (`test-report-iter67.md`, cache-busted curl + browser): guide pages emit `og:type=article` with full OG set otherwise unchanged (og:description character-identical to the guide excerpt); /guides, /, /privacy, /login remain `website`; Console/Issues clean. Meta-only round — no recording. Note: production initially served stale `website` for ~minutes post-deploy (CDN propagation), resolved on its own.
