@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -34,6 +34,15 @@ app.use('*', async (c, next) => {
 });
 
 // ---------- marketing ----------
+const LANDING_FAQ = [
+  ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
+  ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
+  ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, you can add the recipe manually in seconds.'],
+  ['Does the grocery list update for everyone in real time?', 'Yes. Checking an item on your phone shows up for everyone else viewing the list within a few seconds \u2014 handy when two people split the store.'],
+  ['Can I switch between metric and imperial units?', 'Yes. One switch converts the whole grocery list and every recipe between grams/millilitres and ounces, pounds and fluid ounces \u2014 originals are kept, so you can switch back anytime.'],
+  ['What about my privacy?', 'MealLoop is cookie-free until you log in, uses no third-party trackers or ads, and only collects aggregate page counts. Your recipes and plans stay yours.'],
+];
+
 app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
@@ -65,7 +74,27 @@ app.get('/', async (c) => {
     <button class="rounded-lg bg-white text-emerald-700 font-semibold px-5 py-2.5 hover:bg-emerald-50">Notify me</button>
   </form>
   <p class="text-emerald-100 text-xs mt-2">Product updates only — unsubscribe any time. See our <a class="underline" href="/privacy">privacy policy</a>.</p>
-</section>`;
+</section>
+<section class="py-8 max-w-2xl mx-auto">
+  <h2 class="text-2xl font-bold text-center">Frequently asked questions</h2>
+  <div class="mt-6 space-y-3">
+    ${LANDING_FAQ.map(([q, a]) => `
+    <details class="rounded-xl bg-white border border-stone-200 p-4">
+      <summary class="font-semibold cursor-pointer text-stone-900">${q}</summary>
+      <p class="mt-2 text-sm text-stone-600">${a}</p>
+    </details>`).join('')}
+  </div>
+  <p class="mt-6 text-center text-sm text-stone-600">More questions? Read our <a class="text-emerald-700 underline" href="/guides">meal planning guides</a>.</p>
+</section>
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: LANDING_FAQ.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q.replace(/<[^>]+>/g, ''),
+      acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '') },
+    })),
+  })}</script>`;
   return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Free family meal planner: import recipes from any site, plan your week, share one live grocery list with a single link.', body, user, path: '/' }));
 });
 
@@ -247,7 +276,9 @@ app.get('/app', async (c) => {
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
   const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
+  const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const body = `
+${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
   <div class="flex items-center gap-2 text-sm">
@@ -272,6 +303,10 @@ ${recipes.results.length === 0 ? `
   ${entries.results.length === 0 ? `<form method="post" action="/app/plan/copy-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
+  </form>` : ''}
+  ${entries.results.length === 0 && recipes.results.length > 0 ? `<form method="post" action="/app/plan/fill-week" class="inline">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
   </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
@@ -315,7 +350,7 @@ ${days.map((d) => `
             ${recipes.results.length
               ? `<select name="recipe_id" aria-label="Recipe" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
               <option value="">— pick recipe —</option>
-              ${recipes.results.map((r) => `<option value="${r.id}">${esc(r.title)}</option>`).join('')}
+              ${recipes.results.map((r) => `<option value="${r.id}"${picked && r.id === picked.id ? ' selected' : ''}>${esc(r.title)}</option>`).join('')}
             </select>
             <select name="scale" class="w-full rounded border border-stone-300 text-sm px-1 py-1" aria-label="Servings scale">
               ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
@@ -378,6 +413,34 @@ app.post('/app/plan/copy-week', async (c) => {
     await bumpVersion(c.env, h.id);
   }
   return c.redirect(`/app?week=${week}`);
+});
+
+app.post('/app/plan/fill-week', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const days = weekDates(String(f.week || ''));
+  const existing = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, days[0], days[6]).first();
+  if (existing.n > 0) return c.redirect(`/app?week=${days[0]}`);
+  const [recipes, recent] = await Promise.all([
+    c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
+    c.env.DB.prepare('SELECT DISTINCT recipe_id FROM plan_entries WHERE household_id = ? AND recipe_id IS NOT NULL AND date BETWEEN ? AND ?')
+      .bind(h.id, shiftDays(days[0], -14), shiftDays(days[0], -1)).all(),
+  ]);
+  if (recipes.results.length === 0) return c.redirect(`/app?week=${days[0]}`);
+  const recentIds = new Set(recent.results.map((r) => r.recipe_id));
+  // Rotate: prefer recipes not planned in the previous two weeks.
+  const fresh = recipes.results.filter((r) => !recentIds.has(r.id));
+  const pool = fresh.length >= 4 ? fresh : recipes.results;
+  const bytes = crypto.getRandomValues(new Uint32Array(pool.length));
+  const shuffled = pool.map((r, i) => [bytes[i], r]).sort((a, b) => a[0] - b[0]).map(([, r]) => r);
+  const stmts = days.map((d, i) =>
+    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, d, 'dinner', shuffled[i % shuffled.length].id, '', 1)
+  );
+  await c.env.DB.batch(stmts);
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${days[0]}`);
 });
 
 app.post('/app/menus', async (c) => {
@@ -621,7 +684,7 @@ app.get('/app/recipes/:id', async (c) => {
   const h = c.get('household');
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = recipeBody(r, true);
+  const body = recipeBody(r, true, h.units);
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
@@ -656,7 +719,7 @@ app.post('/app/recipes/:id/delete', async (c) => {
   return c.redirect('/app/recipes');
 });
 
-function recipeBody(r, canEdit) {
+function recipeBody(r, canEdit, units = '') {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
@@ -668,7 +731,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 <div class="grid sm:grid-cols-2 gap-6 mt-6">
   <section>
     <h2 class="font-semibold text-lg mb-2">Ingredients</h2>
-    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(i)}</span></li>`).join('')}</ul>
+    <ul class="space-y-1.5 text-sm">${ingredients.map((i) => `<li class="flex gap-2"><span class="text-emerald-600 mt-0.5">•</span><span>${esc(convertUnits(i, units))}</span></li>`).join('')}</ul>
   </section>
   <section>
     <h2 class="font-semibold text-lg mb-2">Steps</h2>
@@ -676,7 +739,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
   </section>
 </div>
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
-  <a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
+  <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
 </div>
 <form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
@@ -725,6 +788,16 @@ app.post('/app/list/toggle', async (c) => {
   return c.redirect('/app/list');
 });
 
+app.post('/app/settings/units', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const units = ['metric', 'imperial'].includes(String(f.units)) ? String(f.units) : '';
+  await c.env.DB.prepare('UPDATE households SET units = ? WHERE id = ?').bind(units, h.id).run();
+  await bumpVersion(c.env, h.id);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app') ? back : '/app/list');
+});
+
 app.post('/app/settings/snacks', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -765,7 +838,16 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
-    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>` : ''}
+    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
+    <form method="post" action="/app/settings/units" class="flex items-center gap-1">
+      <input type="hidden" name="back" value="/app/list">
+      <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
+        <option value=""${!h.units ? ' selected' : ''}>Units: as written</option>
+        <option value="metric"${h.units === 'metric' ? ' selected' : ''}>Units: metric</option>
+        <option value="imperial"${h.units === 'imperial' ? ' selected' : ''}>Units: imperial</option>
+      </select>
+      <noscript><button class="px-2 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Set</button></noscript>
+    </form>` : ''}
   </div>
 </div>
 ${editable ? `
@@ -786,7 +868,7 @@ ${cats.map((cat) => `
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/category" class="pr-2 print:hidden">
@@ -920,7 +1002,7 @@ app.get('/s/:token/r/:id', async (c) => {
   if (!h) return c.notFound();
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false);
+  const body = `<p class="mb-4 text-sm"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
   return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
 });
 

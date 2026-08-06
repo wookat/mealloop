@@ -140,3 +140,66 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Retention bullet: "Aggregate page counts and search terms: 24 months".
 
 **Evidence:** live verification (`test-report-iter10.md` + recording): unplanning Test Onion Salad cleared "1 red onion" attribution, shared items updated to remaining recipe only, checked item preserved, re-planning restored alphabetical attribution; /privacy live; console clean, 375/375.
+
+## Round 11 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor (P2, backlog "公制/英制切换"): Plan to Eat/Samsung Food both offer a unit preference; MealLoop always showed labels as imported — a real friction for mixed-unit households.
+
+**Fixes shipped:**
+- Migration 0007: `households.units` ('' as-written / 'metric' / 'imperial'); "Units:" select in the list action row (auto-submit, no-JS fallback), `POST /app/settings/units`.
+- Display-only `convertUnits()` — imperial: g→oz (lb ≥454g), ml→fl oz; metric: oz→g, lb→g/kg; cups/tbsp/counts/unparsed labels pass through; stored labels never mutated. Applied on /app/list, recipe detail, and share pages (share follows household setting, no toggle for anonymous viewers).
+
+**Evidence:** remote migration applied; live verification (`test-report-iter11.md` + recording): 1500g→3.31 lb, 8 oz→227g, round-trip back to "as written" restores originals exactly, share page follows setting and live-syncs on change, console clean, 375/375. P3 noted: composite "2 x 400g cans" labels intentionally unconverted.
+
+## Round 12 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data (P1 growth): analytics remain internal-only (top paths /s 132, /app/list 103, /, /app/recipes; intents 0); guides — the only organic acquisition surface — get single-digit views. More indexable content is the highest-leverage lever.
+
+**Fixes shipped:**
+- Two new pSEO guides (total 10): `metric-imperial-recipe-conversion` (rides the Round 11 feature) and `shared-grocery-list-without-an-app` (core differentiator query); auto-included in /guides + sitemap (now 14 URLs).
+- IndexNow submitted for both guides + /guides + sitemap (HTTP 200).
+
+**Evidence:** both live with HTTP 200 on production; sitemap `<loc>` count 12→14; IndexNow 200; rendering verified live (`test-report-iter13.md`).
+
+## Round 13 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (P3 from round 11 testing): composite labels ("2 x 400g cans chopped tomatoes") weren't converted by the units preference — common in imported UK recipes.
+
+**Fixes shipped:**
+- `convertUnits` converts the inner amount of composite "N x amount" labels, keeping prefix/trailing text ("2 x 400g cans …" → imperial "2 x 14.11 oz cans …"; "3 x 8 oz packs …" → metric "3 x 227g packs …"); regression tests added (12/12).
+
+**Evidence:** live verification (`test-report-iter13.md` + recording): composite conversion both ways, as-written restores originals exactly, share sync follows units changes, console clean, 375/375; test items cleaned up.
+
+## Round 14 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX (P2): "Add to your week plan" on a recipe page dropped users on the bare planner — they had to find the same recipe again in each day's dropdown (two redundant steps for the most common flow).
+
+**Fixes shipped:**
+- Recipe page now links to `/app?recipe=<id>`: the planner shows a banner ("<title> is preselected — open '+ add' on a day below and click Add") and preselects that recipe in every day/meal "+ add" select; unknown ids fall back silently.
+
+**Evidence:** live verification (`test-report-iter14.md` + recording): full flow recipe page → banner → preselected select → Add plans the entry; plain /app and `?recipe=bogus` unchanged; week nav, console, 375/375 all clean.
+
+## Round 15 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor: Plan to Eat blog reviewed (July/June updates) — no major product moves (content/podcast only); their positioning pushes "multiple store lists" (kept on backlog).
+- ③ visual / ⑤ data (P2 growth): landing page ("/" = 3rd most-viewed path) had no FAQ or structured data — missed conversion + rich-result opportunity, intents still 0.
+
+**Fixes shipped:**
+- 6-question FAQ section on "/" (native `<details>` accordions; free/no-signup/share/import/units/privacy) + FAQPage JSON-LD (inline data block — CSP-safe, verified) + cross-link to /guides.
+
+**Evidence:** live verification (`test-report-iter15.md` + recording): FAQ renders desktop + 375/375, valid JSON-LD with 6 Questions in page source, console clean (no CSP violation), login/planner/list smoke passed.
+
+## Round 16 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ⑤ data (P2): the landing signup blurb promises "meal rotation" but nothing delivered it; an empty week required picking each dinner by hand — the highest-friction moment of the weekly loop.
+
+**Fixes shipped:**
+- "Fill dinners from recipe box" button on empty weeks: `POST /app/plan/fill-week` fills one dinner per day Mon–Sun from up to 100 recipes (favorites first), preferring recipes not planned in the previous two weeks (rotation; falls back to full pool when fresh <4), crypto-shuffled, cycling if fewer than 7; guards against non-empty weeks.
+
+**Evidence:** live verification (`test-report-iter16.md` + 2 recordings): fill/hide/no-duplicate/share-sync/cleanup all passed; rotation branch proven deterministically (Test Soup/Stew planned in prior week were excluded from the fill; with a broken filter each would have appeared); console clean, 375/375.

@@ -95,3 +95,25 @@ test('ingredientKey matches scaled/unscaled variants of the same item', async ()
   assert.equal(ingredientKey('3 cups flour'), ingredientKey('4 cups flour'));
   assert.notEqual(ingredientKey('milk'), ingredientKey('500ml milk'));
 });
+
+test('convertUnits converts display units both ways and leaves the rest alone', async () => {
+  const { convertUnits } = await import('../src/util.js');
+  assert.equal(convertUnits('750g lean beef mince', 'imperial'), '1.65 lb lean beef mince');
+  assert.equal(convertUnits('100g butter', 'imperial'), '3.53 oz butter');
+  assert.equal(convertUnits('500ml milk', 'imperial'), '16.91 fl oz milk');
+  assert.equal(convertUnits('8 oz cream cheese', 'metric'), '227g cream cheese');
+  assert.equal(convertUnits('3 lb potatoes', 'metric'), '1.36kg potatoes');
+  assert.equal(convertUnits('1 lb butter', 'metric'), '454g butter');
+  assert.equal(convertUnits('2 cups flour', 'metric'), '2 cups flour');
+  assert.equal(convertUnits('750g beef', 'metric'), '750g beef');
+  assert.equal(convertUnits('2 red onions', 'imperial'), '2 red onions');
+  assert.equal(convertUnits('750g beef', ''), '750g beef');
+});
+
+test('convertUnits handles composite "N x amount" labels', async () => {
+  const { convertUnits } = await import('../src/util.js');
+  assert.equal(convertUnits('2 x 400g cans chopped tomatoes', 'imperial'), '2 x 14.11 oz cans chopped tomatoes');
+  assert.equal(convertUnits('2 x 400g cans chopped tomatoes', 'metric'), '2 x 400g cans chopped tomatoes');
+  assert.equal(convertUnits('3 x 8 oz packs cream cheese', 'metric'), '3 x 227g packs cream cheese');
+  assert.equal(convertUnits('2 x 1kg bags flour', 'imperial'), '2 x 2.2 lb bags flour');
+});
