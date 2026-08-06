@@ -278,10 +278,11 @@ app.get('/app', async (c) => {
   const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const body = `
-${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
+${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
-  <div class="flex items-center gap-2 text-sm">
+  <div class="flex items-center gap-2 text-sm print:hidden">
+    <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
     <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
@@ -289,12 +290,12 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   </div>
 </div>
 ${recipes.results.length === 0 ? `
-<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden">
   <h2 class="font-semibold text-emerald-900">Start with one recipe</h2>
   <p class="mt-1 text-sm text-emerald-800">Import a recipe by pasting its URL — then you can drop it into any day below and its ingredients flow into your grocery list.</p>
   <a href="/app/recipes" class="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add your first recipe</a>
 </div>` : ''}
-<div class="mb-4 flex flex-wrap gap-2">
+<div class="mb-4 flex flex-wrap gap-2 print:hidden">
   <form method="post" action="/app/plan/to-list" class="inline">
     <input type="hidden" name="from" value="${days[0]}"><input type="hidden" name="to" value="${days[6]}">
     <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700">Add week's ingredients to grocery list</button>
@@ -309,7 +310,7 @@ ${recipes.results.length === 0 ? `
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
   </form>` : ''}
 </div>
-<div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
+<div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
     <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
@@ -330,7 +331,7 @@ ${recipes.results.length === 0 ? `
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-stone-100">Delete menu</button>
   </form>` : ''}
 </div>
-<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+<div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
   <div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3">
     <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
@@ -353,7 +354,7 @@ ${days.map((d) => `
               <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
             </span>
           </div>`).join('')}
-        <details class="mt-1">
+        <details class="mt-1 print:hidden">
           <summary class="text-xs text-stone-500 cursor-pointer hover:text-emerald-700">+ add</summary>
           <form method="post" action="/app/plan" class="mt-1 space-y-1">
             <input type="hidden" name="date" value="${d}"><input type="hidden" name="meal" value="${meal}"><input type="hidden" name="week" value="${days[0]}">

@@ -344,3 +344,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Add ingredients to list" button on owner recipe detail → `POST /app/recipes/:id/to-list`: merges the recipe's ingredients, dedupes against existing items by normalized key (new keys inserted with sources=title; existing unchecked items get the title unioned into sources; checked untouched), redirects to `/app/list?added=N&src=recipe` with recipe-specific notice wording. Tags input gains `autocomplete="off"`.
 
 **Evidence:** live verification (`test-report-iter29.md` + recording): 2 of 3 ingredients added (1 deduped into an existing item's sources); second click idempotent ("Everything from that recipe is already on the list."); share recipe view has no button; weekly add wording regression passed; Issues clean; 375/375; fixtures cleaned.
+
+## Round 30 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor (patrol via public release notes/blogs): Plan to Eat is pushing AI features (nutrition matching, Instagram reel import, ingredient substitutions — out of our v1 scope), plus menu printing/duplication; Samsung Food is pushing AI/health tracking. Web-scope gap we can close cheaply: printing the week plan (fridge-copy use case). ② UX (P2): the planner had no print path — printing /app included nav, buttons, forms and a 7-col layout unfit for paper.
+
+**Fixes shipped:**
+- Printable week plan: planner "Print" button (`data-print`, reuses the existing handler); nav row, action rows, menu forms, "+ add" details, preselect banner, and onboarding card are `print:hidden`; new `@media print` CSS renders `.planner-grid` as a compact 4-column grid with `break-inside: avoid` per day card.
+
+**Evidence:** live verification (`test-report-iter30.md` + recording): print preview shows only title + 7 day cards (4-col, 1 page, entries readable) on filled and empty weeks; screen view regression (add/delete entry) passed; 375/375; console + Issues clean; fixtures cleaned. Onboarding card's print-hiding verified in source only (renders only for zero-recipe households).

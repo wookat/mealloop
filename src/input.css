@@ -17,3 +17,14 @@
   font-size: 1.05rem;
   line-height: 1.6rem;
 }
+
+/* Printed week plan: fridge-friendly compact grid. */
+@media print {
+  .planner-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .planner-grid > div {
+    break-inside: avoid;
+  }
+}
