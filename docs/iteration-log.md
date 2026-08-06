@@ -49,4 +49,4 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New `ingredientKey()` normalized dedupe: to-list now updates the existing *unchecked* item's label when quantities change (idempotent at any scale), keeps checked items, and never duplicates scaled/unscaled variants.
 - Unit tests 10/10 (new key-matching cases).
 
-**Evidence:** live regression via testing agent (see round entry update).
+**Evidence:** `test-report-iter3.md` + recording; unit tests 10/10; live regression PASSED (week nav incl. invalid-param fallback, in-place label update on rescale with "Added 0", checked item untouched, share sync ~10s, console clean).
