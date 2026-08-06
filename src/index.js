@@ -390,6 +390,7 @@ ${recipes.results.length === 0 ? `
     </select>
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-stone-500 hover:text-red-600 hover:bg-stone-100">Delete menu</button>
   </form>` : ''}
+  ${menus.results.length ? `<a href="/app/menus" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">View menus</a>` : ''}
 </div>
 <div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
@@ -576,6 +577,79 @@ app.post('/app/menus', async (c) => {
   return c.redirect(`/app?week=${week}`);
 });
 
+const DOW_LABELS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+app.get('/app/menus', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const [menus, entries] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all(),
+    c.env.DB.prepare(`SELECT me.menu_id, me.dow, me.meal, me.note, me.scale, r.title FROM menu_entries me\n      JOIN menus m ON m.id = me.menu_id LEFT JOIN recipes r ON r.id = me.recipe_id WHERE m.household_id = ?`).bind(h.id).all(),
+  ]);
+  const meals = mealsFor(h);
+  const mealRank = (meal) => { const i = meals.indexOf(meal); return i === -1 ? meals.length : i; };
+  const byMenu = new Map();
+  for (const e of entries.results) {
+    const list = byMenu.get(e.menu_id) || [];
+    list.push(e);
+    byMenu.set(e.menu_id, list);
+  }
+  const body = `<div class="max-w-3xl">
+<div class="flex flex-wrap items-center justify-between gap-3 mb-2">
+  <h1 class="text-2xl font-bold">Saved menus</h1>
+  <span class="flex items-center gap-3 print:hidden">
+    <button type="button" data-print class="text-sm text-emerald-700 underline">Print</button>
+    <a href="/app" class="text-sm text-emerald-700 underline">Back to planner</a>
+  </span>
+</div>
+<p class="text-sm text-stone-600 mb-5 print:hidden">Reusable week plans — apply one to any empty slots from the planner.</p>
+${menus.results.length === 0 ? `<p class="text-stone-500 text-sm">No saved menus yet — plan a week, then use “Save this week as menu” on the planner.</p>` : menus.results.map((m) => {
+  const list = (byMenu.get(m.id) || []).sort((a, b) => a.dow - b.dow || mealRank(a.meal) - mealRank(b.meal));
+  const byDow = new Map();
+  for (const e of list) {
+    const d = byDow.get(e.dow) || [];
+    d.push(e);
+    byDow.set(e.dow, d);
+  }
+  return `<section class="rounded-xl bg-white border border-stone-200 p-4 mb-4">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="text-lg font-bold">${esc(m.name)}</h2>
+    <span class="flex items-center gap-2 print:hidden">
+      <form method="post" action="/app/menus/rename" class="flex gap-1.5">
+        <input type="hidden" name="menu_id" value="${m.id}">
+        <input name="name" required maxlength="60" aria-label="Rename ${esc(m.name)}" placeholder="New name…" autocomplete="off" class="rounded border border-stone-300 text-xs px-2 py-1 w-32">
+        <button class="rounded border border-stone-300 text-xs px-2 py-1 hover:bg-stone-100">Rename</button>
+      </form>
+      <form method="post" action="/app/menus/delete" data-confirm="Delete this saved menu?">
+        <input type="hidden" name="menu_id" value="${m.id}">
+        <input type="hidden" name="back" value="/app/menus">
+        <button aria-label="Delete ${esc(m.name)}" class="text-stone-500 hover:text-red-600 text-sm">✕</button>
+      </form>
+    </span>
+  </div>
+  <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4 text-sm">
+    ${[0, 1, 2, 3, 4, 5, 6].filter((d) => byDow.has(d)).map((d) => `<div class="rounded-lg border border-stone-100 bg-stone-50 p-2">
+      <h3 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1">${DOW_LABELS[d]}</h3>
+      <ul class="space-y-0.5">${byDow.get(d).map((e) => `<li><span class="text-xs text-stone-400 capitalize">${esc(e.meal)}:</span> ${esc(e.title || e.note || '')}${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-400">×${e.scale}</span>` : ''}</li>`).join('')}</ul>
+    </div>`).join('')}
+  </div>
+</section>`;
+}).join('')}
+</div>`;
+  return c.html(page({ title: 'Saved menus', body, user, path: '/app/menus', noindex: true }));
+});
+
+app.post('/app/menus/rename', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const name = String(f.name || '').trim().slice(0, 60);
+  if (name) {
+    await c.env.DB.prepare('UPDATE menus SET name = ? WHERE id = ? AND household_id = ?')
+      .bind(name, String(f.menu_id || ''), h.id).run();
+  }
+  return c.redirect('/app/menus');
+});
+
 app.post('/app/menus/apply', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -611,7 +685,7 @@ app.post('/app/menus/delete', async (c) => {
       c.env.DB.prepare('DELETE FROM menus WHERE id = ?').bind(menu.id),
     ]);
   }
-  return c.redirect(`/app?week=${String(f.week || '')}`);
+  return c.redirect(String(f.back || '') === '/app/menus' ? '/app/menus' : `/app?week=${String(f.week || '')}`);
 });
 
 app.post('/app/plan/to-list', async (c) => {

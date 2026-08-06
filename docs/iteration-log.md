@@ -784,3 +784,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Add week's ingredients" inserts staples with the staple's stored category (`stapleCats.get(key) || categorize(label)`); recipe ingredients unchanged.
 
 **Evidence:** live verification (`test-report-iter71.md` + recording): milk row shows Dairy & Eggs selected; fixture staple defaulted to Other, select change auto-submitted and persisted across reload; with fixture set to Spices & Baking, "Add week's ingredients" landed it under Spices & Baking (old behavior would be Other); cleanup restored the list to 35 to buy and staples to milk only; 375px + Console/Issues clean. Note: the propagation test re-attached display-only "for <recipe>" source sub-labels to existing unchecked items (normal recompute, self-corrects next run).
+
+## Round 72 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat's June 2026 update added Menu printing and duplication — menus are an active investment area for them. MealLoop's saved menus were "blind": only name dropdowns on the planner, no way to see what a menu contains, rename it, or print it.
+
+**Fixes shipped:**
+- New `GET /app/menus` "Saved menus" page: one card per menu (newest first) with day-by-day preview (days with entries only, `meal: recipe title || note`, ×N badge when scale≠1 via LEFT JOIN recipes), inline rename (`POST /app/menus/rename`, household-scoped), ✕ delete (confirm, `back=/app/menus` redirect), Print button (controls print:hidden), empty state.
+- Planner shows a "View menus" link whenever the household has menus.
+
+**Evidence:** live verification (`test-report-iter72.md` + recording): QA72 fixture menu from an empty future week → preview/rename-persistence/print-preview/delete-to-empty-state all passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested minor gaps: positive ×N badge (only the no-badge case shown) and multi-menu newest-first ordering (single menu existed).
