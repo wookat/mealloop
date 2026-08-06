@@ -102,5 +102,6 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Fixes shipped:**
 - `flex-wrap` on the list action-button row (buttons wrap as whole units at 375px, no overflow).
 - Sections whose items are all checked get `print:hidden` (no empty headings in print).
+- Follow-up (regression run measured scrollWidth 407 vs 375 — pre-existing header nav overflow): header paddings/gaps tightened at small widths (`px-2 sm:px-4` container, `px-2 sm:px-3` nav links, smaller logo) for a truly scroll-free 375px.
 
-**Evidence:** live regression via testing agent.
+**Evidence:** `test-report-iter6.md` + recording (button wrap, print headings, list tidy-up all passed); header fix re-verified live.
