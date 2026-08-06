@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
-import { importRecipeFromUrl } from './recipes.js';
+import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
@@ -129,7 +129,7 @@ app.get('/privacy', (c) =>
 <h2 class="font-semibold text-lg pt-2">Retention</h2>
 <ul class="list-disc pl-5 space-y-1">
 <li>Login codes: 10 minutes. Session tokens: 30 days (or until you log out).</li>
-<li>Account and meal-planning content: until you ask us to delete it.</li>
+<li>Account and meal-planning content: until you delete your account yourself on the Share &amp; account page, or ask us to.</li>
 <li>Newsletter emails: until you unsubscribe. Aggregate page counts and search terms: 24 months (they contain no personal data).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Your rights</h2>
@@ -654,10 +654,17 @@ ${recipes.results.map((r) => `
   </a>`).join('')}
 </div>
 ${recipes.results.length === 0 ? (q || tag ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || `#${tag}`)}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
-<details class="mt-8">
+<details class="mt-8"${c.req.query('paste') !== undefined ? ' open' : ''}>
+  <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or paste a whole recipe</summary>
+  <form method="post" action="/app/recipes/paste" class="mt-3 max-w-lg space-y-2">
+    <textarea name="text" required aria-label="Recipe text" rows="10" placeholder="Paste the full recipe text — title first, then an “Ingredients” heading, then a “Method” or “Steps” heading. Bullets and numbering are fine." class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(String(c.req.query('paste') || ''))}</textarea>
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Parse &amp; save</button>
+  </form>
+</details>
+<details class="mt-3">
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or add a recipe manually</summary>
   <form method="post" action="/app/recipes/new" class="mt-3 max-w-lg space-y-2">
-    <input name="title" required aria-label="Title" placeholder="Title" class="w-full rounded-lg border border-stone-300 px-3 py-2">
+    <input name="title" required aria-label="Title" placeholder="Title" autocomplete="off" class="w-full rounded-lg border border-stone-300 px-3 py-2">
     <textarea name="ingredients" aria-label="Ingredients" rows="5" placeholder="Ingredients — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <textarea name="steps" aria-label="Steps" rows="5" placeholder="Steps — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Save recipe</button>
@@ -708,6 +715,23 @@ app.post('/app/recipes/new', async (c) => {
   await c.env.DB.prepare(
     'INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, h.id, title, JSON.stringify(ingredients), JSON.stringify(steps), user.id).run();
+  return c.redirect(`/app/recipes/${id}`);
+});
+
+app.post('/app/recipes/paste', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const text = String(f.text || '').slice(0, 20000);
+  const parsed = parseRecipeText(text);
+  if (!parsed || !parsed.title) {
+    const friendly = "We couldn't split that text — make sure it has the title on the first line, then an “Ingredients” heading, then a “Method” or “Steps” heading. Or use the manual form below.";
+    return c.redirect(`/app/recipes?err=${encodeURIComponent(friendly)}&paste=${encodeURIComponent(text.slice(0, 1500))}`);
+  }
+  const id = uid();
+  await c.env.DB.prepare(
+    'INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(id, h.id, parsed.title, JSON.stringify(parsed.ingredients.map((s) => s.slice(0, 300))), JSON.stringify(parsed.steps.map((s) => s.slice(0, 1000))), user.id).run();
   return c.redirect(`/app/recipes/${id}`);
 });
 
@@ -1164,14 +1188,51 @@ app.get('/app/share', async (c) => {
   <button class="text-sm text-stone-500 hover:text-red-600 hover:underline">Reset link (revokes the old one)</button>
 </form>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
+<div class="mt-12 rounded-xl border border-stone-200 bg-white p-5 text-left">
+  <h2 class="font-semibold">Account</h2>
+  <p class="mt-1 text-sm text-stone-600">Signed in as <strong>${esc(user.email)}</strong>.</p>
+  <form method="post" action="/app/account/delete" class="mt-3" data-confirm="Permanently delete your account and ALL household data (recipes, plans, grocery list)? This cannot be undone and the share link will stop working.">
+    <button class="text-sm text-red-600 hover:underline">Delete account &amp; all data</button>
+  </form>
+  <p class="mt-1.5 text-xs text-stone-400">Removes your recipes, meal plans, grocery list, staples, saved menus and login — immediately and permanently.</p>
+</div>
 </div>`;
-  return c.html(page({ title: 'Share', body, user, path: '/app/share', noindex: true }));
+  return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
 });
 
 app.post('/app/share/rotate', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('UPDATE households SET share_token = ? WHERE id = ?').bind(token(20), h.id).run();
   return c.redirect('/app/share');
+});
+
+app.post('/app/account/delete', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const members = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM household_members WHERE household_id = ?').bind(h.id).first();
+  const stmts = [];
+  if (Number(members?.n || 1) <= 1) {
+    stmts.push(
+      c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id IN (SELECT id FROM menus WHERE household_id = ?)').bind(h.id),
+      c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM households WHERE id = ?').bind(h.id)
+    );
+  } else {
+    stmts.push(c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ? AND user_id = ?').bind(h.id, user.id));
+  }
+  stmts.push(
+    c.env.DB.prepare('DELETE FROM email_intents WHERE email = ?').bind(user.email),
+    c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.id)
+  );
+  await c.env.DB.batch(stmts);
+  await logout(c);
+  c.header('Set-Cookie', clearCookie());
+  return c.redirect('/');
 });
 
 async function shareHousehold(c) {
