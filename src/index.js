@@ -734,11 +734,11 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
   <div class="flex gap-2 print:hidden">
-    <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy list</button>
+    <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
-    <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>` : ''}
-    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Clear checked</button></form>` : ''}
+    <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
+    ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>` : ''}
   </div>
 </div>
 ${editable ? `
@@ -753,7 +753,7 @@ ${cats.map((cat) => `
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${items.filter((i) => i.category === cat).map((i) => `
-      <li class="flex items-center">
+      <li class="flex items-center${i.checked ? ' print:hidden' : ''}">
         <form method="post" action="${base}/toggle" class="toggle-form flex-1">
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">

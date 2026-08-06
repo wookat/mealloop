@@ -76,4 +76,8 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Copy list" button: copies unchecked items as text grouped by aisle (clipboard, "Copied!" feedback) — works on /app/list and the family share page.
 - "Print" button + print stylesheet: header, footer, add-item form, action buttons and category selects hidden in print (`print:hidden`), leaving a clean aisle-grouped checklist.
 
-**Evidence:** live regression via testing agent (rounds 4–5 combined).
+**Fixes shipped (post-regression):**
+- Cloudflare zone RUM (Web Analytics auto-injection) turned OFF via API — the auto-injected beacon.min.js was blocked by our strict CSP and violated the first-party-only analytics stance; live page no longer references beacon.min.js.
+- Checked rows hidden in print output; action buttons `whitespace-nowrap` at 375px.
+
+**Evidence:** `test-report-iter4.md` + recording; live regression PASSED (guides + 12-URL sitemap, aria-labels, copy-list content/feedback, clean print preview, share sync, 375px header); RUM setting API response `"value":"off"`.
