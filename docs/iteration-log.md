@@ -203,3 +203,16 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Fill dinners from recipe box" button on empty weeks: `POST /app/plan/fill-week` fills one dinner per day Mon–Sun from up to 100 recipes (favorites first), preferring recipes not planned in the previous two weeks (rotation; falls back to full pool when fresh <4), crypto-shuffled, cycling if fewer than 7; guards against non-empty weeks.
 
 **Evidence:** live verification (`test-report-iter16.md` + 2 recordings): fill/hide/no-duplicate/share-sync/cleanup all passed; rotation branch proven deterministically (Test Soup/Stew planned in prior week were excluded from the fill; with a broken filter each would have appeared); console clean, 375/375.
+
+## Round 17 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX (P2): Plan to Eat supports per-item notes ("get the big pack"); MealLoop had none — the most-requested small convenience for shared shopping.
+- ① QA / ② UX (P2): "Clear checked" irreversibly deleted items with no confirmation, unlike every other destructive action.
+- ① QA (P3): "Copy list" only stripped the first sub-span, so a second sub-line would have leaked into the clipboard.
+
+**Fixes shipped:**
+- Per-item notes: ✎ toggle on each list row opens a popup form (`POST /app/list/note`, ≤140 chars, empty save clears); notes render as an amber "✎ …" sub-line, read-only on the share page, synced via version polling. Migration `0008_item_notes.sql`.
+- `data-confirm` on Clear checked; Copy list now strips all sub-spans (sources + notes).
+
+**Evidence:** live verification (`test-report-iter17.md` + recording): note add/edit/clear, share-page read-only display + ~10s poll sync, confirm cancel/OK paths, clipboard clean of notes/sources, console clean, 375/375 with popup open, full cleanup.

@@ -21,8 +21,7 @@
           var spans = f.querySelectorAll('span');
           if (!spans[1].classList.contains('line-through')) {
             var lbl = spans[1].cloneNode(true);
-            var sub = lbl.querySelector('span');
-            if (sub) lbl.removeChild(sub);
+            lbl.querySelectorAll('span').forEach(function (sub) { lbl.removeChild(sub); });
             items.push('- ' + lbl.textContent.trim());
           }
         });
