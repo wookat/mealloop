@@ -778,6 +778,41 @@ app.post('/app/recipes/:id/edit', async (c) => {
   return c.redirect(`/app/recipes/${id}`);
 });
 
+app.post('/app/recipes/:id/to-list', async (c) => {
+  const h = c.get('household');
+  const id = c.req.param('id');
+  const r = await c.env.DB.prepare('SELECT title, ingredients_json FROM recipes WHERE id = ? AND household_id = ?').bind(id, h.id).first();
+  if (!r) return c.notFound();
+  const merged = mergeIngredients(JSON.parse(r.ingredients_json || '[]').map((i) => String(i).slice(0, 200)).filter(Boolean));
+  const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const byKey = new Map();
+  for (const it of existing.results) if (!byKey.has(ingredientKey(it.label))) byKey.set(ingredientKey(it.label), it);
+  const stmts = [];
+  let added = 0;
+  const seen = new Set();
+  for (const label of merged) {
+    const key = ingredientKey(label);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hit = byKey.get(key);
+    if (hit) {
+      if (!hit.checked) {
+        const sources = [...new Set([...(hit.sources || '').split(', ').filter(Boolean), r.title])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
+        if (sources !== (hit.sources || '')) stmts.push(c.env.DB.prepare('UPDATE shopping_items SET sources = ? WHERE id = ?').bind(sources, hit.id));
+      }
+      continue;
+    }
+    added++;
+    stmts.push(
+      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label), r.title.slice(0, 200))
+    );
+  }
+  if (stmts.length) await c.env.DB.batch(stmts);
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/list?added=${added}&src=recipe`);
+});
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -814,9 +849,10 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
   <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
+  ${ingredients.length ? `<form method="post" action="/app/recipes/${r.id}/to-list"><button class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Add ingredients to list</button></form>` : ''}
 </div>
 <form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
-  <input name="tags" aria-label="Tags" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
+  <input name="tags" aria-label="Tags" autocomplete="off" value="${esc((r.tags || '').split(',').filter(Boolean).join(', '))}" placeholder="Tags, comma-separated (e.g. quick, vegetarian)" class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm">
   <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Save tags</button>
 </form>` : ''}
 ${canEdit ? `<div class="mt-4 flex items-center gap-4">
@@ -836,9 +872,10 @@ app.get('/app/list', async (c) => {
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
+  const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : "this week's plan";
   const notice = added === undefined ? '' : Number(added) > 0
-    ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from this week's plan.`
-    : "Everything from this week's plan is already on the list.";
+    ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from ${srcLabel}.`
+    : `Everything from ${srcLabel} is already on the list.`;
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;

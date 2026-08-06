@@ -334,3 +334,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Checked items now render in one bottom "Checked off (N)" section (stone-50, print:hidden, same row markup so store/note/category controls stay functional); category sections render unchecked items only, so a fully-checked category's header disappears. Server-rendered — works on all devices. Note input gains `autocomplete="off"`.
 
 **Evidence:** live verification (`test-report-iter28.md` + recording): check/uncheck moves rows between sections on the version-poll re-render; controls work on checked rows; share page shows the same grouping; Copy list excludes checked and print hides the section; Clear checked empties it; 375/375; console + Issues clean; fixtures cleaned.
+
+## Round 29 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P1): grocery items could only flow from a planned week — cooking a single recipe ad hoc meant retyping its ingredients by hand (both Plan to Eat and Samsung Food support add-to-list from a recipe). ③ visual: tags input lacked an explicit autocomplete attribute. ⑤ data: analytics_daily shows QA-dominated traffic (615/332 PV last two days, guides single digits) — no organic conclusions drawn; competitor blog patrol skipped this round (plantoeat.com/samsungfood.com return 403 to plain fetch; not bypassed).
+
+**Fixes shipped:**
+- "Add ingredients to list" button on owner recipe detail → `POST /app/recipes/:id/to-list`: merges the recipe's ingredients, dedupes against existing items by normalized key (new keys inserted with sources=title; existing unchecked items get the title unioned into sources; checked untouched), redirects to `/app/list?added=N&src=recipe` with recipe-specific notice wording. Tags input gains `autocomplete="off"`.
+
+**Evidence:** live verification (`test-report-iter29.md` + recording): 2 of 3 ingredients added (1 deduped into an existing item's sources); second click idempotent ("Everything from that recipe is already on the list."); share recipe view has no button; weekly add wording regression passed; Issues clean; 375/375; fixtures cleaned.
