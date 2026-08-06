@@ -309,6 +309,10 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
   </form>` : ''}
+  ${entries.results.length ? `<form method="post" action="/app/plan/clear-week" class="inline" data-confirm="Remove all ${entries.results.length} entr${entries.results.length === 1 ? 'y' : 'ies'} from this week? This can't be undone.">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-500 hover:text-red-600 hover:bg-stone-100">Clear week</button>
+  </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
@@ -425,6 +429,18 @@ app.post('/app/plan/move', async (c) => {
     await bumpVersion(c.env, h.id);
   }
   return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/clear-week', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = String(f.week || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
+  const days = weekDates(week);
+  await c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+    .bind(h.id, days[0], days[6]).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${week}`);
 });
 
 app.post('/app/plan/copy-week', async (c) => {

@@ -491,3 +491,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `src/layout.js` emits og:type/site_name/title/description/url, og:image (+width/height) and `twitter:card=summary_large_image` on every page, including noindex pages (share, /login, app) which keep `robots noindex`.
 
 **Evidence:** live verification (`test-report-iter43.md` + recording): /og-card.png 200 image/png rendering the card; homepage og tags complete with zero noindex; share page has both noindex and og tags (og:url = share path) and renders normally; /login ditto; guide page canonical/description unchanged, no duplicate tags; Console/Issues clean; read-only round, no fixtures. Note: actual WhatsApp/iMessage scraper rendering not exercised — verified the tags and asset they consume.
+
+## Round 44 — 2026-08-06
+
+**Findings (by driver):**
+- ① testing / ② UX: clearing a planned week required one ✕ per entry (surfaced repeatedly as a pain point during QA cleanup and equally real for users re-planning a week).
+
+**Fixes shipped:**
+- “Clear week” button on the planner (shown only when the week has entries) with a count-aware confirm (“Remove all N entries…”, singular for 1); `POST /app/plan/clear-week` deletes only that week’s entries and bumps the version.
+
+**Evidence:** live verification (`test-report-iter44.md` + recording): button absent on empty weeks; confirm shows exact count, cancel preserves, confirm clears all and hides the button; singular wording at N=1; adjacent week untouched; already-open share tab self-updated within ~10s via the version poll (closing the R41 gap); Save-menu form hides after clearing; 375/375; Console/Issues clean; fixtures cleaned via the button itself. Notes: hover styling and invalid-week validation source-verified only.
