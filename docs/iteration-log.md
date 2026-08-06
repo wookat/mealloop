@@ -795,3 +795,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Planner shows a "View menus" link whenever the household has menus.
 
 **Evidence:** live verification (`test-report-iter72.md` + recording): QA72 fixture menu from an empty future week → preview/rename-persistence/print-preview/delete-to-empty-state all passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested minor gaps: positive ×N badge (only the no-badge case shown) and multi-menu newest-first ordering (single menu existed).
+
+## Round 73 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ② UX: /guides pages are getting real views (39 + per-guide counts) but rendered the logged-out header ("Log in / Get started free") and a "Start planning → /login" CTA even for logged-in users — /guides, /guides/:slug, /privacy and /terms never resolved the session.
+
+**Fixes shipped:**
+- Those four public routes now pass `user: await getUser(c)` into `page()`, so logged-in visitors get the app header (Planner / Recipes / List / Log out).
+- Guide-detail CTA box is session-aware: `user ? 'Open your planner' → /app : 'Start planning' → /login`.
+
+**Evidence:** live verification (`test-report-iter73.md` + recording): logged-in session sees the app header on all four pages and the planner CTA lands on /app; incognito contrast shows the unchanged logged-out state; SEO regression via cache-busted curl (guide Article+Breadcrumb JSON-LD + og:type=article, /guides ItemList 20 items, landing FAQPage) all intact; 375px + Console/Issues clean. Minor untested gap: incognito /terms (same code path as /privacy).

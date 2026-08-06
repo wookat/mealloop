@@ -122,8 +122,8 @@ app.post('/subscribe', async (c) => {
   return c.html(page({ title: 'Thanks', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">We'll email you when new features ship.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
 });
 
-app.get('/privacy', (c) =>
-  c.html(page({ title: 'Privacy', path: '/privacy', body: legalBody('Privacy Policy', `
+app.get('/privacy', async (c) =>
+  c.html(page({ title: 'Privacy', path: '/privacy', user: await getUser(c), body: legalBody('Privacy Policy', `
 <p>MealLoop is designed to be privacy-first. Controller: MealLoop (Zalize), contact <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>.</p>
 <h2 class="font-semibold text-lg pt-2">What we collect and why</h2>
 <ul class="list-disc pl-5 space-y-1">
@@ -153,8 +153,8 @@ app.get('/privacy', (c) =>
 <p>MealLoop is not intended for children under 16.</p>`) }))
 );
 
-app.get('/terms', (c) =>
-  c.html(page({ title: 'Terms', path: '/terms', body: legalBody('Terms of Service', `
+app.get('/terms', async (c) =>
+  c.html(page({ title: 'Terms', path: '/terms', user: await getUser(c), body: legalBody('Terms of Service', `
 <p>MealLoop is provided free of charge, "as is", without warranty of any kind.</p>
 <ul class="list-disc pl-5 space-y-1">
 <li>You retain ownership of the content you add. Imported recipes remain the property of their original publishers; we store them for your personal household use and always link back to the source.</li>
@@ -168,7 +168,7 @@ function legalBody(title, inner) {
 }
 
 // ---------- pSEO guides ----------
-app.get('/guides', (c) => {
+app.get('/guides', async (c) => {
   const body = `<script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'ItemList',
@@ -184,12 +184,13 @@ app.get('/guides', (c) => {
 <ul class="mt-6 space-y-3">
 ${GUIDES.map((g) => `<li class="rounded-xl bg-white border border-stone-200 p-4 hover:border-emerald-400"><a href="/guides/${g.slug}"><h2 class="font-semibold text-emerald-700">${esc(g.title)}</h2><p class="text-sm text-stone-600 mt-1">${esc(g.excerpt)}</p></a></li>`).join('')}
 </ul></div>`;
-  return c.html(page({ title: 'Meal planning guides', description: 'Practical guides for planning family meals: weekly planning, grocery lists, recipe import and more.', body, path: '/guides' }));
+  return c.html(page({ title: 'Meal planning guides', description: 'Practical guides for planning family meals: weekly planning, grocery lists, recipe import and more.', body, path: '/guides', user: await getUser(c) }));
 });
 
-app.get('/guides/:slug', (c) => {
+app.get('/guides/:slug', async (c) => {
   const g = GUIDES.find((x) => x.slug === c.req.param('slug'));
   if (!g) return c.notFound();
+  const user = await getUser(c);
   const body = `<script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
@@ -214,10 +215,10 @@ app.get('/guides/:slug', (c) => {
 <nav aria-label="Breadcrumb" class="text-sm text-stone-500"><a class="hover:text-emerald-700 hover:underline" href="/guides">Guides</a> <span aria-hidden="true">›</span> <span class="text-stone-700">${esc(g.title)}</span></nav>
 <h1 class="text-3xl font-bold">${esc(g.title)}</h1>
 ${g.body}
-<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
+<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="${user ? '/app' : '/login'}" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">${user ? 'Open your planner' : 'Start planning'}</a></div>
 ${relatedGuides(g)}
 </article>`;
-  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}`, ogType: 'article' }));
+  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}`, ogType: 'article', user }));
 });
 
 function relatedGuides(g) {
