@@ -857,3 +857,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Extracted `icsEscape` into src/util.js (RFC 5545 TEXT escaping) with unit tests (`test/util.test.js`, suite 20→21); calendar-feed SUMMARY and X-WR-CALNAME now use it.
 
 **Evidence:** live verification (`test-report-iter78.md` + recording): feed regression (8 VEVENTs, structure/CRLF/Content-Type unchanged); live comma fixture "QA78 pasta, salad night" → raw `SUMMARY:Dinner: QA78 pasta\, salad night`; live ×2 recipe fixture → `SUMMARY:Lunch: Test Stew ×2`; fixtures cleaned with byte-identical feed baseline; 375px + Console/Issues clean. Caveat: semicolon/backslash branches proven by unit tests only (same replace-chain code path).
+
+## Round 79 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ③ Mobile: week navigation on the planner and share page required tapping small Prev/Next links on phones; competitor mobile apps navigate weeks by swipe. Long-standing candidate finally scheduled.
+
+**Fixes shipped:**
+- Swipe week navigation (public/app.js): pages with `a[data-swipe-prev]`/`a[data-swipe-next]` (planner + share page) navigate on a horizontal touch swipe (≥70px, vertical < half horizontal to protect scrolling; swipes starting on form controls/links ignored).
+
+**Evidence:** live verification (`test-report-iter79.md` + recording): click nav regression; device-emulated swipes left/right navigate ?week=±7 on /app and /s; vertical-scroll, short-swipe and form-control guards all hold; desktop mouse drag unaffected; 375px + Console/Issues clean. Caveat: proven via Chrome touch emulation, not a physical device.

@@ -340,9 +340,9 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
   <div class="flex items-center gap-2 text-sm print:hidden">
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
-    <a href="/app?week=${prevWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
+    <a href="/app?week=${prevWeek}" data-swipe-prev class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app#today" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
-    <a href="/app?week=${nextWeek}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
+    <a href="/app?week=${nextWeek}" data-swipe-next class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
     <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
 </div>
@@ -1629,9 +1629,9 @@ app.get('/s/:token', async (c) => {
   <h1 class="text-2xl font-bold mb-1">${esc(h.name)} — ${isCurrent ? 'this week' : `week of ${dayLabel(days[0])}`}</h1>
   <p class="text-sm text-stone-500 mb-2">Shared read-only plan · check items below to sync with everyone</p>
   <p class="mb-4 text-sm flex items-center gap-3">
-    <a class="text-emerald-700 hover:underline" href="/s/${h.share_token}?week=${shiftDays(days[0], -7)}">← Previous week</a>
+    <a class="text-emerald-700 hover:underline" data-swipe-prev href="/s/${h.share_token}?week=${shiftDays(days[0], -7)}">← Previous week</a>
     ${isCurrent ? '' : `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}">This week</a>`}
-    <a class="text-emerald-700 hover:underline" href="/s/${h.share_token}?week=${shiftDays(days[0], 7)}">Next week →</a>
+    <a class="text-emerald-700 hover:underline" data-swipe-next href="/s/${h.share_token}?week=${shiftDays(days[0], 7)}">Next week →</a>
   </p>
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
   ${days.map((d) => {
