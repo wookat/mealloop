@@ -994,7 +994,7 @@ app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
   const [items, staples] = await Promise.all([
-    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
     c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all(),
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
@@ -1127,6 +1127,28 @@ app.post('/app/list/note', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/move', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const id = String(f.id || '');
+  const dir = String(f.dir) === 'up' ? -1 : 1;
+  const item = await c.env.DB.prepare('SELECT id, category, checked FROM shopping_items WHERE id = ? AND household_id = ?').bind(id, h.id).first();
+  if (item) {
+    const rows = await c.env.DB.prepare('SELECT id FROM shopping_items WHERE household_id = ? AND category = ? AND checked = ? ORDER BY COALESCE(sort_index, 1000000), created_at')
+      .bind(h.id, item.category, item.checked).all();
+    const ids = rows.results.map((r) => r.id);
+    const i = ids.indexOf(id);
+    const j = i + dir;
+    if (i !== -1 && j >= 0 && j < ids.length) {
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+      await c.env.DB.batch(ids.map((x, idx) => c.env.DB.prepare('UPDATE shopping_items SET sort_index = ? WHERE id = ? AND household_id = ?').bind(idx, x, h.id)));
+      await bumpVersion(c.env, h.id);
+    }
+  }
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
 app.post('/app/list/aisles', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -1188,15 +1210,21 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
         </form>
         <details class="relative print:hidden">
           <summary aria-label="Edit item" title="Edit item" class="cursor-pointer list-none px-1.5 py-1 text-sm ${i.note ? 'text-amber-600' : 'text-stone-300 hover:text-stone-500'}">✎</summary>
-          <form method="post" action="/app/list/note" class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-            <input type="hidden" name="id" value="${i.id}">
-            <input type="hidden" name="back" value="${back}">
-            <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
-            <div class="flex gap-1">
-              <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
-              <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+          <div class="absolute right-0 z-10 mt-1 w-64 space-y-1 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+            <form method="post" action="/app/list/note" class="space-y-1">
+              <input type="hidden" name="id" value="${i.id}">
+              <input type="hidden" name="back" value="${back}">
+              <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
+              <div class="flex gap-1">
+                <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+                <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+              </div>
+            </form>
+            <div class="flex gap-1 border-t border-stone-100 pt-1">
+              <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↑ Move up</button></form>
+              <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↓ Move down</button></form>
             </div>
-          </form>
+          </div>
         </details>
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
@@ -1406,7 +1434,7 @@ app.get('/s/:token', async (c) => {
   const isCurrent = days[0] === weekDates()[0];
   const [entries, items] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date').bind(h.id, days[0], days[6]).all(),
-    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
   ]);
   const planHtml = `
 <section class="mb-8">

@@ -621,3 +621,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Visible breadcrumb nav “Guides › <title>” above the h1 linking back to /guides.
 
 **Evidence:** live verification (`test-report-iter55.md` + recording): breadcrumb renders and navigates, title matches h1; JSON-LD parses with 11/11 exact field checks on 2 guides; strict CSP — zero console errors (ld+json is data, not executed); CTA/More guides//guides listing regression clean; 375px long-title breadcrumb wraps cleanly; read-only round.
+
+## Round 56 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: manual reorder of list items within a category — long-standing backlog item; Plan to Eat's July content push (“best app for a multi-store shopper”, “stop wasting mental energy on your shopping list”) keeps list ergonomics front and centre. Competitor recheck (Plan to Eat blog Jan–Jul 2026): content/podcast-led growth, no major new web product feature to counter.
+
+**Fixes shipped:**
+- Per-item “↑ Move up / ↓ Move down” in the ✎ Edit-item popup → new POST /app/list/move: swaps among same-category same-checked-state items, writes normalized `sort_index` (migration 0012). /app/list and share page order by `category, COALESCE(sort_index, 1000000), created_at`, so custom order syncs to the family share page.
+
+**Evidence:** live verification (`test-report-iter56.md` + recording): reorder + persistence after reload; boundary moves are silent no-ops; rename+note regression after popup restructure; incognito share page shows the custom order; checked-off section isolated; 375px popup fits, Console/Issues clean; fixtures removed.
