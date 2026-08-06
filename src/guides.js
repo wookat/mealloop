@@ -312,4 +312,20 @@ export const GUIDES = [
       p('Pick the week\'s dinners in one 10-minute sitting — coffee in hand, recipe box open — and put them on a plan the whole family can see. The question "what\'s for dinner?" becomes "look at the plan", the shopping list writes itself from the chosen recipes, and the 6pm negotiation disappears. If choosing still feels like work, let a rotation choose for you: a two-week cycle of meals your family already likes needs no creativity at all.'),
     ].join(''),
   },
+  {
+    slug: 'reusable-weekly-menu-template',
+    title: 'Build a reusable weekly menu (plan once, use it forever)',
+    excerpt: 'A saved menu turns a good week of dinners into a template you can drop onto any future week in one click.',
+    body: [
+      p('Some weeks of dinners just work: everyone ate, nothing was wasted, the shopping was one trip. The mistake is letting that week evaporate. Save it as a named menu — "Busy school week", "Payday week", "Camping prep" — and the next time life looks the same, apply it instead of planning from scratch.'),
+      h2('What makes a menu worth saving'),
+      ul([
+        'It survived reality: every meal actually got cooked, not just planned.',
+        'It has a shape: one big cook that feeds a leftovers night, one quick meal for the busiest evening, one crowd-pleaser.',
+        'It matches a recurring situation — a school week, a holiday week, a week when one parent travels.',
+      ]),
+      h2('Templates beat inspiration'),
+      p('Meal planning apps love to push endless new recipes, but families run on repetition: most households rotate 8-12 dinners. Two or three saved menus cover most of the calendar, and applying one takes seconds — it fills only the empty slots, so you can still swap a night out. Keep a small library, print one for the fridge, and let "what should we eat this week?" become "which menu is this week?".'),
+    ].join(''),
+  },
 ];

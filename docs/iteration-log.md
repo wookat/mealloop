@@ -806,3 +806,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Guide-detail CTA box is session-aware: `user ? 'Open your planner' → /app : 'Start planning' → /login`.
 
 **Evidence:** live verification (`test-report-iter73.md` + recording): logged-in session sees the app header on all four pages and the planner CTA lands on /app; incognito contrast shows the unchanged logged-out state; SEO regression via cache-busted curl (guide Article+Breadcrumb JSON-LD + og:type=article, /guides ItemList 20 items, landing FAQPage) all intact; 375px + Console/Issues clean. Minor untested gap: incognito /terms (same code path as /privacy).
+
+## Round 74 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: guide pages are the only organic-facing surface accruing views, and the R72 saved-menus feature (a Plan to Eat parity point) had no content surface explaining the workflow.
+
+**Fixes shipped:**
+- New pSEO guide #21 `reusable-weekly-menu-template` ("Build a reusable weekly menu (plan once, use it forever)") — cross-promotes saved menus. Sitemap 24→25 locs; IndexNow submitted (200).
+
+**Evidence:** live verification (`test-report-iter74.md` + recording): guide renders with breadcrumb/h1/2×h2+bullets/session-aware CTA and More-guides wrap to the first 3 guides; /guides shows 21 cards with ItemList JSON-LD at 21 items (new guide position 21); single @graph [Article, BreadcrumbList] ld+json + og:type=article + correct canonical; 375px + Console/Issues clean.
