@@ -743,3 +743,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `page()` accepts an `ogType` param (default `website`, only `article` accepted); guide detail route passes `ogType: 'article'`. All other routes unchanged.
 
 **Evidence:** live verification (`test-report-iter67.md`, cache-busted curl + browser): guide pages emit `og:type=article` with full OG set otherwise unchanged (og:description character-identical to the guide excerpt); /guides, /, /privacy, /login remain `website`; Console/Issues clean. Meta-only round — no recording. Note: production initially served stale `website` for ~minutes post-deploy (CDN propagation), resolved on its own.
+
+## Round 68 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two standing untested gaps from prior rounds — R65's empty-list no-span state (never verified; deleting standing QA items was unsafe) and R66's `COLLATE NOCASE` behaviour (all QA titles were Title-case). Also `page()` meta logic (og:type/robots/canonical) had no unit coverage.
+
+**Fixes shipped:**
+- New `test/layout.test.js` covering `page()` meta: og:type article only when `ogType==='article'`, bogus values fall back to website, noindex robots meta, canonical URL. Suite 19→20 green. No production code change.
+
+**Evidence:** live QA closure (`test-report-iter68.md` + recording): lowercase fixture "avocado toast QA68" sorts 3rd (first non-fav) in A–Z — a case-sensitive sort would have placed it last — COLLATE NOCASE proven, fixture removed and box restored; disposable account (fresh signup) showed empty list with plain "Grocery list" h1 (no span) + empty hint, then "1 to buy" → "all done 🎉 · 1 checked" transitions; self-serve GDPR deletion killed the session and the household share link (404). Standing QA data untouched.
