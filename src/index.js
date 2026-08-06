@@ -792,7 +792,10 @@ app.get('/app/recipes/:id', async (c) => {
   const h = c.get('household');
   const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
   if (!r) return c.notFound();
-  const body = recipeBody(r, true, h.units);
+  const stats = await c.env.DB.prepare(
+    "SELECT COUNT(*) AS n, MAX(date) AS last FROM plan_entries WHERE household_id = ? AND recipe_id = ? AND date <= date('now')"
+  ).bind(h.id, r.id).first();
+  const body = recipeBody(r, true, h.units, stats);
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
@@ -916,13 +919,20 @@ app.post('/app/recipes/:id/delete', async (c) => {
   return c.redirect('/app/recipes');
 });
 
-function recipeBody(r, canEdit, units = '') {
+function planStatsLine(stats) {
+  if (!stats || !stats.n) return '';
+  const last = new Date(stats.last + 'T00:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `<p class="text-xs text-stone-400 mt-1 print:hidden">Planned ${stats.n === 1 ? 'once' : `${stats.n} times`} · last on ${last}</p>`;
+}
+
+function recipeBody(r, canEdit, units = '', stats = null) {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
 ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="rounded-2xl w-full max-h-80 object-cover mb-4 print:hidden">` : ''}
 <h1 class="text-3xl font-bold">${esc(r.title)}</h1>
 <p class="text-sm text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes} min`, r.cook_minutes && `Cook ${r.cook_minutes} min`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
+${planStatsLine(stats)}
 ${r.description ? `<p class="mt-3 text-stone-600">${esc(r.description)}</p>` : ''}
 ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" href="${esc(r.source_url)}" rel="noopener nofollow">Original source</a></p>` : ''}
 ${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3"><h2 class="text-sm font-semibold text-amber-800">Notes</h2><p class="mt-1 text-sm text-amber-900 whitespace-pre-line">${esc(r.notes)}</p></div>` : ''}

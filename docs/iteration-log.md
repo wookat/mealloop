@@ -600,3 +600,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide `/guides/batch-cooking-for-busy-weeks` (“Batch cooking for busy weeks: cook twice, eat five times”); sitemap 20→21 locs; IndexNow HTTP 200.
 
 **Evidence:** live verification (`test-report-iter53.md` + recording): listed last on /guides with exact title/excerpt; page renders h1 + both h2 sections + bullets + CTA; title/meta exact; More guides wraps to the first 3 guides and navigates; sitemap exactly 21 locs incl. new URL (first fetch was a stale CDN copy — re-fetch fixed); 375/375; Console/Issues clean; read-only round.
+
+## Round 54 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: when deciding what to cook, “have we done this recently?” had no answer on the recipe page — rotation history lived only in the planner (competitors surface last-cooked info).
+
+**Fixes shipped:**
+- Plan-stats line on the logged-in recipe detail page: “Planned once/N times · last on Ddd D Mmm” from COUNT/MAX(date) of `plan_entries` with date ≤ today (UTC) — future-dated entries excluded; never-planned recipes show nothing; share recipe page unaffected; print:hidden (`planStatsLine`, src/index.js).
+
+**Evidence:** live verification (`test-report-iter54.md` + recording): plan Test Stew today → “Planned once · last on Thu 6 Aug”; never-planned recipe → no line; extra far-future 2027 entry → count/date unchanged; share page → no line; print preview hides it; 375/375; Console/Issues clean; fixtures removed. Plural “N times” branch source-verified only.
