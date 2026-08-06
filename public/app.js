@@ -93,8 +93,9 @@
   }
 
   var list = document.getElementById('list');
-  if (!list) return;
-  var version = list.dataset.version, base = list.dataset.base;
+  var poller = list || document.querySelector('[data-poll]');
+  if (!poller) return;
+  var version = poller.dataset.version, base = poller.dataset.base;
   document.querySelectorAll('.toggle-form').forEach(function (f) {
     f.addEventListener('submit', function (e) {
       e.preventDefault();

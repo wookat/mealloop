@@ -511,3 +511,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New guide `/guides/organize-grocery-list-by-store-aisle` (“How to organize your grocery list by store aisle (and stop backtracking)”) — sitemap 18→19 locs; IndexNow HTTP 200.
 
 **Evidence:** live verification (`test-report-iter45.md` + recording): guide listed with exact excerpt and navigates; h1 + both h2 steps + 3-bullet list + CTA render; title/meta exact; sitemap exactly 19 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: IndexNow 200 shell-verified only.
+
+## Round 46 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor: Plan to Eat supports per-recipe notes (“double the sauce”, “kids loved it”); MealLoop had nowhere to keep household cooking notes.
+- ① testing (found during this round’s verification): the live version poll only ran on pages with `#list`, so open share *recipe* tabs never self-updated.
+
+**Fixes shipped:**
+- Household-shared recipe notes: migration 0011 (`recipes.notes`), Notes textarea on the edit form (maxlength 2000), amber callout on the app and read-only share recipe pages (escaped, `whitespace-pre-line`), version bump on save.
+- 46b: version poll now also runs on any page with a `[data-poll data-version data-base]` marker; share recipe page carries it, so open share recipe tabs self-update.
+
+**Evidence:** live verification (`test-report-iter46.md` + recording): no-note recipe clean; multi-line note renders with line breaks, XSS probe escaped; note visible on share view with no edit controls; clearing removes callout; open share recipe tab self-reloaded ~14s after app-side save and self-dropped the callout after clearing (46b); /app/list toggle+poll and share-planner poll regressions clean; 375/375; Console/Issues clean; fixtures reverted. Note: the note prints (accepted); initial deploy failed the share-tab check — fixed same round.
