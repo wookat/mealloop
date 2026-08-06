@@ -837,3 +837,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `/app/share` gains a "Meal plan in your calendar" card: readonly feed URL + Copy (data-copy), Google/Apple/Outlook explainer.
 
 **Evidence:** live verification (`test-report-iter76.md` + recording): card renders and Copy proven via a real clipboard paste; feed parsed structurally (8 VEVENTs matching current-week plan entries, correct window, VCALENDAR headers); wrong token 404; share page/account card regressions clean; 375px + Console/Issues clean. Untested: real calendar-client subscription; SUMMARY escaping/×N branches (no such entries in standing plan).
+
+## Round 77 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: the R76 iCal feed (a differentiator vs Samsung Food web and a parity point vs Plan to Eat's app) had no content surface; guides remain the organic-facing channel accruing views.
+
+**Fixes shipped:**
+- New pSEO guide #22 `meal-plan-in-your-family-calendar` ("Put the meal plan in the calendar your family already checks") — cross-promotes the calendar feed. Sitemap 25→26 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter77.md` + recording): breadcrumb/h1/2×h2+3 bullets/session-aware CTA render; More-guides wraps to first 3; /guides 22 cards + ItemList 22 items (position 22); single @graph [Article, BreadcrumbList] + og:type=article + canonical correct; sitemap 26 locs; 375px + Console/Issues clean.

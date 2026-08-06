@@ -328,4 +328,20 @@ export const GUIDES = [
       p('Meal planning apps love to push endless new recipes, but families run on repetition: most households rotate 8-12 dinners. Two or three saved menus cover most of the calendar, and applying one takes seconds — it fills only the empty slots, so you can still swap a night out. Keep a small library, print one for the fridge, and let "what should we eat this week?" become "which menu is this week?".'),
     ].join(''),
   },
+  {
+    slug: 'meal-plan-in-your-family-calendar',
+    title: 'Put the meal plan in the calendar your family already checks',
+    excerpt: 'Nobody opens a meal planning app to see what\'s for dinner — but everyone checks the family calendar. A calendar feed fixes that.',
+    body: [
+      p('The best meal plan is the one people actually see. Most families already live out of a shared calendar — school pickups, football practice, appointments. If dinner lives in a separate app, it\'s invisible at exactly the moment someone asks "what\'s for dinner tonight?" while looking at today\'s schedule.'),
+      h2('Why a calendar feed beats another app'),
+      ul([
+        'Zero new habits: meals show up as all-day events next to everything else the family already checks.',
+        'It updates itself: a subscribed feed refreshes automatically when the plan changes — no exporting, no re-adding.',
+        'It works for the family member who refuses to install anything: if they can see the shared Google or Apple calendar, they can see dinner.',
+      ]),
+      h2('How to set it up'),
+      p('Look for a meal planner that offers an iCal (.ics) subscription URL. Copy the link once and add it in Google Calendar ("From URL"), Apple Calendar ("New Calendar Subscription") or Outlook. From then on, the week\'s planned meals appear as all-day events — "Dinner: lasagne" on Wednesday — alongside the rest of family life, and stay current as the plan changes.'),
+    ].join(''),
+  },
 ];
