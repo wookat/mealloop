@@ -590,3 +590,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New unit test for `clampMinutes`; suite 17→18.
 
 **Evidence:** live verification (`test-report-iter52.md` + recording): set 10/25/“Serves 4” → meta on card/detail/share; clear-all removes it; Prep=0 through the real form → stored NULL (negatives/letters blocked client-side by type=number, server path source-verified); imported bolognese meta preserved on re-save; 375/375 (3-col row fits); Console/Issues clean; fixtures restored. Local: 18/18 tests pass.
+
+## Round 53 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth / ④ competitor: batch cooking is a high-intent evergreen topic that maps directly onto existing features (×2/×3 scaling, quantity merge, leftovers nights) — no guide covered it.
+
+**Fixes shipped:**
+- New pSEO guide `/guides/batch-cooking-for-busy-weeks` (“Batch cooking for busy weeks: cook twice, eat five times”); sitemap 20→21 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter53.md` + recording): listed last on /guides with exact title/excerpt; page renders h1 + both h2 sections + bullets + CTA; title/meta exact; More guides wraps to the first 3 guides and navigates; sitemap exactly 21 locs incl. new URL (first fetch was a stale CDN copy — re-fetch fixed); 375/375; Console/Issues clean; read-only round.

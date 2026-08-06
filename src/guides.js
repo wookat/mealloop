@@ -248,4 +248,20 @@ export const GUIDES = [
       p('Do this once and every future list comes out pre-sorted: you sweep the store in one pass, and whoever you share the list with walks the same route — no backtracking, no forgotten parmesan.'),
     ].join(''),
   },
+  {
+    slug: 'batch-cooking-for-busy-weeks',
+    title: 'Batch cooking for busy weeks: cook twice, eat five times',
+    excerpt: 'Two bigger cooking sessions can cover most of a week\'s dinners — if the plan and the maths are done for you.',
+    body: [
+      p('Batch cooking sounds like a Sunday spent chained to the stove. It doesn\'t have to be: two ordinary cooking sessions, each just scaled up, can cover most of a week\'s dinners. The hard parts — doubling the ingredients correctly and remembering which night eats what — are exactly what a planner should do for you.'),
+      h2('Pick batch-friendly dinners'),
+      ul([
+        'Stews, chili, curries, lasagne and roasts all reheat as well as (or better than) they cook — pick two of these per week.',
+        'Scale the recipe ×2 or ×3 when you plan it, so the grocery list gets the doubled quantities automatically — no mental arithmetic at the store.',
+        'Book the repeat nights immediately: cook Monday, plan “Leftovers” for Tuesday and Thursday, and the week is nearly done.',
+      ]),
+      h2('Let the list do the maths'),
+      p('The most common batch-cooking failure is under-buying: you double the recipe in your head but shop from the original quantities. A planner that scales ingredients per planned meal and merges them into one aisle-sorted grocery list closes that gap — 750g of mince twice becomes 1.5kg on the list, and everyone shopping sees the same numbers.'),
+    ].join(''),
+  },
 ];
