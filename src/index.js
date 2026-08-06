@@ -171,9 +171,21 @@ app.get('/guides/:slug', (c) => {
 <h1 class="text-3xl font-bold">${esc(g.title)}</h1>
 ${g.body}
 <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
+${relatedGuides(g)}
 </article>`;
   return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}` }));
 });
+
+function relatedGuides(g) {
+  const i = GUIDES.indexOf(g);
+  const picks = [1, 2, 3].map((k) => GUIDES[(i + k) % GUIDES.length]);
+  return `<nav aria-label="More guides" class="mt-8 border-t border-stone-200 pt-5">
+<h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">More guides</h2>
+<ul class="mt-3 space-y-2">
+${picks.map((r) => `<li><a class="text-emerald-700 hover:underline" href="/guides/${r.slug}">${esc(r.title)}</a></li>`).join('')}
+</ul>
+</nav>`;
+}
 
 // ---------- auth ----------
 app.get('/login', async (c) => {

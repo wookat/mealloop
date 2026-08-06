@@ -554,3 +554,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New guide `/guides/plan-leftovers-nights-reduce-food-waste` (“Plan leftovers nights on purpose (and stop throwing food away)”) — sitemap 19→20 locs; IndexNow HTTP 200.
 
 **Evidence:** live verification (`test-report-iter49.md` + recording): guide listed with exact title/excerpt and navigates; h1 + both h2 sections + 3-bullet list + CTA render; title/meta exact; sitemap exactly 20 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: card sits second-to-last on /guides (array order); IndexNow 200 shell-verified only.
+
+## Round 50 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth / ③ visual: guide pages were dead ends — after the CTA there was nowhere to go, wasting internal-link equity and engagement across 16 guides.
+- ① testing: guides had no unit coverage (slug collisions or missing metadata would ship silently).
+
+**Fixes shipped:**
+- “More guides” nav on every guide page (after the CTA): 3 deterministic links = next 3 guides in array order with wrap-around (`relatedGuides`).
+- New `test/guides.test.js`: slug uniqueness/format + title/excerpt length bounds + body structure (suite 15→16 tests).
+
+**Evidence:** live verification (`test-report-iter50.md` + recording): More guides section renders after the CTA with exactly 3 links in expected order on a mid-array guide; last guide wraps to the first 3; navigation works; /guides listing unchanged (16 cards, no section there); 375/375; Console/Issues clean; read-only round. Local: 16/16 tests pass.
