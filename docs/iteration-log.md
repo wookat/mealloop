@@ -544,3 +544,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - PWA install metadata: `public/manifest.webmanifest` (id/start_url `/app`, standalone, theme `#059669`, 192/512 icons incl. maskable), new emerald plate-logo icons, and manifest/apple-touch-icon/theme-color tags in the layout head on every page. Intentionally no service worker (no offline claim).
 
 **Evidence:** live verification (`test-report-iter48.md` + recording): manifest 200 `application/manifest+json` and parses in DevTools Application → Manifest with all 3 icon entries; icons 200 png at 192/512; exactly one manifest/theme-color/apple-touch-icon tag on `/`, `/login`, `/guides`, `/app/list`; no CSP violations; Chrome install icon appears in the omnibox; homepage//app/list visuals unchanged; 375/375; Console/Issues clean; read-only round. Notes: actual install not performed on the test box; `id` field added post-test to silence the DevTools note (curl-verified); Richer-Install-UI screenshot warnings accepted.
+
+## Round 49 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth: food-waste / leftovers planning is a high-demand search topic with a direct product hook (R25’s “+ Leftovers next day”); no guide covered it.
+
+**Fixes shipped:**
+- New guide `/guides/plan-leftovers-nights-reduce-food-waste` (“Plan leftovers nights on purpose (and stop throwing food away)”) — sitemap 19→20 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter49.md` + recording): guide listed with exact title/excerpt and navigates; h1 + both h2 sections + 3-bullet list + CTA render; title/meta exact; sitemap exactly 20 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: card sits second-to-last on /guides (array order); IndexNow 200 shell-verified only.

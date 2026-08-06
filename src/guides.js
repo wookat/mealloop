@@ -216,6 +216,22 @@ export const GUIDES = [
     ].join(''),
   },
   {
+    slug: 'plan-leftovers-nights-reduce-food-waste',
+    title: 'Plan leftovers nights on purpose (and stop throwing food away)',
+    excerpt: 'The average family bins hours of cooking every week. One planned leftovers night fixes most of it.',
+    body: [
+      p('Leftovers get wasted for one reason: nobody plans to eat them. They sit in the fridge as a vague possibility until they become a science experiment. The fix isn\'t cooking less — it\'s giving leftovers a slot in the week like any other dinner.'),
+      h2('Make it a named night, not a maybe'),
+      ul([
+        'When you plan a big-batch dinner (chili, roast, lasagne), immediately book the next night as “Leftovers” — one decision, two dinners.',
+        'Plan 4–5 cooked dinners plus 1–2 leftovers nights instead of 7 fresh meals; the week gets cheaper and calmer.',
+        'Put the leftovers night on the shared plan so whoever cooks (or doesn\'t) sees it — it only works if everyone knows the fridge is the menu.',
+      ]),
+      h2('Let the plan do the remembering'),
+      p('A meal planner that adds a “Leftovers” entry for the next day in one click removes the friction entirely: cook once, tap once, and tomorrow\'s dinner is already decided and visible to the whole household. No guilt, no fridge archaeology, and a grocery list that\'s one dinner shorter.'),
+    ].join(''),
+  },
+  {
     slug: 'organize-grocery-list-by-store-aisle',
     title: 'How to organize your grocery list by store aisle (and stop backtracking)',
     excerpt: 'A list sorted the way you walk your store turns a 40-minute shop into 20. Here\'s how to set one up.',
