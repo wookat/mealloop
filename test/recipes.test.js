@@ -150,3 +150,14 @@ test('isIngredientHeading detects section headers only', async () => {
   assert.equal(isIngredientHeading('plain flour'), false);
   assert.equal(isIngredientHeading(''), false);
 });
+
+test('sanitizeImageUrl accepts http(s) only', async () => {
+  const { sanitizeImageUrl } = await import('../src/util.js');
+  assert.equal(sanitizeImageUrl('https://example.com/a.jpg'), 'https://example.com/a.jpg');
+  assert.equal(sanitizeImageUrl('  http://example.com/b.png  '), 'http://example.com/b.png');
+  assert.equal(sanitizeImageUrl('javascript:alert(1)'), null);
+  assert.equal(sanitizeImageUrl('data:image/png;base64,AAAA'), null);
+  assert.equal(sanitizeImageUrl('not a url'), null);
+  assert.equal(sanitizeImageUrl(''), null);
+  assert.equal(sanitizeImageUrl(undefined), null);
+});

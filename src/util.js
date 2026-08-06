@@ -178,6 +178,18 @@ export function convertUnits(label, system) {
   return String(label);
 }
 
+// User-provided recipe photo URLs: http(s) only, else null.
+export function sanitizeImageUrl(v) {
+  const s = String(v || '').trim().slice(0, 500);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
 // Section headers inside ingredient lists, e.g. "For the sauce:".
 export function isIngredientHeading(label) {
   const s = String(label || '').trim();

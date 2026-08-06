@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -832,6 +832,8 @@ app.get('/app/recipes/:id/edit', async (c) => {
     <textarea name="ingredients" rows="${Math.min(Math.max(ingredients.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(ingredients.join('\n'))}</textarea></label>
   <label class="block"><span class="text-sm font-medium">Steps <span class="font-normal text-stone-500">(one per line)</span></span>
     <textarea name="steps" rows="${Math.min(Math.max(steps.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(steps.join('\n'))}</textarea></label>
+  <label class="block"><span class="text-sm font-medium">Photo URL <span class="font-normal text-stone-500">(optional — paste a link to an image)</span></span>
+    <input name="image_url" type="url" maxlength="500" placeholder="https://…" value="${esc(r.image_url || '')}" autocomplete="off" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"></label>
   <label class="block"><span class="text-sm font-medium">Notes <span class="font-normal text-stone-500">(shared with your household — “double the sauce”, “kids loved it”)</span></span>
     <textarea name="notes" rows="3" maxlength="2000" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(r.notes || '')}</textarea></label>
   <div class="flex items-center gap-3">
@@ -852,8 +854,9 @@ app.post('/app/recipes/:id/edit', async (c) => {
   const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const notes = String(f.notes || '').trim().slice(0, 2000);
-  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ?, notes = ? WHERE id = ? AND household_id = ?')
-    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), notes, id, h.id).run();
+  const imageUrl = sanitizeImageUrl(f.image_url);
+  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ?, notes = ?, image_url = ? WHERE id = ? AND household_id = ?')
+    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), notes, imageUrl, id, h.id).run();
   await bumpVersion(c.env, h.id);
   return c.redirect(`/app/recipes/${id}`);
 });

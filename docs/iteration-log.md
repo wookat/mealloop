@@ -566,3 +566,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New `test/guides.test.js`: slug uniqueness/format + title/excerpt length bounds + body structure (suite 15→16 tests).
 
 **Evidence:** live verification (`test-report-iter50.md` + recording): More guides section renders after the CTA with exactly 3 links in expected order on a mid-array guide; last guide wraps to the first 3; navigation works; /guides listing unchanged (16 cards, no section there); 375/375; Console/Issues clean; read-only round. Local: 16/16 tests pass.
+
+## Round 51 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: manual and pasted recipes had no photo and no way to add one — imported recipes get images, so the recipe box was visually split into rich and bare cards (Plan to Eat/Samsung Food both allow user photos).
+- ① testing: user-supplied URL fields need injection coverage (javascript:/data: URIs).
+
+**Fixes shipped:**
+- Optional “Photo URL” field on the recipe edit form; `sanitizeImageUrl` (src/util.js) keeps only http/https URLs, else stores NULL. Photo renders on the card grid, detail page and share recipe page; clearing restores the 🍽 placeholder; save bumps version so open share pages self-update.
+- New unit test for `sanitizeImageUrl` (javascript:/data:/garbage → null); suite 16→17.
+
+**Evidence:** live verification (`test-report-iter51.md` + recording): add photo → renders on card/detail/share; clear → placeholder returns; `javascript:alert(1)` submitted through the real form → no alert, no img, stored NULL; notes/title regression clean; 375/375; Console/Issues clean; fixtures restored. Local: 17/17 tests pass.
