@@ -672,3 +672,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - /guides listing emits a single ItemList JSON-LD script: 18 ListItems, position 1..18, name = guide title, absolute url per guide.
 
 **Evidence:** live verification (`test-report-iter60.md` + recording): exactly 1 ld+json script on /guides, parses as ItemList with positions 1..18 and names character-identical to the visible card order; listing visual regression clean (no breadcrumbs, 18 cards); strict CSP — Console/Issues clean; 375px clean; read-only round.
+
+## Round 61 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ③ visual: on mobile the 7 day cards stack, so mid-week you scroll past dead days to find today; the “Today” nav link reloaded /app at the top; past days looked identical to upcoming ones.
+
+**Fixes shipped:**
+- Today's card gets `id="today"` + `scroll-mt-20`; the “Today” control links to `/app#today` (returns to current week and anchors, offset for the sticky header).
+- Past-day cards (date < today UTC) get `opacity-60 print:opacity-100` — dimmed on screen, full contrast in print.
+
+**Evidence:** live verification (`test-report-iter61.md` + recording): desktop dimming (past dimmed, today ringed, future normal); 375px “Today” click anchors today's card below the sticky header; return from ?week=next anchors correctly; print preview shows past days at full contrast; Console/Issues clean; read-only round.
