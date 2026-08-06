@@ -610,3 +610,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Plan-stats line on the logged-in recipe detail page: “Planned once/N times · last on Ddd D Mmm” from COUNT/MAX(date) of `plan_entries` with date ≤ today (UTC) — future-dated entries excluded; never-planned recipes show nothing; share recipe page unaffected; print:hidden (`planStatsLine`, src/index.js).
 
 **Evidence:** live verification (`test-report-iter54.md` + recording): plan Test Stew today → “Planned once · last on Thu 6 Aug”; never-planned recipe → no line; extra far-future 2027 entry → count/date unchanged; share page → no line; print preview hides it; 375/375; Console/Issues clean; fixtures removed. Plural “N times” branch source-verified only.
+
+## Round 55 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth: guide pages had no structured data (Article/Breadcrumb rich-result eligibility) and no visible way back to the guides index except the site nav.
+
+**Fixes shipped:**
+- JSON-LD @graph on every guide page: Article (headline/description/canonical/og-card image, MealLoop org author+publisher w/ icon-512 logo) + BreadcrumbList (Guides → guide).
+- Visible breadcrumb nav “Guides › <title>” above the h1 linking back to /guides.
+
+**Evidence:** live verification (`test-report-iter55.md` + recording): breadcrumb renders and navigates, title matches h1; JSON-LD parses with 11/11 exact field checks on 2 guides; strict CSP — zero console errors (ld+json is data, not executed); CTA/More guides//guides listing regression clean; 375px long-title breadcrumb wraps cleanly; read-only round.

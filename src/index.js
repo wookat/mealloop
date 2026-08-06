@@ -167,7 +167,28 @@ ${GUIDES.map((g) => `<li class="rounded-xl bg-white border border-stone-200 p-4 
 app.get('/guides/:slug', (c) => {
   const g = GUIDES.find((x) => x.slug === c.req.param('slug'));
   if (!g) return c.notFound();
-  const body = `<article class="py-8 max-w-2xl mx-auto space-y-4">
+  const body = `<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Article',
+        headline: g.title,
+        description: g.excerpt,
+        mainEntityOfPage: `https://mealloop.zalize.com/guides/${g.slug}`,
+        image: 'https://mealloop.zalize.com/og-card.png',
+        author: { '@type': 'Organization', name: 'MealLoop', url: 'https://mealloop.zalize.com' },
+        publisher: { '@type': 'Organization', name: 'MealLoop', logo: { '@type': 'ImageObject', url: 'https://mealloop.zalize.com/icon-512.png' } },
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Guides', item: 'https://mealloop.zalize.com/guides' },
+          { '@type': 'ListItem', position: 2, name: g.title, item: `https://mealloop.zalize.com/guides/${g.slug}` },
+        ],
+      },
+    ],
+  })}</script><article class="py-8 max-w-2xl mx-auto space-y-4">
+<nav aria-label="Breadcrumb" class="text-sm text-stone-500"><a class="hover:text-emerald-700 hover:underline" href="/guides">Guides</a> <span aria-hidden="true">›</span> <span class="text-stone-700">${esc(g.title)}</span></nav>
 <h1 class="text-3xl font-bold">${esc(g.title)}</h1>
 ${g.body}
 <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
