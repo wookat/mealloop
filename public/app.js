@@ -21,8 +21,7 @@
           var spans = f.querySelectorAll('span');
           if (!spans[1].classList.contains('line-through')) {
             var lbl = spans[1].cloneNode(true);
-            var sub = lbl.querySelector('span');
-            if (sub) lbl.removeChild(sub);
+            lbl.querySelectorAll('span').forEach(function (sub) { lbl.removeChild(sub); });
             items.push('- ' + lbl.textContent.trim());
           }
         });
@@ -55,6 +54,30 @@
     });
     sel.dataset.prev = sel.value;
   });
+
+  var cookBtn = document.querySelector('[data-cook-mode]');
+  if (cookBtn) {
+    var article = cookBtn.closest('article');
+    var wakeLock = null;
+    var requestWake = function () {
+      if (navigator.wakeLock) {
+        navigator.wakeLock.request('screen').then(function (l) { wakeLock = l; }).catch(function () {});
+      }
+    };
+    cookBtn.addEventListener('click', function () {
+      var on = article.classList.toggle('cook-mode');
+      cookBtn.textContent = on ? 'Exit cook mode' : 'Cook mode';
+      if (on) { requestWake(); } else if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && article.classList.contains('cook-mode')) requestWake();
+    });
+    article.querySelectorAll('.steps-list li').forEach(function (li) {
+      li.addEventListener('click', function () {
+        if (article.classList.contains('cook-mode')) li.classList.toggle('done');
+      });
+    });
+  }
 
   var list = document.getElementById('list');
   if (!list) return;
