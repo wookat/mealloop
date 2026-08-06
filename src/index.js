@@ -681,6 +681,8 @@ app.get('/app/recipes', async (c) => {
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
   const fav = c.req.query('fav') === '1';
+  const sort = c.req.query('sort') === 'title' ? 'title' : 'newest';
+  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC' : 'favorite DESC, created_at DESC';
   if (q) {
     // Aggregate search terms (no user/household attribution) to learn what people look for.
     const term = q.toLowerCase().slice(0, 60);
@@ -690,24 +692,28 @@ app.get('/app/recipes', async (c) => {
     );
   }
   const recipes = q
-    ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY favorite DESC, created_at DESC")
+    ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY ${order}`)
         .bind(h.id, `%${q}%`, `%${q}%`).all()
     : tag
-      ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY favorite DESC, created_at DESC")
+      ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY ${order}`)
           .bind(h.id, `%,${tag},%`).all()
       : fav
-        ? await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? AND favorite = 1 ORDER BY created_at DESC').bind(h.id).all()
-        : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC').bind(h.id).all();
+        ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND favorite = 1 ORDER BY ${order}`).bind(h.id).all()
+        : await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? ORDER BY ${order}`).bind(h.id).all();
   const allTags = await c.env.DB.prepare('SELECT tags FROM recipes WHERE household_id = ? AND tags != \'\'').bind(h.id).all();
   const anyFav = await c.env.DB.prepare('SELECT 1 FROM recipes WHERE household_id = ? AND favorite = 1 LIMIT 1').bind(h.id).first();
   const tagSet = [...new Set(allTags.results.flatMap((r) => r.tags.split(',')).filter(Boolean))].sort();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Recipes</h1>
-  <form method="get" action="/app/recipes" class="flex gap-2">
-    <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
-    <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
-  </form>
+  <div class="flex flex-wrap items-center gap-2">
+    <form method="get" action="/app/recipes" class="flex gap-2">
+      ${sort === 'title' ? '<input type="hidden" name="sort" value="title">' : ''}
+      <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
+      <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
+    </form>
+    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'title' ? 'sort=title' : ''}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}</span>`; })()}
+  </div>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
 ${tagSet.length || anyFav ? `<div class="flex flex-wrap gap-1.5 mb-4">

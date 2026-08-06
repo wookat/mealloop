@@ -723,3 +723,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Grocery-list h1 progress summary: `N to buy[ · M checked]`, `all done 🎉 · M checked` when nothing left, no span on an empty list. Rendered in shared `listBody`, so /app/list and the anonymous share list both show it; counts follow the shown (store-filtered) items.
 
 **Evidence:** live verification (`test-report-iter65.md` + recording): exact counts through add/check/uncheck transitions incl. full check-all (“all done 🎉 · 37 checked”, fully reversed); share page shows the identical summary anonymously; store filter scopes counts to the filtered view; fixtures/stores cleaned, production restored; 375px + Console/Issues clean. Untested: empty-list no-span state (would require deleting standing items).
+
+## Round 66 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: growing recipe boxes only listed newest-first; competitors offer alphabetical browsing — finding a known recipe by name meant search or scroll.
+
+**Fixes shipped:**
+- Newest | A–Z sort control on /app/recipes: `?sort=title` → `favorite DESC, title COLLATE NOCASE ASC` (favourites stay pinned); active sort is a non-link pill (aria-current), inactive link preserves q/tag/fav; search form carries a hidden sort input in A–Z mode; unknown ?sort falls back to newest. Applies to all four query variants.
+
+**Evidence:** live verification (`test-report-iter66.md` + recording): default order unchanged; A–Z alphabetical with favourites pinned; sort persists through search and tag filter with params preserved; ?sort=bogus falls back cleanly; 375px wrap + Console/Issues clean. Not separately proven: COLLATE NOCASE with mixed-case titles (all QA titles are Title-case).
