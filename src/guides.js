@@ -76,6 +76,41 @@ export const GUIDES = [
     ].join(''),
   },
   {
+    slug: 'scaling-recipes-for-family-size',
+    title: 'How to scale recipes up or down for your family size',
+    excerpt: 'Cooking for 2 from a serves-4 recipe, or doubling for guests: what scales cleanly and what does not.',
+    body: [
+      p('Most recipes serve four; most households are not four people. Scaling quantities is easy math, but a few things do not scale linearly.'),
+      h2('What scales cleanly'),
+      ul([
+        '<strong>Main ingredients</strong>: proteins, vegetables, grains — multiply directly.',
+        '<strong>Liquids in stews and soups</strong> — multiply, then adjust to the pot.',
+      ]),
+      h2('What to watch'),
+      ul([
+        '<strong>Seasoning and heat</strong> (salt, chilli): start with ~75% of the scaled amount and adjust to taste.',
+        '<strong>Baking</strong>: chemistry is per-pan — prefer making two batches over doubling one.',
+        '<strong>Cook times</strong> barely change with quantity; oven times change with <em>thickness</em>, not weight.',
+      ]),
+      p('A planner that lets you set a per-meal serving multiplier — and carries the scaled quantities straight into the grocery list — saves you doing this arithmetic in the store aisle.'),
+    ].join(''),
+  },
+  {
+    slug: 'weekly-grocery-list-with-staples',
+    title: 'Never forget the milk: staples and your weekly grocery list',
+    excerpt: 'The items you buy every week deserve automation. How a staples list removes the most common shopping miss.',
+    body: [
+      p('The most common grocery failure is not the special ingredient for Tuesday\'s curry — it is the milk, bread, and coffee you buy every single week and forgot to write down.'),
+      h2('The staples pattern'),
+      ul([
+        'Keep a short list of items you <strong>always</strong> want on the shopping list.',
+        'Have them added <strong>automatically</strong> every time the week\'s ingredients are generated.',
+        'Check them off like anything else — anyone in the family, from any phone.',
+      ]),
+      p('Combined with aisle grouping and a shared link, staples turn the weekly list from a memory test into a checklist.'),
+    ].join(''),
+  },
+  {
     slug: 'samsung-food-review-for-families',
     title: 'Samsung Food for family meal planning: an honest review',
     excerpt: 'Samsung Food is powerful but busy. Where it shines and where a family-first planner fits better.',
