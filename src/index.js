@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -1161,8 +1161,9 @@ async function addListItem(env, householdId, label) {
 app.post('/app/list/add', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
-  const label = String(f.label || '').trim().slice(0, 200);
-  if (label) await addListItem(c.env, h.id, label);
+  for (const label of splitListInput(String(f.label || '').slice(0, 500))) {
+    await addListItem(c.env, h.id, label.slice(0, 200));
+  }
   const back = String(f.back || '');
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
@@ -1416,7 +1417,7 @@ ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hi
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
   <input type="hidden" name="back" value="${back}">
-  <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <input name="label" required aria-label="Add item" placeholder="Add items (e.g. milk, eggs, 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>` : ''}
@@ -1684,9 +1685,14 @@ app.post('/s/:token/add', async (c) => {
   const h = await shareHousehold(c);
   if (!h) return c.notFound();
   const f = await c.req.parseBody();
-  const label = String(f.label || '').trim().slice(0, 200);
+  const labels = splitListInput(String(f.label || '').slice(0, 500));
   const count = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM shopping_items WHERE household_id = ?').bind(h.id).first();
-  if (label && count.n < 500) await addListItem(c.env, h.id, label);
+  let room = 500 - count.n;
+  for (const label of labels) {
+    if (room <= 0) break;
+    await addListItem(c.env, h.id, label.slice(0, 200));
+    room--;
+  }
   const back = String(f.back || '');
   return c.redirect(back.startsWith(`/s/${h.share_token}`) ? back : `/s/${h.share_token}`);
 });

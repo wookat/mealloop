@@ -249,3 +249,13 @@ export function icsEscape(s) {
 export function copyName(name) {
   return `Copy of ${name}`.slice(0, 60);
 }
+
+// Split a manual list-add input into separate items on commas, keeping
+// decimal commas ("1,5 kg") intact. Returns trimmed non-empty parts, max 20.
+export function splitListInput(input) {
+  return String(input ?? '')
+    .split(/,(?!\d)/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20);
+}

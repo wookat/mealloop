@@ -888,3 +888,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Uncheck all" button on the /app/list "Checked off (N)" header (app view only; share page stays without it), backed by household-scoped POST /app/list/uncheck (checked=0 + version bump for share-page sync).
 
 **Evidence:** live verification (`test-report-iter81.md` + recording): 2-item checked fixture → one click restored both to their open categories with sources/notes/stores intact ("33 to buy · 2 checked" → "35 to buy"); share page synced and shows no button; single-toggle and Clear-checked regressions pass; 375px + Console/Issues clean; household restored to 35 to buy · 0 checked. Caveat: adversarial cross-household POST on the new route not exercised (same scoping pattern as proven in R80).
+
+## Round 82 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat July 2026 update reviewed — content/podcast growth only, no web product change requiring action (their nutrition/macro tracking stays out of our v1 scope).
+- ② UX: typing "milk, eggs, bread" in the grocery add box created one item; multi-add in one line is standard in list apps.
+
+**Fixes shipped:**
+- Comma multi-add: `splitListInput` in src/util.js (splits on commas but keeps decimal commas like "1,5 kg"; max 20 parts; unit-tested, suite 22→23), used in /app/list/add and the anonymous share add (respecting the 500-item cap). Placeholder now "Add items (e.g. milk, eggs, 2 lemons)".
+
+**Evidence:** live verification (`test-report-iter82.md` + recording): 3-way split on the app view, decimal comma kept as one item, re-add merge regression, share-page 2-way split synced to app, cleanup back to exactly 35 to buy · 0 checked, 375px + Console/Issues clean. Caveats: 20-part cap and length truncation proven by unit tests only; single-word QA labels categorize to "Other" (pre-existing categorizer, unrelated to the split).

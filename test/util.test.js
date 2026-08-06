@@ -23,3 +23,15 @@ test('copyName prefixes and truncates to 60 chars', () => {
   assert.ok(out.startsWith('Copy of X'));
   assert.equal(copyName(''), 'Copy of ');
 });
+
+import { splitListInput } from '../src/util.js';
+
+test('splitListInput splits on commas but keeps decimal commas', () => {
+  assert.deepEqual(splitListInput('milk, eggs, bread'), ['milk', 'eggs', 'bread']);
+  assert.deepEqual(splitListInput('1,5 kg flour'), ['1,5 kg flour']);
+  assert.deepEqual(splitListInput('2 lemons'), ['2 lemons']);
+  assert.deepEqual(splitListInput('milk,, ,eggs'), ['milk', 'eggs']);
+  assert.deepEqual(splitListInput('butter, 1,5 l milk, jam'), ['butter', '1,5 l milk', 'jam']);
+  assert.deepEqual(splitListInput(''), []);
+  assert.equal(splitListInput(Array.from({ length: 30 }, (_, i) => `item${i}`).join(', ')).length, 20);
+});
