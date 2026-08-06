@@ -282,3 +282,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round layout fixes: entry row `flex flex-wrap`, label `min-w-[4rem] break-words`, controls `shrink-0` — controls wrap to a second line on narrow cards; ✕ verified clickable at all widths.
 
 **Evidence:** live verification (`test-report-iter23.md` incl. 23b/23c addenda + recording): recipe (scale ×2 preserved) and note entries moved across days on a non-current week with `?week=` preserved; ✕ elementFromPoint returns the button at 1600px 7-col; labels horizontal; 375/375; console clean; fixtures cleaned (week 2026-12-14 empty).
+
+## Round 24 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual/a11y (P2): DevTools Issues panel flagged missing `autocomplete` attributes on form fields since early rounds; the login code input also missed the OS-level one-time-code autofill affordance.
+
+**Fixes shipped:**
+- `autocomplete="email"` on the landing subscribe and /login email inputs; `autocomplete="one-time-code"` on the 6-digit code input (enables OS code autofill on mobile); `autocomplete="off"` on the staples add input (matching the list add form).
+
+**Evidence:** live verification (`test-report-iter24.md` + recording): all four attributes present in production DOM; Issues panel now "No issues detected" on / and /login (hint gone); full magic-code login and staple add/remove regressions passed; 375/375 on /login; console clean; fixtures cleaned.

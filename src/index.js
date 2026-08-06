@@ -70,7 +70,7 @@ app.get('/', async (c) => {
   <h2 class="text-xl font-bold">Get new features first</h2>
   <p class="text-emerald-100 text-sm mt-1">Leave your email and we'll let you know when meal rotation, leftovers tracking and more launch.</p>
   <form method="post" action="/subscribe" class="mt-4 flex flex-col sm:flex-row gap-2 max-w-md">
-    <input type="email" name="email" required aria-label="Email address" placeholder="you@example.com" class="flex-1 rounded-lg px-3 py-2.5 text-stone-900 bg-white">
+    <input type="email" name="email" required aria-label="Email address" autocomplete="email" placeholder="you@example.com" class="flex-1 rounded-lg px-3 py-2.5 text-stone-900 bg-white">
     <button class="rounded-lg bg-white text-emerald-700 font-semibold px-5 py-2.5 hover:bg-emerald-50">Notify me</button>
   </form>
   <p class="text-emerald-100 text-xs mt-2">Product updates only — unsubscribe any time. See our <a class="underline" href="/privacy">privacy policy</a>.</p>
@@ -191,11 +191,11 @@ ${msg ? `<p class="mt-4 text-center text-sm rounded-lg bg-amber-50 border border
 ${email
     ? `<form method="post" action="/verify" class="mt-6 space-y-3">
         <input type="hidden" name="email" value="${esc(email)}">
-        <input name="code" aria-label="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus placeholder="6-digit code" class="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-center text-xl tracking-[0.4em]">
+        <input name="code" aria-label="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code" placeholder="6-digit code" class="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-center text-xl tracking-[0.4em]">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Verify & continue</button>
       </form>`
     : `<form method="post" action="/login" class="mt-6 space-y-3">
-        <input type="email" name="email" required aria-label="Email address" autofocus placeholder="you@example.com" class="w-full rounded-lg border border-stone-300 px-3 py-2.5">
+        <input type="email" name="email" required aria-label="Email address" autofocus autocomplete="email" placeholder="you@example.com" class="w-full rounded-lg border border-stone-300 px-3 py-2.5">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Email me a code</button>
       </form>`}
 </div>`;
@@ -998,7 +998,7 @@ app.get('/app/staples', async (c) => {
 </div>
 <p class="text-sm text-stone-600 mb-4">Items you always want on the list — they're added automatically every time you click “Add week's ingredients”.</p>
 <form method="post" action="/app/staples/add" class="flex gap-2 mb-5 max-w-md">
-  <input name="label" required aria-label="Add staple" placeholder="Add staple (e.g. milk)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <input name="label" required aria-label="Add staple" placeholder="Add staple (e.g. milk)" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>
 ${staples.results.length === 0 ? `<p class="text-stone-500 text-sm">No staples yet.</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
