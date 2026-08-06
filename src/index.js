@@ -247,7 +247,9 @@ app.get('/app', async (c) => {
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
   const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
+  const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const body = `
+${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
   <div class="flex items-center gap-2 text-sm">
@@ -315,7 +317,7 @@ ${days.map((d) => `
             ${recipes.results.length
               ? `<select name="recipe_id" aria-label="Recipe" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
               <option value="">— pick recipe —</option>
-              ${recipes.results.map((r) => `<option value="${r.id}">${esc(r.title)}</option>`).join('')}
+              ${recipes.results.map((r) => `<option value="${r.id}"${picked && r.id === picked.id ? ' selected' : ''}>${esc(r.title)}</option>`).join('')}
             </select>
             <select name="scale" class="w-full rounded border border-stone-300 text-sm px-1 py-1" aria-label="Servings scale">
               ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
@@ -676,7 +678,7 @@ ${r.source_url ? `<p class="mt-2 text-sm"><a class="text-emerald-700 underline" 
   </section>
 </div>
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3">
-  <a href="/app" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
+  <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
 </div>
 <form method="post" action="/app/recipes/${r.id}/tags" class="mt-4 flex gap-2 max-w-md">
