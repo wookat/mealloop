@@ -152,4 +152,35 @@ export const GUIDES = [
       p('A web-first list that lives at a single private link fixes this: anyone with the link opens it in a browser, sees the week\'s plan and the live list, and checks items off — changes sync to everyone in seconds. No install, no sign-up, and you can rotate the link any time to revoke access.'),
     ].join(''),
   },
+  {
+    slug: 'dinner-rotation-two-weeks',
+    title: 'The two-week dinner rotation: stop deciding what\'s for dinner',
+    excerpt: 'A small pool of proven meals on a loose rotation beats novelty. How to build one and keep it fresh.',
+    body: [
+      p('Decision fatigue, not cooking skill, is why weeknight dinners collapse into takeaway. The fix is boring on purpose: a pool of 10–14 meals your family already likes, rotated so nothing repeats within two weeks.'),
+      h2('Building the pool'),
+      ul([
+        'Start with the <strong>last 10 dinners everyone actually ate</strong> — not aspirational recipes.',
+        'Tag them by effort: a couple of 15-minute meals for the worst weeknights.',
+        'Add one new recipe a month at most; retire anything that gets groans twice.',
+      ]),
+      h2('Keeping it fresh without thinking'),
+      p('The rotation only works if you don\'t have to remember what you cooked lately. A planner that can fill an empty week from your recipe box — automatically preferring meals you haven\'t planned in the last two weeks — turns the rotation into one click, and the grocery list generates itself from there.'),
+    ].join(''),
+  },
+  {
+    slug: 'cook-from-your-phone-without-screen-lock',
+    title: 'Cooking from your phone: beat the screen lock and the tiny text',
+    excerpt: 'Flour-covered fingers vs. a sleeping phone screen. How a proper cook mode fixes recipe-following.',
+    body: [
+      p('Following a recipe on a phone usually means: screen locks at the exact wrong moment, text is too small to read from the counter, and you lose your place between steps — all with hands you don\'t want touching the screen.'),
+      h2('What a real cook mode does'),
+      ul([
+        '<strong>Keeps the screen awake</strong> while you cook (browsers support this — no app needed).',
+        '<strong>Enlarges the steps</strong> so they\'re readable from arm\'s length.',
+        '<strong>Marks steps done</strong> with a single tap, so a glance shows where you are.',
+      ]),
+      p('This works from a plain web page too — including a recipe someone shared with you by link — so the person cooking doesn\'t need an account or an install to get a proper hands-free view.'),
+    ].join(''),
+  },
 ];

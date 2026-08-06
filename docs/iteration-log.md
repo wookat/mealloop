@@ -226,3 +226,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Cook mode on recipe detail (app + anonymous share view): button next to the Steps heading (only when steps exist) enlarges steps/ingredients, makes steps tap-to-mark-done (client-only), and holds a Screen Wake Lock while active (re-acquired on tab return; failures silently ignored).
 
 **Evidence:** live verification (`test-report-iter18.md` + recording): toggle/mark-done/inert-outside-mode on app and share pages, stepless recipe shows no button, console clean, 375/375 in cook mode, recipe-detail regression (favorite/tags/plan CTA) passed, fixtures cleaned.
+
+## Round 19 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data / growth (P2): traffic remains internal QA; the two newest features (fill-week rotation, cook mode) had no matching pSEO content, and both map to real search intents ("dinner rotation", "keep phone screen on while cooking").
+
+**Fixes shipped:**
+- 2 new guides: `dinner-rotation-two-weeks` and `cook-from-your-phone-without-screen-lock`; auto-included in `/guides` and sitemap (14→16 locs); IndexNow submitted (200).
+
+**Evidence:** live verification (`test-report-iter19.md` + recording): both pages styled correctly (no raw HTML), listed on /guides, canonical/og:url/description correct via curl, console clean, 375/375.
