@@ -34,12 +34,13 @@ export function weekDates(startParam) {
 
 const CATEGORY_RULES = [
   ['Canned & Sauces', /\b(stock|broth|passata|sauce|canned|paste|beans|soup|vinegar|soy)/i],
-  ['Produce', /\b(onion|garlic|tomato(es)?|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|mushroom|ginger|scallion|herb)/i],
-  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|prosciutto|pancetta|chorizo|mince|fish|salmon|shrimp|prawn|tuna|steak)/i],
-  ['Dairy & Eggs', /\b(milk|butter|cheese|cream|yogurt|egg[s]?|mozzarella|parmesan|provolone|cheddar)/i],
-  ['Bakery & Grains', /\b(bread|flour|pasta|rice|noodle|tortilla|panko|crumb|oat|quinoa)/i],
+  ['Oils & Condiments', /\b(jam|jelly|marmalade|peanut butter)\b/i],
+  ['Produce', /\b(onion|garlic|tomato(es)?|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|cauliflower|cabbage|kale|leek|mushroom|ginger|scallion|herb|pear[s]?|plum[s]?|peach(es)?|grape[s]?|[a-z]*berr(y|ies)|orange[s]?|mango(es)?|melon|kiwi|pineapple|corn|squash|pumpkin|radish|beetroot|asparagus|salad)/i],
+  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|prosciutto|pancetta|chorizo|mince|fish|salmon|cod|haddock|shrimp|prawn|tuna|steak|tofu)/i],
+  ['Dairy & Eggs', /\b(milk|(?<!peanut )butter|cheese|cream|yogurt|egg[s]?|mozzarella|parmesan|provolone|cheddar)/i],
+  ['Bakery & Grains', /\b(bread|flour|pasta|rice|noodle|tortilla|panko|crumb|oat|quinoa|bun[s]?|bagel|roll[s]?|croissant|baguette|cereal|couscous)/i],
   ['Spices & Baking', /\b(salt|sugar|spice|cumin|paprika|oregano|cinnamon|baking|yeast|vanilla|pepper\b)/i],
-  ['Oils & Condiments', /\b(oil|olive oil|mayo|mustard|ketchup|honey|syrup)/i],
+  ['Oils & Condiments', /\b(oil|olive oil|mayo|mustard|ketchup|honey|syrup|dressing)/i],
 ];
 
 export function categorize(label) {
@@ -47,7 +48,7 @@ export function categorize(label) {
   return 'Other';
 }
 
-export const STANDARD_CATEGORIES = [...CATEGORY_RULES.map(([cat]) => cat), 'Other'];
+export const STANDARD_CATEGORIES = [...new Set(CATEGORY_RULES.map(([cat]) => cat)), 'Other'];
 
 // Store-walk default: produce first, long-life aisles later, Other last.
 export const DEFAULT_CATEGORY_ORDER = ['Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Bakery & Grains', 'Canned & Sauces', 'Spices & Baking', 'Oils & Condiments', 'Other'];

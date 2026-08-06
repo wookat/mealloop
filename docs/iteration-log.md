@@ -899,3 +899,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Comma multi-add: `splitListInput` in src/util.js (splits on commas but keeps decimal commas like "1,5 kg"; max 20 parts; unit-tested, suite 22→23), used in /app/list/add and the anonymous share add (respecting the 500-item cap). Placeholder now "Add items (e.g. milk, eggs, 2 lemons)".
 
 **Evidence:** live verification (`test-report-iter82.md` + recording): 3-way split on the app view, decimal comma kept as one item, re-add merge regression, share-page 2-way split synced to app, cleanup back to exactly 35 to buy · 0 checked, 375px + Console/Issues clean. Caveats: 20-part cap and length truncation proven by unit tests only; single-word QA labels categorize to "Other" (pre-existing categorizer, unrelated to the split).
+
+## Round 83 — 2026-08-06
+
+**Findings (by driver):**
+- ①/⑤: R82 testing showed common groceries (pears, plums, buns, jam) auto-categorized to "Other"; hand-typed items get no useful aisle grouping.
+
+**Fixes shipped:**
+- Expanded CATEGORY_RULES (src/util.js): Produce +fruits/vegetables (pears, plums, berries, oranges, melon, cauliflower, kale, …), Meat & Seafood +cod/haddock/tofu, Bakery +buns/bagel/rolls/baguette/cereal/couscous; new early rule sends jam/jelly/marmalade/peanut butter to Oils & Condiments (before Produce so "strawberry jam" isn't a berry); Dairy butter gained a `(?<!peanut )` lookbehind. Unit tests extended.
+
+**Evidence:** live verification (`test-report-iter83.md` + recording): pears→Produce, buns→Bakery, strawberry jam + peanut butter→Oils & Condiments, tofu→Meat & Seafood, plain butter→Dairy & Eggs; cleanup back to 35 to buy · 0 checked; 375px + Console/Issues clean. Caveat: 5 of ~30 new keywords proven live (rest unit-tested); existing rows keep their stored category by design.
