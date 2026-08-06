@@ -459,3 +459,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New guide `/guides/print-a-recipe-without-ads-and-clutter` ("How to print a recipe without the ads, photos and life story") — sitemap 17→18 locs; IndexNow HTTP 200.
 
 **Evidence:** live verification (`test-report-iter40.md` + recording): guide listed and renders (h1, both h2s, bullets, meta description = excerpt); sitemap has exactly 18 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: IndexNow 200 verified from shell, not re-verified by the testing agent.
+
+## Round 41 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX: Plan to Eat's signature grocery feature is custom aisle (category) order matching how you walk your store; our list rendered categories alphabetically (SQL ORDER BY) — not even a sensible store-walk default.
+
+**Fixes shipped:**
+- Migration 0010 `households.category_order` (JSON array); `sortCategories` in `src/util.js` ranks saved order → store-walk default (Produce first, Other last) → customs alphabetically.
+- `/app/list` gains an "Aisle order…" popover (per-category ↑/↓, edge arrows disabled, `?aisles=1` keeps it open across moves); list sections, per-row category selects, share page and print all follow the saved order; share page has no reorder UI. Unit tests 14→15.
+
+**Evidence:** live verification (`test-report-iter41.md` + recording): default store-walk order replaces alphabetical; reorder moves both popover and sections; custom category reorderable to top; share page follows order without the button; store-filter + `?aisles=1` back param preserved; print uses custom order; Esc/outside-click dismissal; 375/375; Console/Issues clean; fixtures cleaned. Notes: live-poll propagation of an order change onto an already-open share tab not exercised; household `category_order` now stores an explicit default-equivalent JSON (renders identically).

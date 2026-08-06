@@ -130,6 +130,17 @@ test('parseRecipeText splits pasted recipe text', async () => {
   assert.deepEqual([h.title, h.ingredients, h.steps], ['Cake', ['flour'], ['bake']]);
 });
 
+test('sortCategories orders by saved aisle order then store-walk default', async () => {
+  const { sortCategories } = await import('../src/util.js');
+  const cats = ['Other', 'Dairy & Eggs', 'Produce', 'Asian aisle'];
+  // No saved order: store-walk default, unknown customs alphabetical at the end (before nothing) but after defaults
+  assert.deepEqual(sortCategories(cats, ''), ['Produce', 'Dairy & Eggs', 'Other', 'Asian aisle']);
+  // Saved order wins; unsaved fall back to default order
+  assert.deepEqual(sortCategories(cats, JSON.stringify(['Asian aisle', 'Other'])), ['Asian aisle', 'Other', 'Produce', 'Dairy & Eggs']);
+  // Bad JSON is ignored
+  assert.deepEqual(sortCategories(['Produce'], '{not json'), ['Produce']);
+});
+
 test('isIngredientHeading detects section headers only', async () => {
   const { isIngredientHeading } = await import('../src/util.js');
   assert.equal(isIngredientHeading('For the sauce:'), true);

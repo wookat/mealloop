@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -907,7 +907,7 @@ app.get('/app/list', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter });
+  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1' });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -1028,6 +1028,24 @@ app.post('/app/list/note', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/aisles', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const cat = String(f.category || '');
+  const dir = String(f.dir) === 'up' ? -1 : 1;
+  const used = await c.env.DB.prepare('SELECT DISTINCT category FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const order = sortCategories([...new Set([...STANDARD_CATEGORIES, ...used.results.map((r) => r.category)])], h.category_order);
+  const i = order.indexOf(cat);
+  const j = i + dir;
+  if (i !== -1 && j >= 0 && j < order.length) {
+    [order[i], order[j]] = [order[j], order[i]];
+    await c.env.DB.prepare('UPDATE households SET category_order = ? WHERE id = ?').bind(JSON.stringify(order), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
 app.post('/app/list/clear', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ? AND checked = 1').bind(h.id).run();
@@ -1037,12 +1055,13 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '' }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false }) {
   const cats = [...new Set(items.map((i) => i.category))];
-  const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
-  const qs = (store) => {
+  const allCats = sortCategories([...new Set([...STANDARD_CATEGORIES, ...cats])], h.category_order);
+  const qs = (store, aisles) => {
     const p = new URLSearchParams(extraQuery);
     if (store) p.set('store', store);
+    if (aisles) p.set('aisles', '1');
     const s = p.toString();
     return s ? `?${s}` : '';
   };
@@ -1098,7 +1117,20 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
-    ${editable ? `<form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
+    ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
+      <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
+      <div class="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+        <p class="px-1 pb-1 text-xs text-stone-500">Match the order you walk your store.</p>
+        ${allCats.map((cat, idx) => `<div class="flex items-center justify-between gap-2 px-1 py-0.5 text-sm">
+          <span class="truncate">${esc(cat)}</span>
+          <span class="flex gap-1">
+            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} up"${idx === 0 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↑</button></form>
+            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} down"${idx === allCats.length - 1 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↓</button></form>
+          </span>
+        </div>`).join('')}
+      </div>
+    </details>
+    <form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
     <form method="post" action="/app/settings/units" class="flex items-center gap-1">
       <input type="hidden" name="back" value="/app/list">
       <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
@@ -1133,7 +1165,7 @@ ${canAdd ? `
 </form>` : ''}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${items.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
-${[...new Set(open.map((i) => i.category))].map((cat) => `
+${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat) => `
   <section>
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
