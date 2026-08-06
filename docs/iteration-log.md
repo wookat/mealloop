@@ -50,3 +50,17 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Unit tests 10/10 (new key-matching cases).
 
 **Evidence:** `test-report-iter3.md` + recording; unit tests 10/10; live regression PASSED (week nav incl. invalid-param fallback, in-place label update on rescale with "Added 0", checked item untouched, share sync ~10s, console clean).
+
+## Round 4 — 2026-08-06
+
+**Findings (by driver):**
+- ③ Visual/a11y (P2): 16 placeholder-only inputs/selects across login, planner, recipes, list, staples and share pages had no accessible name (screen readers announce nothing).
+- ⑤ Data/growth (P2): guides section unchanged since launch — maintenance-period weekly content due; intents still 0.
+- ①/② regression of rounds 2–3 passed (previous round); ④ competitor deep-dive still queued (blogs 403 to plain fetch, not bypassing).
+
+**Fixes shipped:**
+- `aria-label` added to all 16 placeholder-only form controls (email, code, menu name/select, recipe/scale selects, note, search, import URL, manual-recipe fields, tags, list/staple add, share URL).
+- Two new pSEO guides: `/guides/scaling-recipes-for-family-size`, `/guides/weekly-grocery-list-with-staples`; sitemap now 12 URLs.
+- IndexNow ping submitted for the 2 new guides + /guides + sitemap (HTTP 200).
+
+**Evidence:** live curl shows new guide titles served; unit tests 10/10; `npm run check` clean.
