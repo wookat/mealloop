@@ -1,6 +1,6 @@
 import { esc } from './util.js';
 
-export function page({ title, description, body, user, path = '/', noindex = false }) {
+export function page({ title, description, body, user, path = '/', noindex = false, ogType = 'website' }) {
   const desc = description || 'Family meal planning with real-time sync. Import recipes, plan your week, share one grocery list — free.';
   return `<!doctype html>
 <html lang="en">
@@ -10,7 +10,7 @@ export function page({ title, description, body, user, path = '/', noindex = fal
 <title>${esc(title)} · MealLoop</title>
 <meta name="description" content="${esc(desc)}">
 ${noindex ? '<meta name="robots" content="noindex">' : ''}
-<meta property="og:type" content="website">
+<meta property="og:type" content="${ogType === 'article' ? 'article' : 'website'}">
 <meta property="og:site_name" content="MealLoop">
 <meta property="og:title" content="${esc(title)} · MealLoop">
 <meta property="og:description" content="${esc(desc)}">

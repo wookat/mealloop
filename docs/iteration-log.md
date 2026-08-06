@@ -713,3 +713,63 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Share-page day cards mirror R61: today (UTC) gets emerald border + ring + emerald heading; past days get `opacity-60 print:opacity-100` (entries inherit dimming). No anchor link — the share grid is compact by design.
 
 **Evidence:** live verification (`test-report-iter64.md` + recording): current week past/today/future rendering; next week shows zero ring/dim, fully past week shows all 7 dimmed, “This week” restores; print preview full contrast; 375px + Console/Issues clean; read-only round.
+
+## Round 65 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: mainstream list apps show shopping progress at a glance; MealLoop's list heading gave no count — mid-shop you had to scan/scroll to judge what's left.
+
+**Fixes shipped:**
+- Grocery-list h1 progress summary: `N to buy[ · M checked]`, `all done 🎉 · M checked` when nothing left, no span on an empty list. Rendered in shared `listBody`, so /app/list and the anonymous share list both show it; counts follow the shown (store-filtered) items.
+
+**Evidence:** live verification (`test-report-iter65.md` + recording): exact counts through add/check/uncheck transitions incl. full check-all (“all done 🎉 · 37 checked”, fully reversed); share page shows the identical summary anonymously; store filter scopes counts to the filtered view; fixtures/stores cleaned, production restored; 375px + Console/Issues clean. Untested: empty-list no-span state (would require deleting standing items).
+
+## Round 66 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: growing recipe boxes only listed newest-first; competitors offer alphabetical browsing — finding a known recipe by name meant search or scroll.
+
+**Fixes shipped:**
+- Newest | A–Z sort control on /app/recipes: `?sort=title` → `favorite DESC, title COLLATE NOCASE ASC` (favourites stay pinned); active sort is a non-link pill (aria-current), inactive link preserves q/tag/fav; search form carries a hidden sort input in A–Z mode; unknown ?sort falls back to newest. Applies to all four query variants.
+
+**Evidence:** live verification (`test-report-iter66.md` + recording): default order unchanged; A–Z alphabetical with favourites pinned; sort persists through search and tag filter with params preserved; ?sort=bogus falls back cleanly; 375px wrap + Console/Issues clean. Not separately proven: COLLATE NOCASE with mixed-case titles (all QA titles are Title-case).
+
+## Round 67 — 2026-08-06
+
+**Findings (by driver):**
+- ③/④ SEO/social: every page emitted `og:type=website`, including the 19 guide articles — social scrapers and rich-result consumers treat guides as generic pages despite their Article JSON-LD (R55).
+
+**Fixes shipped:**
+- `page()` accepts an `ogType` param (default `website`, only `article` accepted); guide detail route passes `ogType: 'article'`. All other routes unchanged.
+
+**Evidence:** live verification (`test-report-iter67.md`, cache-busted curl + browser): guide pages emit `og:type=article` with full OG set otherwise unchanged (og:description character-identical to the guide excerpt); /guides, /, /privacy, /login remain `website`; Console/Issues clean. Meta-only round — no recording. Note: production initially served stale `website` for ~minutes post-deploy (CDN propagation), resolved on its own.
+
+## Round 68 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two standing untested gaps from prior rounds — R65's empty-list no-span state (never verified; deleting standing QA items was unsafe) and R66's `COLLATE NOCASE` behaviour (all QA titles were Title-case). Also `page()` meta logic (og:type/robots/canonical) had no unit coverage.
+
+**Fixes shipped:**
+- New `test/layout.test.js` covering `page()` meta: og:type article only when `ogType==='article'`, bogus values fall back to website, noindex robots meta, canonical URL. Suite 19→20 green. No production code change.
+
+**Evidence:** live QA closure (`test-report-iter68.md` + recording): lowercase fixture "avocado toast QA68" sorts 3rd (first non-fav) in A–Z — a case-sensitive sort would have placed it last — COLLATE NOCASE proven, fixture removed and box restored; disposable account (fresh signup) showed empty list with plain "Grocery list" h1 (no span) + empty hint, then "1 to buy" → "all done 🎉 · 1 checked" transitions; self-serve GDPR deletion killed the session and the household share link (404). Standing QA data untouched.
+
+## Round 69 — 2026-08-06
+
+**Findings (by driver):**
+- ④/⑤ growth: "what's for dinner" decision fatigue is the highest-frequency pain in the category (competitor content leans on it heavily) but no guide addressed it; guide cluster stood at 19.
+
+**Fixes shipped:**
+- New pSEO guide `stop-deciding-whats-for-dinner-every-night` ("decide once a week, then just cook"): decision fatigue / hungry-decision takeaway bias / no-list side effect; weekly 10-minute sitting + visible family plan + rotation. Sitemap 23→24, IndexNow 200. /guides ItemList now 20 items.
+
+**Evidence:** live verification (`test-report-iter69.md` + recording): breadcrumb + h1 exact; both h2 sections + 3 bullets + CTA; More guides wraps to first 3; Article+BreadcrumbList JSON-LD exact (single script, og-card image, org logo); listed last of 20 on /guides, ItemList 20 items with position 20 = new guide; sitemap 24 locs; og:type=article (R67 intact); 375px + Console/Issues clean. Note: ~1 min stale-CDN 404 right after deploy, self-resolved.
+
+## Round 70 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data / ③ SEO: the landing page (138 views since 8/1, 3rd-most public path) linked to the 20-guide cluster only via two small text links — no guide content surfaced on the highest-intent page; internal linking to the cluster was weak.
+
+**Fixes shipped:**
+- "From the guides" section on `/` between the FAQ and the FAQPage JSON-LD: 3 featured whole-card links (`FEATURED_SLUGS`: picky-eaters, batch-cooking, budget) with title + excerpt from `src/guides.js`, plus an "All guides →" link. Escaped output; no new JSON-LD.
+
+**Evidence:** live verification (`test-report-iter70.md` + recording): exactly 3 cards in order with character-identical titles/excerpts; whole-card link proven by body-text click → correct guide; "All guides →" → /guides (20 guides); FAQ accordions + email form + FAQPage JSON-LD (still the only ld+json, 6 questions) intact with correct document order; 375px single-column stack, 375/375 no overflow; Console/Issues clean; logged-out CTA regression passed. Not re-tested: logged-in CTA variant (unchanged code path).

@@ -34,6 +34,9 @@ app.use('*', async (c, next) => {
 });
 
 // ---------- marketing ----------
+const FEATURED_SLUGS = ['meal-planning-for-picky-eaters', 'batch-cooking-for-busy-weeks', 'meal-planning-on-a-budget'];
+const FEATURED_GUIDES = FEATURED_SLUGS.map((s) => GUIDES.find((g) => g.slug === s)).filter(Boolean);
+
 const LANDING_FAQ = [
   ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
   ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
@@ -85,6 +88,17 @@ app.get('/', async (c) => {
     </details>`).join('')}
   </div>
   <p class="mt-6 text-center text-sm text-stone-600">More questions? Read our <a class="text-emerald-700 underline" href="/guides">meal planning guides</a>.</p>
+</section>
+<section class="py-8">
+  <h2 class="text-2xl font-bold text-center">From the guides</h2>
+  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+    ${FEATURED_GUIDES.map((g) => `
+    <a href="/guides/${g.slug}" class="rounded-2xl bg-white border border-stone-200 p-5 hover:border-emerald-400 block">
+      <h3 class="font-semibold text-stone-900 leading-snug">${esc(g.title)}</h3>
+      <p class="mt-1.5 text-sm text-stone-600">${esc(g.excerpt)}</p>
+    </a>`).join('')}
+  </div>
+  <p class="mt-5 text-center text-sm"><a class="text-emerald-700 underline" href="/guides">All guides →</a></p>
 </section>
 <script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
@@ -203,7 +217,7 @@ ${g.body}
 <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="/login" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Start planning</a></div>
 ${relatedGuides(g)}
 </article>`;
-  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}` }));
+  return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}`, ogType: 'article' }));
 });
 
 function relatedGuides(g) {
@@ -681,6 +695,8 @@ app.get('/app/recipes', async (c) => {
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
   const fav = c.req.query('fav') === '1';
+  const sort = c.req.query('sort') === 'title' ? 'title' : 'newest';
+  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC' : 'favorite DESC, created_at DESC';
   if (q) {
     // Aggregate search terms (no user/household attribution) to learn what people look for.
     const term = q.toLowerCase().slice(0, 60);
@@ -690,24 +706,28 @@ app.get('/app/recipes', async (c) => {
     );
   }
   const recipes = q
-    ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY favorite DESC, created_at DESC")
+    ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY ${order}`)
         .bind(h.id, `%${q}%`, `%${q}%`).all()
     : tag
-      ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY favorite DESC, created_at DESC")
+      ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY ${order}`)
           .bind(h.id, `%,${tag},%`).all()
       : fav
-        ? await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? AND favorite = 1 ORDER BY created_at DESC').bind(h.id).all()
-        : await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC').bind(h.id).all();
+        ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND favorite = 1 ORDER BY ${order}`).bind(h.id).all()
+        : await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? ORDER BY ${order}`).bind(h.id).all();
   const allTags = await c.env.DB.prepare('SELECT tags FROM recipes WHERE household_id = ? AND tags != \'\'').bind(h.id).all();
   const anyFav = await c.env.DB.prepare('SELECT 1 FROM recipes WHERE household_id = ? AND favorite = 1 LIMIT 1').bind(h.id).first();
   const tagSet = [...new Set(allTags.results.flatMap((r) => r.tags.split(',')).filter(Boolean))].sort();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Recipes</h1>
-  <form method="get" action="/app/recipes" class="flex gap-2">
-    <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
-    <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
-  </form>
+  <div class="flex flex-wrap items-center gap-2">
+    <form method="get" action="/app/recipes" class="flex gap-2">
+      ${sort === 'title' ? '<input type="hidden" name="sort" value="title">' : ''}
+      <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
+      <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
+    </form>
+    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'title' ? 'sort=title' : ''}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}</span>`; })()}
+  </div>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
 ${tagSet.length || anyFav ? `<div class="flex flex-wrap gap-1.5 mb-4">
@@ -1243,7 +1263,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Grocery list</h1>
+  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : 'all done 🎉'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
