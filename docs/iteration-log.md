@@ -377,3 +377,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "Or paste a whole recipe" on /app/recipes → `POST /app/recipes/paste` with `parseRecipeText` (src/recipes.js): title = first non-empty line before an Ingredients-style heading; ingredients between Ingredients and Method/Steps-style headings; steps after; bullets/numbering stripped; parse failure redirects back with an error notice and the pasted text preserved (details re-opened). Manual title input gains autocomplete="off". Unit test added (13 passing).
 
 **Evidence:** live verification (`test-report-iter32.md` + recording): pasted fixture parsed into correct title/3 ingredients/2 steps; "Add ingredients to list" flowed 3 items with attribution; failure path shows notice + preserved text; variant headings ("What you'll need:"/"Instructions:") parse; regression on URL import/manual form; Console/Issues clean; 375/375; fixtures cleaned. Coverage note: 1500-char paste-echo truncation verified in source only.
+
+## Round 33 — 2026-08-06
+
+**Findings (by driver):**
+- ③ frontend visual/a11y (P2): informational grey text used `text-stone-400` (#a8a29e, ~2.7:1 on white) — fails WCAG AA 4.5:1 for small text: grocery "for <recipe>" sub-lines, "Checked off (N)" heading, staple category labels, Move…/store/category selects, ✕ buttons, account-deletion hint. Dynamic notices (list added-notice, recipes error) had no ARIA live-region roles.
+
+**Fixes shipped:**
+- All informational `text-stone-400` → `text-stone-500` (≈4.79:1 vs white, 4.58:1 vs stone-50); grocery green notice gains `role="status"`, recipes amber error notice `role="alert"`.
+
+**Evidence:** live verification (`test-report-iter33.md` + recording): zero `text-stone-400` in served DOM; contrast measured 4.79:1/4.58:1 via WCAG luminance in DevTools; role attributes confirmed on both notices; toggle/category/store/staples/share regressions passed; Console + Issues clean; 375/375; fixtures cleaned. Planner Move… select colour source-verified only (no planner entries this round).

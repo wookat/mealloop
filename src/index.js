@@ -345,7 +345,7 @@ ${days.map((d) => `
             <span class="flex shrink-0 items-center gap-1 print:hidden">
               <form method="post" action="/app/plan/move">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
-                <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 max-w-16 px-0 py-0.5">
+                <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-500 max-w-16 px-0 py-0.5">
                   <option value="" selected>Move…</option>
                   ${days.filter((d2) => d2 !== d).map((d2) => `<option value="${d2}">${dayLabel(d2).split(',')[0]}</option>`).join('')}
                   ${e.recipe_id ? '<option value="__leftovers">+ Leftovers next day</option>' : ''}
@@ -633,7 +633,7 @@ app.get('/app/recipes', async (c) => {
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
   </form>
 </div>
-${err ? `<p class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
+${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
 ${tagSet.length ? `<div class="flex flex-wrap gap-1.5 mb-4">
   ${tag ? `<a href="/app/recipes" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300">✕ Clear filter</a>` : ''}
   ${tagSet.map((t) => `<a href="/app/recipes?tag=${encodeURIComponent(t)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${t === tag ? 'bg-emerald-600 text-white' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'}">#${esc(t)}</a>`).join('')}
@@ -1032,13 +1032,13 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
           <input type="hidden" name="back" value="${back}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-500">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
           <input type="hidden" name="id" value="${i.id}">
           <input type="hidden" name="back" value="${back}">
-          <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-20">
+          <select name="store" data-autosubmit data-custom-prompt="New store name:" aria-label="Store" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-500 px-0.5 py-0.5 max-w-20">
             <option value=""${!i.store ? ' selected' : ''}>Any store</option>
             ${stores.map((s) => `<option value="${esc(s)}"${s === i.store ? ' selected' : ''}>${esc(s)}</option>`).join('')}
             <option value="__custom">New store…</option>
@@ -1056,14 +1056,14 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
           <input type="hidden" name="back" value="${back}">
-          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-0.5 py-0.5 max-w-24">
+          <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-500 px-0.5 py-0.5 max-w-24">
             ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
             <option value="__custom">New category…</option>
           </select>
         </form>` : ''}
       </li>`;
   return `
-${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
+${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
@@ -1092,7 +1092,7 @@ ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hi
       ${stores.map((s) => `<form method="post" action="/app/stores/delete" data-confirm="Remove store “${esc(s)}”? Items assigned to it go back to Any store." class="flex items-center justify-between gap-2 px-1 py-1 text-sm">
         <span>${esc(s)}</span>
         <input type="hidden" name="store" value="${esc(s)}">
-        <button aria-label="Remove store ${esc(s)}" class="text-stone-400 hover:text-red-600">✕</button>
+        <button aria-label="Remove store ${esc(s)}" class="text-stone-500 hover:text-red-600">✕</button>
       </form>`).join('')}
     </div>
   </details>` : ''}
@@ -1115,7 +1115,7 @@ ${[...new Set(open.map((i) => i.category))].map((cat) => `
   </section>`).join('')}
 ${done.length ? `
   <section class="print:hidden">
-    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-400 mb-1.5">Checked off (${done.length})</h2>
+    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">Checked off (${done.length})</h2>
     <ul class="rounded-xl bg-stone-50 border border-stone-200 divide-y divide-stone-100">
     ${done.map(row).join('')}
     </ul>
@@ -1140,8 +1140,8 @@ app.get('/app/staples', async (c) => {
 </form>
 ${staples.results.length === 0 ? `<p class="text-stone-500 text-sm">No staples yet.</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
 ${staples.results.map((s) => `<li class="flex items-center justify-between px-3 py-2.5 text-sm">
-  <span>${esc(s.label)} <span class="ml-2 text-xs text-stone-400">${esc(s.category)}</span></span>
-  <form method="post" action="/app/staples/delete"><input type="hidden" name="id" value="${s.id}"><button aria-label="Remove" class="text-stone-400 hover:text-red-600">✕</button></form>
+  <span>${esc(s.label)} <span class="ml-2 text-xs text-stone-500">${esc(s.category)}</span></span>
+  <form method="post" action="/app/staples/delete"><input type="hidden" name="id" value="${s.id}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
 </li>`).join('')}
 </ul>`}
 </div>`;
@@ -1194,7 +1194,7 @@ app.get('/app/share', async (c) => {
   <form method="post" action="/app/account/delete" class="mt-3" data-confirm="Permanently delete your account and ALL household data (recipes, plans, grocery list)? This cannot be undone and the share link will stop working.">
     <button class="text-sm text-red-600 hover:underline">Delete account &amp; all data</button>
   </form>
-  <p class="mt-1.5 text-xs text-stone-400">Removes your recipes, meal plans, grocery list, staples, saved menus and login — immediately and permanently.</p>
+  <p class="mt-1.5 text-xs text-stone-500">Removes your recipes, meal plans, grocery list, staples, saved menus and login — immediately and permanently.</p>
 </div>
 </div>`;
   return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
