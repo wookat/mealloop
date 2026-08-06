@@ -1290,6 +1290,13 @@ app.post('/app/list/aisles', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/uncheck', async (c) => {
+  const h = c.get('household');
+  await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE household_id = ? AND checked = 1').bind(h.id).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect('/app/list');
+});
+
 app.post('/app/list/clear', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ? AND checked = 1').bind(h.id).run();
@@ -1424,7 +1431,10 @@ ${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).ma
   </section>`).join('')}
 ${done.length ? `
   <section class="print:hidden">
-    <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">Checked off (${done.length})</h2>
+    <div class="flex items-center justify-between gap-2 mb-1.5">
+      <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500">Checked off (${done.length})</h2>
+      ${editable ? `<form method="post" action="/app/list/uncheck"><button class="rounded border border-stone-300 text-xs px-2 py-0.5 text-stone-600 hover:bg-stone-100">Uncheck all</button></form>` : ''}
+    </div>
     <ul class="rounded-xl bg-stone-50 border border-stone-200 divide-y divide-stone-100">
     ${done.map(row).join('')}
     </ul>

@@ -878,3 +878,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 80b: `/app/menus` card h2 gained `break-words min-w-0 max-w-full`, fixing the 375px horizontal overflow with space-free long names.
 
 **Evidence:** live verification (`test-report-iter80.md` + recording): 60-X menu duplicated to a name of exactly 60 chars ("Copy of " + 52 X's); adversarial duplicate POST from a disposable second household with the QA household's menu_id = silent no-op (both households' menu counts unchanged); disposable account GDPR-deleted; 80b re-check: 60-char unbroken name wraps at 375px (scrollWidth 375, was 753); Console/Issues clean; all fixtures cleaned, standing data intact.
+
+## Round 81 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: the only bulk action on checked grocery items was the destructive "Clear checked" — re-shopping recurring items meant re-adding them by hand. Common list-app parity gap.
+
+**Fixes shipped:**
+- "Uncheck all" button on the /app/list "Checked off (N)" header (app view only; share page stays without it), backed by household-scoped POST /app/list/uncheck (checked=0 + version bump for share-page sync).
+
+**Evidence:** live verification (`test-report-iter81.md` + recording): 2-item checked fixture → one click restored both to their open categories with sources/notes/stores intact ("33 to buy · 2 checked" → "35 to buy"); share page synced and shows no button; single-toggle and Clear-checked regressions pass; 375px + Console/Issues clean; household restored to 35 to buy · 0 checked. Caveat: adversarial cross-household POST on the new route not exercised (same scoping pattern as proven in R80).
