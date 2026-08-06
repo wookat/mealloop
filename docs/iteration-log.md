@@ -292,3 +292,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `autocomplete="email"` on the landing subscribe and /login email inputs; `autocomplete="one-time-code"` on the 6-digit code input (enables OS code autofill on mobile); `autocomplete="off"` on the staples add input (matching the list add form).
 
 **Evidence:** live verification (`test-report-iter24.md` + recording): all four attributes present in production DOM; Issues panel now "No issues detected" on / and /login (hint gone); full magic-code login and staple add/remove regressions passed; 375/375 on /login; console clean; fixtures cleaned.
+
+## Round 25 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX (P1): the landing page has promised "leftovers tracking" since launch and Plan to Eat schedules leftovers natively; MealLoop's only path was manually typing a note the next day.
+- ③ visual/a11y (found during this round's testing, fixed same round): the Issues panel autocomplete hint survived Round 24 on the planner — the state-dependent "Save this week as menu…" input (renders only on weeks with entries) had no autocomplete attribute.
+
+**Fixes shipped:**
+- Leftovers quick-add: recipe entries' Move… select gains a final "+ Leftovers next day" option → `POST /app/plan/move` inserts a note entry "Leftovers: <recipe title>" on the next day, same meal (original entry unchanged; note entries don't get the option).
+- Same-round fix (25b): `autocomplete="off"` on the Save-menu and day-card note inputs — every user-facing input now carries an explicit autocomplete attribute.
+
+**Evidence:** live verification (`test-report-iter25.md` incl. 25b addendum + recording): leftovers note created next day/same meal with original untouched; leftovers option absent on note entries; Sunday leftovers land on next week's Monday; normal moves regression passed; 375/375; console clean; Issues panel "No issues detected" on an entry-bearing week after 25b; fixtures cleaned (weeks 2026-12-14/21 empty).

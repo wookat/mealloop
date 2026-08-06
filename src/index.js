@@ -312,7 +312,7 @@ ${recipes.results.length === 0 ? `
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
-    <input name="name" required maxlength="60" aria-label="Menu name" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
+    <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-100">Save menu</button>
   </form>` : ''}
   ${menus.results.length && entries.results.length === 0 ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
@@ -347,6 +347,7 @@ ${days.map((d) => `
                 <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 max-w-16 px-0 py-0.5">
                   <option value="" selected>Move…</option>
                   ${days.filter((d2) => d2 !== d).map((d2) => `<option value="${d2}">${dayLabel(d2).split(',')[0]}</option>`).join('')}
+                  ${e.recipe_id ? '<option value="__leftovers">+ Leftovers next day</option>' : ''}
                 </select>
               </form>
               <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
@@ -365,7 +366,7 @@ ${days.map((d) => `
               ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
             </select>`
               : `<p class="text-xs text-stone-500">No recipes yet — <a class="text-emerald-700 underline" href="/app/recipes">import one</a>, or just type a note:</p>`}
-            <input name="note" aria-label="Note" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
+            <input name="note" aria-label="Note" autocomplete="off" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
             <button class="w-full rounded bg-emerald-600 text-white text-xs font-semibold py-1 hover:bg-emerald-700">Add</button>
           </form>
         </details>
@@ -408,7 +409,16 @@ app.post('/app/plan/move', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const date = String(f.date || '');
-  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+  if (date === '__leftovers') {
+    const entry = await c.env.DB.prepare(
+      'SELECT p.date, p.meal, r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.id = ? AND p.household_id = ?'
+    ).bind(String(f.id || ''), h.id).first();
+    if (entry) {
+      await c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, NULL, ?, 1)')
+        .bind(uid(), h.id, shiftDays(entry.date, 1), entry.meal, `Leftovers: ${entry.title}`.slice(0, 120)).run();
+      await bumpVersion(c.env, h.id);
+    }
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
     await c.env.DB.prepare('UPDATE plan_entries SET date = ? WHERE id = ? AND household_id = ?')
       .bind(date, String(f.id || ''), h.id).run();
     await bumpVersion(c.env, h.id);
