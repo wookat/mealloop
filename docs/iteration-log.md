@@ -258,3 +258,49 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Same-round fixes: shrunk row selects (375/375 restored) and hidden `back` input so store/category changes preserve the active `?store=` filter.
 
 **Evidence:** live verification (`test-report-iter21.md` incl. 21b addendum + recording): store creation/tabs/filtering/Any-store reassignment/share-page tabs/regressions passed; both 21b fixes re-verified (375/375; filter preserved). Known limitation: no store-removal UI yet (store names persist) — queued for a future round.
+
+## Round 22 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA (P1, Round 21's known limitation): no way to remove a registered store — test/typo names persisted forever and cluttered the tab row.
+- ① QA (found during this round's testing, fixed same round): the Edit stores popup (`left-0 w-56`) overflowed a 375px viewport to 425px when open.
+
+**Fixes shipped:**
+- Store removal: an "Edit stores…" `<details>` toggle at the end of the pill row (app only, never on the share page) lists each store with a ✕ button; `POST /app/stores/delete` (native confirm via data-confirm) drops the name from `households.stores`, resets matching `shopping_items.store` to '' (items go back to "Any store"), and bumps the sync version. Removing the last store hides the whole tab row.
+- Same-round fix: popup anchored `right-0` instead of `left-0` (375/375 restored with the popup open).
+
+**Evidence:** live verification (`test-report-iter22.md` incl. 22b addendum + recording): cancel path preserved the store; removing Costco removed its tab, kept the assigned item, and reset its select to "Any store"; removing the last store (Aldi) hid the tab row; share page shows no edit UI; 22b re-verified 375/375 with popup open (was 425/375); console clean; production restored to zero stores.
+
+## Round 23 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor (P1): rescheduling a planned meal required delete + re-add (re-picking recipe and scale). Plan to Eat solves this with drag-and-drop; MealLoop had no reschedule path at all.
+- ① QA (found during this round's testing, fixed same round, 2 passes): (23b) the new controls made the ✕ overflow the day card on wide desktop — clicks landed on the adjacent card (elementFromPoint proof); (23c) the 23b fix squeezed labels to one char per line in xl 7-col cards.
+
+**Fixes shipped:**
+- Move planned entries: each planner entry row gets a compact "Move…" select (other 6 days of the visible week, autosubmit) → `POST /app/plan/move` updates the entry's date (scale/meal preserved), bumps sync version, redirect keeps `?week=`.
+- Same-round layout fixes: entry row `flex flex-wrap`, label `min-w-[4rem] break-words`, controls `shrink-0` — controls wrap to a second line on narrow cards; ✕ verified clickable at all widths.
+
+**Evidence:** live verification (`test-report-iter23.md` incl. 23b/23c addenda + recording): recipe (scale ×2 preserved) and note entries moved across days on a non-current week with `?week=` preserved; ✕ elementFromPoint returns the button at 1600px 7-col; labels horizontal; 375/375; console clean; fixtures cleaned (week 2026-12-14 empty).
+
+## Round 24 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual/a11y (P2): DevTools Issues panel flagged missing `autocomplete` attributes on form fields since early rounds; the login code input also missed the OS-level one-time-code autofill affordance.
+
+**Fixes shipped:**
+- `autocomplete="email"` on the landing subscribe and /login email inputs; `autocomplete="one-time-code"` on the 6-digit code input (enables OS code autofill on mobile); `autocomplete="off"` on the staples add input (matching the list add form).
+
+**Evidence:** live verification (`test-report-iter24.md` + recording): all four attributes present in production DOM; Issues panel now "No issues detected" on / and /login (hint gone); full magic-code login and staple add/remove regressions passed; 375/375 on /login; console clean; fixtures cleaned.
+
+## Round 25 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor / ② UX (P1): the landing page has promised "leftovers tracking" since launch and Plan to Eat schedules leftovers natively; MealLoop's only path was manually typing a note the next day.
+- ③ visual/a11y (found during this round's testing, fixed same round): the Issues panel autocomplete hint survived Round 24 on the planner — the state-dependent "Save this week as menu…" input (renders only on weeks with entries) had no autocomplete attribute.
+
+**Fixes shipped:**
+- Leftovers quick-add: recipe entries' Move… select gains a final "+ Leftovers next day" option → `POST /app/plan/move` inserts a note entry "Leftovers: <recipe title>" on the next day, same meal (original entry unchanged; note entries don't get the option).
+- Same-round fix (25b): `autocomplete="off"` on the Save-menu and day-card note inputs — every user-facing input now carries an explicit autocomplete attribute.
+
+**Evidence:** live verification (`test-report-iter25.md` incl. 25b addendum + recording): leftovers note created next day/same meal with original untouched; leftovers option absent on note entries; Sunday leftovers land on next week's Monday; normal moves regression passed; 375/375; console clean; Issues panel "No issues detected" on an entry-bearing week after 25b; fixtures cleaned (weeks 2026-12-14/21 empty).

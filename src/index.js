@@ -70,7 +70,7 @@ app.get('/', async (c) => {
   <h2 class="text-xl font-bold">Get new features first</h2>
   <p class="text-emerald-100 text-sm mt-1">Leave your email and we'll let you know when meal rotation, leftovers tracking and more launch.</p>
   <form method="post" action="/subscribe" class="mt-4 flex flex-col sm:flex-row gap-2 max-w-md">
-    <input type="email" name="email" required aria-label="Email address" placeholder="you@example.com" class="flex-1 rounded-lg px-3 py-2.5 text-stone-900 bg-white">
+    <input type="email" name="email" required aria-label="Email address" autocomplete="email" placeholder="you@example.com" class="flex-1 rounded-lg px-3 py-2.5 text-stone-900 bg-white">
     <button class="rounded-lg bg-white text-emerald-700 font-semibold px-5 py-2.5 hover:bg-emerald-50">Notify me</button>
   </form>
   <p class="text-emerald-100 text-xs mt-2">Product updates only — unsubscribe any time. See our <a class="underline" href="/privacy">privacy policy</a>.</p>
@@ -191,11 +191,11 @@ ${msg ? `<p class="mt-4 text-center text-sm rounded-lg bg-amber-50 border border
 ${email
     ? `<form method="post" action="/verify" class="mt-6 space-y-3">
         <input type="hidden" name="email" value="${esc(email)}">
-        <input name="code" aria-label="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus placeholder="6-digit code" class="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-center text-xl tracking-[0.4em]">
+        <input name="code" aria-label="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code" placeholder="6-digit code" class="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-center text-xl tracking-[0.4em]">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Verify & continue</button>
       </form>`
     : `<form method="post" action="/login" class="mt-6 space-y-3">
-        <input type="email" name="email" required aria-label="Email address" autofocus placeholder="you@example.com" class="w-full rounded-lg border border-stone-300 px-3 py-2.5">
+        <input type="email" name="email" required aria-label="Email address" autofocus autocomplete="email" placeholder="you@example.com" class="w-full rounded-lg border border-stone-300 px-3 py-2.5">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Email me a code</button>
       </form>`}
 </div>`;
@@ -312,7 +312,7 @@ ${recipes.results.length === 0 ? `
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
-    <input name="name" required maxlength="60" aria-label="Menu name" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
+    <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-100">Save menu</button>
   </form>` : ''}
   ${menus.results.length && entries.results.length === 0 ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
@@ -339,9 +339,19 @@ ${days.map((d) => `
       return `<div class="mt-2">
         <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
-          <div class="mt-1 flex items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
-            <span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
-            <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
+          <div class="mt-1 flex flex-wrap items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
+            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
+            <span class="flex shrink-0 items-center gap-1 print:hidden">
+              <form method="post" action="/app/plan/move">
+                <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
+                <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 max-w-16 px-0 py-0.5">
+                  <option value="" selected>Move…</option>
+                  ${days.filter((d2) => d2 !== d).map((d2) => `<option value="${d2}">${dayLabel(d2).split(',')[0]}</option>`).join('')}
+                  ${e.recipe_id ? '<option value="__leftovers">+ Leftovers next day</option>' : ''}
+                </select>
+              </form>
+              <form method="post" action="/app/plan/delete"><input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}"><button aria-label="Remove" class="text-stone-500 hover:text-red-600">✕</button></form>
+            </span>
           </div>`).join('')}
         <details class="mt-1">
           <summary class="text-xs text-stone-500 cursor-pointer hover:text-emerald-700">+ add</summary>
@@ -356,7 +366,7 @@ ${days.map((d) => `
               ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
             </select>`
               : `<p class="text-xs text-stone-500">No recipes yet — <a class="text-emerald-700 underline" href="/app/recipes">import one</a>, or just type a note:</p>`}
-            <input name="note" aria-label="Note" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
+            <input name="note" aria-label="Note" autocomplete="off" placeholder="or type a note (e.g. Leftovers)" class="w-full rounded border border-stone-300 text-sm px-2 py-1">
             <button class="w-full rounded bg-emerald-600 text-white text-xs font-semibold py-1 hover:bg-emerald-700">Add</button>
           </form>
         </details>
@@ -392,6 +402,27 @@ app.post('/app/plan/delete', async (c) => {
   const f = await c.req.parseBody();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/move', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const date = String(f.date || '');
+  if (date === '__leftovers') {
+    const entry = await c.env.DB.prepare(
+      'SELECT p.date, p.meal, r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.id = ? AND p.household_id = ?'
+    ).bind(String(f.id || ''), h.id).first();
+    if (entry) {
+      await c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, NULL, ?, 1)')
+        .bind(uid(), h.id, shiftDays(entry.date, 1), entry.meal, `Leftovers: ${entry.title}`.slice(0, 120)).run();
+      await bumpVersion(c.env, h.id);
+    }
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    await c.env.DB.prepare('UPDATE plan_entries SET date = ? WHERE id = ? AND household_id = ?')
+      .bind(date, String(f.id || ''), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
   return c.redirect(`/app?week=${f.week || ''}`);
 });
 
@@ -840,6 +871,22 @@ app.post('/app/list/store', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/stores/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const store = String(f.store || '');
+  const stores = (h.stores || '').split(',').filter(Boolean);
+  if (store && stores.includes(store)) {
+    await c.env.DB.batch([
+      c.env.DB.prepare('UPDATE households SET stores = ? WHERE id = ?')
+        .bind(stores.filter((s) => s !== store).join(','), h.id),
+      c.env.DB.prepare("UPDATE shopping_items SET store = '' WHERE household_id = ? AND store = ?").bind(h.id, store),
+    ]);
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect('/app/list');
+});
+
 app.post('/app/list/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -883,9 +930,19 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     </form>` : ''}
   </div>
 </div>
-${stores.length ? `<div class="flex flex-wrap gap-1.5 mb-4 print:hidden">
+${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hidden">
   <a href="${base}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
   ${stores.map((s) => `<a href="${base}?store=${encodeURIComponent(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
+  ${editable ? `<details class="relative">
+    <summary class="cursor-pointer list-none px-2 py-1 rounded-full text-xs text-stone-500 hover:bg-stone-100">Edit stores…</summary>
+    <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+      ${stores.map((s) => `<form method="post" action="/app/stores/delete" data-confirm="Remove store “${esc(s)}”? Items assigned to it go back to Any store." class="flex items-center justify-between gap-2 px-1 py-1 text-sm">
+        <span>${esc(s)}</span>
+        <input type="hidden" name="store" value="${esc(s)}">
+        <button aria-label="Remove store ${esc(s)}" class="text-stone-400 hover:text-red-600">✕</button>
+      </form>`).join('')}
+    </div>
+  </details>` : ''}
 </div>` : ''}
 ${canAdd ? `
 <form method="post" action="${base}/add" class="flex gap-2 mb-5 max-w-md print:hidden">
@@ -951,7 +1008,7 @@ app.get('/app/staples', async (c) => {
 </div>
 <p class="text-sm text-stone-600 mb-4">Items you always want on the list — they're added automatically every time you click “Add week's ingredients”.</p>
 <form method="post" action="/app/staples/add" class="flex gap-2 mb-5 max-w-md">
-  <input name="label" required aria-label="Add staple" placeholder="Add staple (e.g. milk)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <input name="label" required aria-label="Add staple" placeholder="Add staple (e.g. milk)" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>
 ${staples.results.length === 0 ? `<p class="text-stone-500 text-sm">No staples yet.</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
