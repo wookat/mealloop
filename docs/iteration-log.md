@@ -182,3 +182,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Recipe page now links to `/app?recipe=<id>`: the planner shows a banner ("<title> is preselected — open '+ add' on a day below and click Add") and preselects that recipe in every day/meal "+ add" select; unknown ids fall back silently.
 
 **Evidence:** live verification (`test-report-iter14.md` + recording): full flow recipe page → banner → preselected select → Add plans the entry; plain /app and `?recipe=bogus` unchanged; week nav, console, 375/375 all clean.
+
+## Round 15 — 2026-08-06
+
+**Findings (by driver):**
+- ④ competitor: Plan to Eat blog reviewed (July/June updates) — no major product moves (content/podcast only); their positioning pushes "multiple store lists" (kept on backlog).
+- ③ visual / ⑤ data (P2 growth): landing page ("/" = 3rd most-viewed path) had no FAQ or structured data — missed conversion + rich-result opportunity, intents still 0.
+
+**Fixes shipped:**
+- 6-question FAQ section on "/" (native `<details>` accordions; free/no-signup/share/import/units/privacy) + FAQPage JSON-LD (inline data block — CSP-safe, verified) + cross-link to /guides.
+
+**Evidence:** live verification (`test-report-iter15.md` + recording): FAQ renders desktop + 375/375, valid JSON-LD with 6 Questions in page source, console clean (no CSP violation), login/planner/list smoke passed.

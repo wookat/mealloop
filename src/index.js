@@ -34,6 +34,15 @@ app.use('*', async (c, next) => {
 });
 
 // ---------- marketing ----------
+const LANDING_FAQ = [
+  ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
+  ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
+  ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, you can add the recipe manually in seconds.'],
+  ['Does the grocery list update for everyone in real time?', 'Yes. Checking an item on your phone shows up for everyone else viewing the list within a few seconds \u2014 handy when two people split the store.'],
+  ['Can I switch between metric and imperial units?', 'Yes. One switch converts the whole grocery list and every recipe between grams/millilitres and ounces, pounds and fluid ounces \u2014 originals are kept, so you can switch back anytime.'],
+  ['What about my privacy?', 'MealLoop is cookie-free until you log in, uses no third-party trackers or ads, and only collects aggregate page counts. Your recipes and plans stay yours.'],
+];
+
 app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
@@ -65,7 +74,27 @@ app.get('/', async (c) => {
     <button class="rounded-lg bg-white text-emerald-700 font-semibold px-5 py-2.5 hover:bg-emerald-50">Notify me</button>
   </form>
   <p class="text-emerald-100 text-xs mt-2">Product updates only — unsubscribe any time. See our <a class="underline" href="/privacy">privacy policy</a>.</p>
-</section>`;
+</section>
+<section class="py-8 max-w-2xl mx-auto">
+  <h2 class="text-2xl font-bold text-center">Frequently asked questions</h2>
+  <div class="mt-6 space-y-3">
+    ${LANDING_FAQ.map(([q, a]) => `
+    <details class="rounded-xl bg-white border border-stone-200 p-4">
+      <summary class="font-semibold cursor-pointer text-stone-900">${q}</summary>
+      <p class="mt-2 text-sm text-stone-600">${a}</p>
+    </details>`).join('')}
+  </div>
+  <p class="mt-6 text-center text-sm text-stone-600">More questions? Read our <a class="text-emerald-700 underline" href="/guides">meal planning guides</a>.</p>
+</section>
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: LANDING_FAQ.map(([q, a]) => ({
+      '@type': 'Question',
+      name: q.replace(/<[^>]+>/g, ''),
+      acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '') },
+    })),
+  })}</script>`;
   return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Free family meal planner: import recipes from any site, plan your week, share one live grocery list with a single link.', body, user, path: '/' }));
 });
 
