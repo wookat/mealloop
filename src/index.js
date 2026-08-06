@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, STANDARD_CATEGORIES } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, STANDARD_CATEGORIES } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -440,8 +440,10 @@ app.post('/app/plan/to-list', async (c) => {
     `SELECT r.id, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.id`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
-  // Merge duplicate ingredients across recipes (summing quantities), then skip
-  // labels already on the list so the button stays idempotent.
+  // Merge duplicate ingredients across recipes (summing quantities). Existing
+  // list items matching by normalized key are updated (unchecked) or kept
+  // (checked) instead of duplicated, so the button stays idempotent even when
+  // scales change between clicks.
   const labels = [];
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
@@ -452,13 +454,24 @@ app.post('/app/plan/to-list', async (c) => {
   const merged = mergeIngredients(labels);
   const staples = await c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all();
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
-  const existing = await c.env.DB.prepare('SELECT label FROM shopping_items WHERE household_id = ?').bind(h.id).all();
-  const seen = new Set(existing.results.map((r) => String(r.label).toLowerCase()));
+  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const byKey = new Map();
+  for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
   const stmts = [];
+  let added = 0;
+  const seen = new Set();
   for (const label of merged) {
-    const key = label.toLowerCase();
+    const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
+    const hit = byKey.get(key);
+    if (hit) {
+      if (!hit.checked && hit.label !== label) {
+        stmts.push(c.env.DB.prepare('UPDATE shopping_items SET label = ? WHERE id = ?').bind(label, hit.id));
+      }
+      continue;
+    }
+    added++;
     stmts.push(
       c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
         .bind(uid(), h.id, label, categorize(label))
@@ -466,7 +479,7 @@ app.post('/app/plan/to-list', async (c) => {
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
-  return c.redirect(`/app/list?added=${stmts.length}`);
+  return c.redirect(`/app/list?added=${added}`);
 });
 
 function shiftDays(dateStr, n) {
@@ -841,15 +854,23 @@ async function shareHousehold(c) {
 app.get('/s/:token', async (c) => {
   const h = await shareHousehold(c);
   if (!h) return c.notFound();
-  const days = weekDates();
+  const weekParam = String(c.req.query('week') || '');
+  const week = /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : undefined;
+  const days = weekDates(week);
+  const isCurrent = days[0] === weekDates()[0];
   const [entries, items] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date').bind(h.id, days[0], days[6]).all(),
     c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
   ]);
   const planHtml = `
 <section class="mb-8">
-  <h1 class="text-2xl font-bold mb-1">${esc(h.name)} — this week</h1>
-  <p class="text-sm text-stone-500 mb-4">Shared read-only plan · check items below to sync with everyone</p>
+  <h1 class="text-2xl font-bold mb-1">${esc(h.name)} — ${isCurrent ? 'this week' : `week of ${dayLabel(days[0])}`}</h1>
+  <p class="text-sm text-stone-500 mb-2">Shared read-only plan · check items below to sync with everyone</p>
+  <p class="mb-4 text-sm flex items-center gap-3">
+    <a class="text-emerald-700 hover:underline" href="/s/${h.share_token}?week=${shiftDays(days[0], -7)}">← Previous week</a>
+    ${isCurrent ? '' : `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}">This week</a>`}
+    <a class="text-emerald-700 hover:underline" href="/s/${h.share_token}?week=${shiftDays(days[0], 7)}">Next week →</a>
+  </p>
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);

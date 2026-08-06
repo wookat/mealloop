@@ -88,3 +88,10 @@ test('descriptive names and ranges are not mangled by scaling', async () => {
   assert.equal(parseIngredient('2-3 sprigs rosemary').qty, null);
   assert.equal(scaleIngredient('1 red onion', 2), '2 red onions');
 });
+
+test('ingredientKey matches scaled/unscaled variants of the same item', async () => {
+  const { ingredientKey } = await import('../src/util.js');
+  assert.equal(ingredientKey('2 red onions'), ingredientKey('1 red onion'));
+  assert.equal(ingredientKey('3 cups flour'), ingredientKey('4 cups flour'));
+  assert.notEqual(ingredientKey('milk'), ingredientKey('500ml milk'));
+});

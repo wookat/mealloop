@@ -35,3 +35,18 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Tests extended to 9 (imported-recipe descriptive names + ranges).
 
 **Evidence:** `test-report-iter2.md` + recording; unit tests 9/9; live regression PASSED (clean grocery lines at ×2, range unscaled, friendly import error with URL preserved, 375px header intact, console clean).
+
+## Round 3 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX (P2, carried): share page always showed the current week — family members couldn't see a future week the planner had prepared.
+- ① QA / ② UX (P2, carried): "Add week's ingredients" deduped by exact label, so changing a recipe's scale between clicks left both "3 cups flour" and "4 cups flour" on the list.
+- ⑤ Data: PV growing slowly, all internal traffic; intents still 0 — no data-driven priority shift this round.
+- ④ Competitor: Plan to Eat / Samsung Food blogs return 403/empty to plain fetch (not bypassing); deep competitor session rotated to a later round.
+
+**Fixes shipped:**
+- Share page `/s/:token?week=YYYY-MM-DD`: prev/next-week navigation + "week of …" heading; token never in analytics (query ignored).
+- New `ingredientKey()` normalized dedupe: to-list now updates the existing *unchecked* item's label when quantities change (idempotent at any scale), keeps checked items, and never duplicates scaled/unscaled variants.
+- Unit tests 10/10 (new key-matching cases).
+
+**Evidence:** live regression via testing agent (see round entry update).

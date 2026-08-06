@@ -130,6 +130,12 @@ export function scaleIngredient(label, factor) {
   return formatIngredient({ ...parsed, qty: parsed.qty * factor });
 }
 
+// Normalized dedupe key ("2 red onions" and "1 red onion" share one key).
+export function ingredientKey(label) {
+  const parsed = parseIngredient(label);
+  return `${nameKey(parsed.name)}|${parsed.unit || ''}`;
+}
+
 // Sums quantities of the same ingredient+unit; keeps unparsed labels as-is.
 export function mergeIngredients(labels) {
   const out = [];
