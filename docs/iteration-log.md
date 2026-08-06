@@ -693,3 +693,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Case-insensitive duplicate guard on staples add: `lower(label)` match within the household → silent no-insert, normal redirect. Distinct labels unaffected.
 
 **Evidence:** live verification (`test-report-iter62.md` + recording): exact and case-variant resubmits leave exactly one row (original casing preserved); distinct label still inserts; ✕ removal regression; fixtures cleaned; Console/Issues clean.
+
+## Round 63 — 2026-08-06
+
+**Findings (by driver):**
+- ④/⑤ growth: budget meal planning is an evergreen high-intent search topic (competitor content leans on it); MealLoop's staples + merged aisle-sorted list are a native answer but no guide targeted it.
+
+**Fixes shipped:**
+- New pSEO guide `meal-planning-on-a-budget` (“cut the grocery bill without coupons”): top-up trips/duplicates/waste as the real leaks; one merged list + staples + cheap-dinner rotation. Sitemap 22→23, IndexNow 200. /guides ItemList now 19 items.
+
+**Evidence:** live verification (`test-report-iter63.md` + recording): guide renders with breadcrumb + JSON-LD (14/14 field checks); listed last of 19 on /guides with exact title/excerpt; ItemList 19 items, position 19 = new guide; More guides wraps to first 3; 375px clean; Console/Issues clean; read-only round.

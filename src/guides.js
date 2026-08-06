@@ -280,4 +280,20 @@ export const GUIDES = [
       p('Half of picky-eater friction is surprise. When the week\'s dinners sit on a shared plan the whole household can open — no app install, no account for the kids — "what\'s for dinner" stops being an ambush. Swaps get requested on Sunday instead of protested on Wednesday, and the grocery list already has the alternative on it.'),
     ].join(''),
   },
+  {
+    slug: 'meal-planning-on-a-budget',
+    title: 'Meal planning on a budget: cut the grocery bill without coupons',
+    excerpt: 'Most grocery overspend is unplanned buying. A weekly plan and one shared list quietly remove it.',
+    body: [
+      p('Cutting the grocery bill rarely comes from hunting coupons or switching to a cheaper store. The big leak is unplanned buying: shopping without a list, duplicate purchases because two people shopped, and mid-week top-up trips where everything costs more. A weekly plan closes all three.'),
+      h2('Where the money actually goes'),
+      ul([
+        'Top-up trips are the killer: every extra store visit adds impulse buys — plan the week once and shop once.',
+        'Duplicates happen when the list lives in one person\'s head: a shared list everyone can check before buying ends the second jar of pasta sauce.',
+        'Waste is spent money in the bin: planning a leftovers night per big cook turns "extra food" into a free dinner instead of a fridge casualty.',
+      ]),
+      h2('Plan cheap on purpose'),
+      p('Budget weeks don\'t need special recipes — they need the boring maths done for you. Merge the week\'s ingredients into one aisle-sorted list so you buy each thing once at the right amount, keep pantry staples on an automatic list so you never emergency-buy them at a corner-shop markup, and rotate the two or three cheap dinners your family already likes. The plan doesn\'t have to be clever; it has to be visible to everyone who shops.'),
+    ].join(''),
+  },
 ];
