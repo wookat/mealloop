@@ -816,3 +816,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New pSEO guide #21 `reusable-weekly-menu-template` ("Build a reusable weekly menu (plan once, use it forever)") — cross-promotes saved menus. Sitemap 24→25 locs; IndexNow submitted (200).
 
 **Evidence:** live verification (`test-report-iter74.md` + recording): guide renders with breadcrumb/h1/2×h2+bullets/session-aware CTA and More-guides wrap to the first 3 guides; /guides shows 21 cards with ItemList JSON-LD at 21 items (new guide position 21); single @graph [Article, BreadcrumbList] ld+json + og:type=article + correct canonical; 375px + Console/Issues clean.
+
+## Round 75 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ① QA: Plan to Eat's June 2026 update added menu duplication — MealLoop menus couldn't be copied; plus two R72 untested gaps remained (positive ×N badge render, newest-first multi-card ordering).
+
+**Fixes shipped:**
+- Duplicate button on each /app/menus card → `POST /app/menus/duplicate`: household-scoped SELECT, inserts `Copy of <name>` (60-char cap) and copies all menu_entries (dow/meal/recipe_id/note/scale); copy renders first (newest-first).
+
+**Evidence:** live verification (`test-report-iter75.md` + recording): QA75 fixture with a ×2-scaled entry proved the ×2 badge in the preview (R72 gap closed); Duplicate produced "Copy of QA75 menu" first (ordering gap closed) with an identical preview; renaming the copy left the original unchanged (entries copied, not shared); print/delete regressions to empty state passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested edges: 60-char copy-name truncation; cross-household menu_id guard (needs a second account).

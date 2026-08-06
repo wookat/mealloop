@@ -621,6 +621,10 @@ ${menus.results.length === 0 ? `<p class="text-stone-500 text-sm">No saved menus
         <input name="name" required maxlength="60" aria-label="Rename ${esc(m.name)}" placeholder="New name…" autocomplete="off" class="rounded border border-stone-300 text-xs px-2 py-1 w-32">
         <button class="rounded border border-stone-300 text-xs px-2 py-1 hover:bg-stone-100">Rename</button>
       </form>
+      <form method="post" action="/app/menus/duplicate">
+        <input type="hidden" name="menu_id" value="${m.id}">
+        <button aria-label="Duplicate ${esc(m.name)}" class="rounded border border-stone-300 text-xs px-2 py-1 hover:bg-stone-100">Duplicate</button>
+      </form>
       <form method="post" action="/app/menus/delete" data-confirm="Delete this saved menu?">
         <input type="hidden" name="menu_id" value="${m.id}">
         <input type="hidden" name="back" value="/app/menus">
@@ -638,6 +642,24 @@ ${menus.results.length === 0 ? `<p class="text-stone-500 text-sm">No saved menus
 }).join('')}
 </div>`;
   return c.html(page({ title: 'Saved menus', body, user, path: '/app/menus', noindex: true }));
+});
+
+app.post('/app/menus/duplicate', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const menu = await c.env.DB.prepare('SELECT id, name FROM menus WHERE id = ? AND household_id = ?').bind(String(f.menu_id || ''), h.id).first();
+  if (menu) {
+    const entries = await c.env.DB.prepare('SELECT dow, meal, recipe_id, note, scale FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
+    const copyId = uid();
+    const name = `Copy of ${menu.name}`.slice(0, 60);
+    const stmts = [c.env.DB.prepare('INSERT INTO menus (id, household_id, name) VALUES (?, ?, ?)').bind(copyId, h.id, name)];
+    for (const e of entries.results) {
+      stmts.push(c.env.DB.prepare('INSERT INTO menu_entries (id, menu_id, dow, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid(), copyId, e.dow, e.meal, e.recipe_id, e.note, e.scale));
+    }
+    await c.env.DB.batch(stmts);
+  }
+  return c.redirect('/app/menus');
 });
 
 app.post('/app/menus/rename', async (c) => {
