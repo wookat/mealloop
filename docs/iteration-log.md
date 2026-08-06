@@ -826,3 +826,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Duplicate button on each /app/menus card → `POST /app/menus/duplicate`: household-scoped SELECT, inserts `Copy of <name>` (60-char cap) and copies all menu_entries (dow/meal/recipe_id/note/scale); copy renders first (newest-first).
 
 **Evidence:** live verification (`test-report-iter75.md` + recording): QA75 fixture with a ×2-scaled entry proved the ×2 badge in the preview (R72 gap closed); Duplicate produced "Copy of QA75 menu" first (ordering gap closed) with an identical preview; renaming the copy left the original unchanged (entries copied, not shared); print/delete regressions to empty state passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested edges: 60-char copy-name truncation; cross-household menu_id guard (needs a second account).
+
+## Round 76 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat's app integrates planned recipes with calendar apps; MealLoop had no calendar surface for the plan.
+
+**Fixes shipped:**
+- New `GET /s/:token/calendar.ics` — share-token-scoped iCal feed (window today−7..today+28): one all-day VEVENT per plan entry (`SUMMARY "Meal: Title[ ×N]"`, note text for note-only entries, comma/semicolon escaping, CRLF, `X-PUBLISHED-TTL PT1H`), invalid token → 404. Resetting the share link also rotates this URL.
+- `/app/share` gains a "Meal plan in your calendar" card: readonly feed URL + Copy (data-copy), Google/Apple/Outlook explainer.
+
+**Evidence:** live verification (`test-report-iter76.md` + recording): card renders and Copy proven via a real clipboard paste; feed parsed structurally (8 VEVENTs matching current-week plan entries, correct window, VCALENDAR headers); wrong token 404; share page/account card regressions clean; 375px + Console/Issues clean. Untested: real calendar-client subscription; SUMMARY escaping/×N branches (no such entries in standing plan).

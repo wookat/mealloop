@@ -1519,6 +1519,14 @@ app.get('/app/share', async (c) => {
 <form method="post" action="/app/share/rotate" class="mt-4" data-confirm="Create a new link? The current link will stop working for everyone.">
   <button class="text-sm text-stone-500 hover:text-red-600 hover:underline">Reset link (revokes the old one)</button>
 </form>
+<div class="mt-10 rounded-xl border border-stone-200 bg-white p-5 text-left">
+  <h2 class="font-semibold">Meal plan in your calendar</h2>
+  <p class="mt-1 text-sm text-stone-600">Subscribe to this feed in Google Calendar, Apple Calendar or Outlook to see planned meals as all-day events (last week through the next 4 weeks; resetting the share link also changes this URL).</p>
+  <div class="mt-3 flex gap-2">
+    <input readonly aria-label="Calendar feed URL" value="${esc(link)}/calendar.ics" id="cal-url" class="flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+    <button type="button" data-copy="cal-url" class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Copy</button>
+  </div>
+</div>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
 <div class="mt-12 rounded-xl border border-stone-200 bg-white p-5 text-left">
   <h2 class="font-semibold">Account</h2>
@@ -1530,6 +1538,41 @@ app.get('/app/share', async (c) => {
 </div>
 </div>`;
   return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
+});
+
+app.get('/s/:token/calendar.ics', async (c) => {
+  const h = await shareHousehold(c);
+  if (!h) return c.notFound();
+  const rows = await c.env.DB.prepare(
+    `SELECT p.id, p.date, p.meal, p.note, p.scale, r.title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id
+     WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date, p.meal`
+  ).bind(h.id, shiftDays(today(), -7), shiftDays(today(), 28)).all();
+  const escIcs = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';
+  const events = rows.results.map((e) => {
+    const label = e.title ? `${e.title}${e.scale && e.scale !== 1 ? ` \u00d7${e.scale}` : ''}` : (e.note || 'Meal');
+    const meal = e.meal.charAt(0).toUpperCase() + e.meal.slice(1);
+    return [
+      'BEGIN:VEVENT',
+      `UID:${e.id}@mealloop.zalize.com`,
+      `DTSTAMP:${stamp}`,
+      `DTSTART;VALUE=DATE:${e.date.replace(/-/g, '')}`,
+      `SUMMARY:${escIcs(`${meal}: ${label}`)}`,
+      'TRANSP:TRANSPARENT',
+      'END:VEVENT',
+    ].join('\r\n');
+  }).join('\r\n');
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//MealLoop//meal plan//EN',
+    'CALSCALE:GREGORIAN',
+    `X-WR-CALNAME:${escIcs(`${h.name} \u2014 meal plan`)}`,
+    'X-PUBLISHED-TTL:PT1H',
+    events,
+    'END:VCALENDAR',
+  ].filter(Boolean).join('\r\n') + '\r\n';
+  return c.body(ics, 200, { 'Content-Type': 'text/calendar; charset=utf-8' });
 });
 
 app.post('/app/share/rotate', async (c) => {
