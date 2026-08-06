@@ -438,3 +438,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New `isIngredientHeading` (trimmed line ends ':', ≤60 chars, no digits): renders as a bold sub-heading (colon stripped, no bullet, no unit conversion) on app + share recipe pages; skipped by recipe→list and plan→list adds. Paste-import passes header lines through, so sectioned pastes now show sections. Unit tests 13→14.
 
 **Evidence:** live verification (`test-report-iter38.md` + recording): sectioned paste fixture rendered headers correctly on app + incognito share pages; recipe→list added only the 2 real items with attribution; weekly add idempotent with no headers; imperial toggle converted normal lines (100g→3.53 oz) while headers stayed untouched; Console/Issues clean; 375/375; fixtures cleaned. Note: the digit-containing negative case is unit-test/source-verified only.
+
+## Round 39 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual / ④ competitor: Plan to Eat is print-oriented; our recipe pages printed nav, buttons, tags form and the photo — no clean cook-from-paper output.
+
+**Fixes shipped:**
+- Recipe pages (app + share) gain a Print button next to Cook mode; on print, `print:hidden` hides the button group, action row, tags form, Edit/Delete row and the photo — printed output is title, meta, description, source link, sectioned ingredients, numbered steps.
+- 39b: testing found the share recipe page's "← Back to …'s week" link still printed (prepended outside recipeBody) — fixed with `print:hidden` and re-verified.
+
+**Evidence:** live verification (`test-report-iter39.md` incl. 39b addendum + recordings): clean Chrome Save-as-PDF previews on app and share pages, section headers bold in print, Cook mode and grocery/planner print regressions pass; Console/Issues clean; 375/375; fixtures cleaned. Notes: verified via print preview (no physical printer); photo hiding proven on the app page only (share fixture had no photo).
