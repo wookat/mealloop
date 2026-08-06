@@ -64,3 +64,16 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - IndexNow ping submitted for the 2 new guides + /guides + sitemap (HTTP 200).
 
 **Evidence:** live curl shows new guide titles served; unit tests 10/10; `npm run check` clean.
+
+## Round 5 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor (P2): Plan to Eat offers grocery-list print/export; MealLoop had no way to get the list out of the browser (print produced a page cluttered with header/nav/forms; no copy-as-text).
+- ② UX (P2): shoppers who prefer paper or pasting the list into a chat had no path.
+- ③ Visual: print output unstyled for purpose.
+
+**Fixes shipped:**
+- "Copy list" button: copies unchecked items as text grouped by aisle (clipboard, "Copied!" feedback) — works on /app/list and the family share page.
+- "Print" button + print stylesheet: header, footer, add-item form, action buttons and category selects hidden in print (`print:hidden`), leaving a clean aisle-grouped checklist.
+
+**Evidence:** live regression via testing agent (rounds 4–5 combined).

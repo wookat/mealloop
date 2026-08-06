@@ -8,6 +8,27 @@
     });
   });
 
+  document.querySelectorAll('[data-print]').forEach(function (btn) {
+    btn.addEventListener('click', function () { window.print(); });
+  });
+
+  document.querySelectorAll('[data-copy-list]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var lines = [];
+      document.querySelectorAll('#list section').forEach(function (sec) {
+        var items = [];
+        sec.querySelectorAll('.toggle-form').forEach(function (f) {
+          var spans = f.querySelectorAll('span');
+          if (!spans[1].classList.contains('line-through')) items.push('- ' + spans[1].textContent);
+        });
+        if (items.length) lines.push(sec.querySelector('h2').textContent, items.join('\n'), '');
+      });
+      navigator.clipboard.writeText(lines.join('\n').trim());
+      btn.textContent = 'Copied!';
+      setTimeout(function () { btn.textContent = 'Copy list'; }, 2000);
+    });
+  });
+
   document.querySelectorAll('form[data-confirm]').forEach(function (f) {
     f.addEventListener('submit', function (e) {
       if (!confirm(f.dataset.confirm)) e.preventDefault();

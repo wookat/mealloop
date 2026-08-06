@@ -733,14 +733,16 @@ function listBody(h, items, { editable, base, shareLink, notice }) {
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
-  <div class="flex gap-2">
+  <div class="flex gap-2 print:hidden">
+    <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy list</button>
+    <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>` : ''}
     ${editable ? `<form method="post" action="/app/list/clear"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Clear checked</button></form>` : ''}
   </div>
 </div>
 ${editable ? `
-<form method="post" action="/app/list/add" class="flex gap-2 mb-5 max-w-md">
+<form method="post" action="/app/list/add" class="flex gap-2 mb-5 max-w-md print:hidden">
   <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>` : ''}
@@ -759,7 +761,7 @@ ${cats.map((cat) => `
             <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}</span>
           </button>
         </form>
-        ${editable ? `<form method="post" action="/app/list/category" class="pr-2">
+        ${editable ? `<form method="post" action="/app/list/category" class="pr-2 print:hidden">
           <input type="hidden" name="id" value="${i.id}">
           <select name="category" data-autosubmit data-custom-prompt="New aisle / store section name:" aria-label="Move to category" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-400 px-1 py-0.5 max-w-28">
             ${allCats.map((cc) => `<option value="${esc(cc)}"${cc === i.category ? ' selected' : ''}>${esc(cc)}</option>`).join('')}
