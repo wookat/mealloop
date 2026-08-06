@@ -301,13 +301,13 @@ ${recipes.results.length === 0 ? `
     <button class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700">Add week's ingredients to grocery list</button>
   </form>
   <a href="/app/share" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">Share with family</a>
-  ${entries.results.length === 0 ? `<form method="post" action="/app/plan/copy-week" class="inline">
+  <form method="post" action="/app/plan/copy-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
-  </form>` : ''}
-  ${entries.results.length === 0 && recipes.results.length > 0 ? `<form method="post" action="/app/plan/fill-week" class="inline">
+  </form>
+  ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
-    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill dinners from recipe box</button>
+    <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
   </form>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
@@ -316,7 +316,7 @@ ${recipes.results.length === 0 ? `
     <input name="name" required maxlength="60" aria-label="Menu name" autocomplete="off" placeholder="Save this week as menu…" class="rounded-lg border border-stone-300 px-3 py-1.5 w-52">
     <button class="rounded-lg border border-stone-300 px-3 py-1.5 hover:bg-stone-100">Save menu</button>
   </form>` : ''}
-  ${menus.results.length && entries.results.length === 0 ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
+  ${menus.results.length ? `<form method="post" action="/app/menus/apply" class="flex gap-2">
     <input type="hidden" name="week" value="${days[0]}">
     <select name="menu_id" aria-label="Menu" class="rounded-lg border border-stone-300 px-2 py-1.5">
       ${menus.results.map((m) => `<option value="${m.id}">${esc(m.name)}</option>`).join('')}
@@ -434,12 +434,19 @@ app.post('/app/plan/copy-week', async (c) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
   const days = weekDates(week);
   const prevDays = weekDates(shiftDays(week, -7));
-  const prev = await c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
-    .bind(h.id, prevDays[0], prevDays[6]).all();
-  const stmts = prev.results.map((e) =>
-    c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note, e.scale)
-  );
+  const [prev, current] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, prevDays[0], prevDays[6]).all(),
+    c.env.DB.prepare('SELECT date, meal FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, days[0], days[6]).all(),
+  ]);
+  const occupied = new Set(current.results.map((e) => `${e.date}|${e.meal}`));
+  const stmts = prev.results
+    .filter((e) => !occupied.has(`${days[prevDays.indexOf(e.date)]}|${e.meal}`))
+    .map((e) =>
+      c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, days[prevDays.indexOf(e.date)], e.meal, e.recipe_id, e.note, e.scale)
+    );
   if (stmts.length) {
     await c.env.DB.batch(stmts);
     await bumpVersion(c.env, h.id);
@@ -451,9 +458,11 @@ app.post('/app/plan/fill-week', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const days = weekDates(String(f.week || ''));
-  const existing = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
-    .bind(h.id, days[0], days[6]).first();
-  if (existing.n > 0) return c.redirect(`/app?week=${days[0]}`);
+  const existing = await c.env.DB.prepare("SELECT DISTINCT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?")
+    .bind(h.id, days[0], days[6]).all();
+  const planned = new Set(existing.results.map((r) => r.date));
+  const empty = days.filter((d) => !planned.has(d));
+  if (empty.length === 0) return c.redirect(`/app?week=${days[0]}`);
   const [recipes, recent] = await Promise.all([
     c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
     c.env.DB.prepare('SELECT DISTINCT recipe_id FROM plan_entries WHERE household_id = ? AND recipe_id IS NOT NULL AND date BETWEEN ? AND ?')
@@ -466,7 +475,7 @@ app.post('/app/plan/fill-week', async (c) => {
   const pool = fresh.length >= 4 ? fresh : recipes.results;
   const bytes = crypto.getRandomValues(new Uint32Array(pool.length));
   const shuffled = pool.map((r, i) => [bytes[i], r]).sort((a, b) => a[0] - b[0]).map(([, r]) => r);
-  const stmts = days.map((d, i) =>
+  const stmts = empty.map((d, i) =>
     c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(uid(), h.id, d, 'dinner', shuffled[i % shuffled.length].id, '', 1)
   );
@@ -503,9 +512,14 @@ app.post('/app/menus/apply', async (c) => {
   const menu = await c.env.DB.prepare('SELECT id FROM menus WHERE id = ? AND household_id = ?').bind(String(f.menu_id || ''), h.id).first();
   if (!menu) return c.redirect(`/app?week=${week}`);
   const days = weekDates(week);
-  const entries = await c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all();
+  const [entries, current] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM menu_entries WHERE menu_id = ?').bind(menu.id).all(),
+    c.env.DB.prepare('SELECT date, meal FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
+      .bind(h.id, days[0], days[6]).all(),
+  ]);
+  const occupied = new Set(current.results.map((e) => `${e.date}|${e.meal}`));
   const stmts = entries.results
-    .filter((e) => e.dow >= 0 && e.dow <= 6)
+    .filter((e) => e.dow >= 0 && e.dow <= 6 && !occupied.has(`${days[e.dow]}|${e.meal}`))
     .map((e) => c.env.DB.prepare('INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .bind(uid(), h.id, days[e.dow], e.meal, e.recipe_id, e.note, e.scale));
   if (stmts.length) {

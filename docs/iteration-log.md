@@ -470,3 +470,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - `/app/list` gains an "Aisle order…" popover (per-category ↑/↓, edge arrows disabled, `?aisles=1` keeps it open across moves); list sections, per-row category selects, share page and print all follow the saved order; share page has no reorder UI. Unit tests 14→15.
 
 **Evidence:** live verification (`test-report-iter41.md` + recording): default store-walk order replaces alphabetical; reorder moves both popover and sections; custom category reorderable to top; share page follows order without the button; store-filter + `?aisles=1` back param preserved; print uses custom order; Esc/outside-click dismissal; 375/375; Console/Issues clean; fixtures cleaned. Notes: live-poll propagation of an order change onto an already-open share tab not exercised; household `category_order` now stores an explicit default-equivalent JSON (renders identically).
+
+## Round 42 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: “Copy last week’s plan”, “Fill dinners” and “Apply menu” all vanished once a week had a single entry — an arbitrary empty-week-only limitation; Plan to Eat menus apply onto partially-planned weeks.
+
+**Fixes shipped:**
+- All three planner helpers now work on partially-filled weeks, filling only free slots: copy-week and menus/apply skip occupied `date|meal` slots; fill-week (renamed “Fill empty dinners from recipe box”) fills only dinner-less days and hides at 7/7; Apply menu shows whenever menus exist.
+
+**Evidence:** live verification (`test-report-iter42.md` + recording): partial-week copy skips occupied Mon dinner while copying free Tue lunch; fill adds exactly the 5 empty dinners and hides at 7/7; menu apply refills only cleared days, skips a conflicting slot, and a second click is a no-op; empty-week behavior, print, share, menu save/delete regressions pass; 375/375; Console/Issues clean; fixtures cleaned. Notes: copy onto a fully-empty week proven via the same free-slot path (not standalone); fill-week’s 7/7 server no-op proven by button disappearance only.
