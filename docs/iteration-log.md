@@ -909,3 +909,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Expanded CATEGORY_RULES (src/util.js): Produce +fruits/vegetables (pears, plums, berries, oranges, melon, cauliflower, kale, …), Meat & Seafood +cod/haddock/tofu, Bakery +buns/bagel/rolls/baguette/cereal/couscous; new early rule sends jam/jelly/marmalade/peanut butter to Oils & Condiments (before Produce so "strawberry jam" isn't a berry); Dairy butter gained a `(?<!peanut )` lookbehind. Unit tests extended.
 
 **Evidence:** live verification (`test-report-iter83.md` + recording): pears→Produce, buns→Bakery, strawberry jam + peanut butter→Oils & Condiments, tofu→Meat & Seafood, plain butter→Dairy & Eggs; cleanup back to 35 to buy · 0 checked; 375px + Console/Issues clean. Caveat: 5 of ~30 new keywords proven live (rest unit-tested); existing rows keep their stored category by design.
+
+## Round 84 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ⑤ Data: Plan to Eat's July 2026 content push centers on "why meal plans fail / most common planning mistakes" (podcast #137 + Instagram series) — validated topic demand our guide cluster didn't cover.
+
+**Fixes shipped:**
+- pSEO guide #23 `why-meal-plans-fall-apart` ("Why your meal plan falls apart by Wednesday (and how to fix it)") — fantasy-week/rigid/invisible failure modes, planning the real week, survivable plans; cross-promotes share link + calendar visibility. Sitemap 26→27 locs; IndexNow 202.
+
+**Evidence:** live verification (`test-report-iter84.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/CTA), last of 23 cards, ItemList 23 items at position 23, @graph [Article, BreadcrumbList], og:type=article, og:description=excerpt, canonical, sitemap 27 locs, More-guides link click-proven (closing the standing exact-match caveat), 375px + Console/Issues clean.

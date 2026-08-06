@@ -344,4 +344,22 @@ export const GUIDES = [
       p('Look for a meal planner that offers an iCal (.ics) subscription URL. Copy the link once and add it in Google Calendar ("From URL"), Apple Calendar ("New Calendar Subscription") or Outlook. From then on, the week\'s planned meals appear as all-day events — "Dinner: lasagne" on Wednesday — alongside the rest of family life, and stay current as the plan changes.'),
     ].join(''),
   },
+  {
+    slug: 'why-meal-plans-fall-apart',
+    title: 'Why your meal plan falls apart by Wednesday (and how to fix it)',
+    excerpt: 'Most meal plans don\'t fail from lack of discipline — they fail because they were written for a fantasy week instead of your real one.',
+    body: [
+      p('Every family knows the pattern: a hopeful Sunday plan, a decent Monday, and by Wednesday it\'s takeaway again. The plan didn\'t fail because you\'re lazy — it failed because it ignored the week you were actually going to have.'),
+      h2('The three ways plans break'),
+      ul([
+        'The fantasy-week plan: seven ambitious dinners with no easy night, no leftovers night, and nothing for the evening someone gets home at 7:30.',
+        'The rigid plan: one changed evening knocks over the rest of the week because every meal depended on the one before it.',
+        'The invisible plan: it lives in one person\'s head or one person\'s app, so nobody else can follow it, shop for it, or start cooking.',
+      ]),
+      h2('Plan the week you\'ll actually have'),
+      p('Before picking a single recipe, look at the calendar: which nights are rushed, which are normal, which have time to cook properly. Match the meal to the night — a 15-minute meal or planned leftovers on the rushed ones, the interesting recipe on the relaxed one. Four or five planned dinners with slack beats seven perfect ones.'),
+      h2('Make the plan survivable'),
+      p('Keep meals independent so any night can be swapped without dominoes. Put the plan where the whole family can see it — a shared link or the family calendar — so anyone can answer "what\'s for dinner?" and anyone can start it. And when a night goes sideways, swap instead of scrapping: the plan isn\'t broken, it just moved.'),
+    ].join(''),
+  },
 ];
