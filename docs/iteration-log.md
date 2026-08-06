@@ -161,4 +161,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Two new pSEO guides (total 10): `metric-imperial-recipe-conversion` (rides the Round 11 feature) and `shared-grocery-list-without-an-app` (core differentiator query); auto-included in /guides + sitemap (now 14 URLs).
 - IndexNow submitted for both guides + /guides + sitemap (HTTP 200).
 
-**Evidence:** both live with HTTP 200 on production; sitemap `<loc>` count 12→14; IndexNow 200.
+**Evidence:** both live with HTTP 200 on production; sitemap `<loc>` count 12→14; IndexNow 200; rendering verified live (`test-report-iter13.md`).
+
+## Round 13 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (P3 from round 11 testing): composite labels ("2 x 400g cans chopped tomatoes") weren't converted by the units preference — common in imported UK recipes.
+
+**Fixes shipped:**
+- `convertUnits` converts the inner amount of composite "N x amount" labels, keeping prefix/trailing text ("2 x 400g cans …" → imperial "2 x 14.11 oz cans …"; "3 x 8 oz packs …" → metric "3 x 227g packs …"); regression tests added (12/12).
+
+**Evidence:** live verification (`test-report-iter13.md` + recording): composite conversion both ways, as-written restores originals exactly, share sync follows units changes, console clean, 375/375; test items cleaned up.

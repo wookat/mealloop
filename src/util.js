@@ -133,6 +133,13 @@ export function scaleIngredient(label, factor) {
 // Display-only unit conversion; storage keeps the original label.
 export function convertUnits(label, system) {
   if (system !== 'metric' && system !== 'imperial') return String(label);
+  // Composite counts ("2 x 400g cans chopped tomatoes"): convert the inner amount.
+  const comp = String(label).match(/^(\d+\s*[x×]\s*)(\d+(?:[.,]\d+)?\s*(?:g|kg|ml|l|oz|lb|lbs)\b\.?)(.*)$/i);
+  if (comp) {
+    const inner = convertUnits(`${comp[2].trim()} _`, system);
+    if (inner !== `${comp[2].trim()} _`) return `${comp[1]}${inner.replace(/ _$/, '')}${comp[3]}`;
+    return String(label);
+  }
   const p = parseIngredient(label);
   if (p.qty == null || !p.unit) return String(label);
   const r2 = (x) => Math.round(x * 100) / 100;

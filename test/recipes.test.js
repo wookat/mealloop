@@ -109,3 +109,11 @@ test('convertUnits converts display units both ways and leaves the rest alone', 
   assert.equal(convertUnits('2 red onions', 'imperial'), '2 red onions');
   assert.equal(convertUnits('750g beef', ''), '750g beef');
 });
+
+test('convertUnits handles composite "N x amount" labels', async () => {
+  const { convertUnits } = await import('../src/util.js');
+  assert.equal(convertUnits('2 x 400g cans chopped tomatoes', 'imperial'), '2 x 14.11 oz cans chopped tomatoes');
+  assert.equal(convertUnits('2 x 400g cans chopped tomatoes', 'metric'), '2 x 400g cans chopped tomatoes');
+  assert.equal(convertUnits('3 x 8 oz packs cream cheese', 'metric'), '3 x 227g packs cream cheese');
+  assert.equal(convertUnits('2 x 1kg bags flour', 'imperial'), '2 x 2.2 lb bags flour');
+});
