@@ -91,4 +91,16 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Fixes shipped:**
 - Add-item autocomplete on /app/list via native `<datalist>`: household staples first, then ~29 common grocery items; no JS, works with keyboard and mobile.
 
-**Evidence:** Samsung Food screenshots (`ss_c773c378.png`, `ss_1b447bae.png`); live check after deploy.
+**Evidence:** Samsung Food screenshots (`ss_c773c378.png`, `ss_1b447bae.png`); live regression PASSED for autocomplete (dropdown, staples-first, add works), print checked-row hiding, RUM/CSP console clean — see `test-report-iter5.md` + recording.
+
+## Round 7 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA regression (P2, introduced in round 5): `whitespace-nowrap` action buttons sat in a non-wrapping flex row — at 375px the row overflowed the viewport, adding page-level horizontal scroll ("Clear checked" off-screen, header clipped).
+- ① QA (P3): printing a list where an entire category is checked still printed the empty category heading.
+
+**Fixes shipped:**
+- `flex-wrap` on the list action-button row (buttons wrap as whole units at 375px, no overflow).
+- Sections whose items are all checked get `print:hidden` (no empty headings in print).
+
+**Evidence:** live regression via testing agent.

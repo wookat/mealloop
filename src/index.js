@@ -739,7 +739,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
-  <div class="flex gap-2 print:hidden">
+  <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
@@ -756,7 +756,7 @@ ${editable ? `
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${cats.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
 ${cats.map((cat) => `
-  <section>
+  <section class="${items.filter((i) => i.category === cat).every((i) => i.checked) ? 'print:hidden' : ''}">
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${items.filter((i) => i.category === cat).map((i) => `
