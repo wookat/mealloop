@@ -670,12 +670,16 @@ ${canEdit ? `<form method="post" action="/app/recipes/${r.id}/delete" class="mt-
 app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
-  const items = await c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all();
+  const [items, staples] = await Promise.all([
+    c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all(),
+  ]);
+  const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
   const notice = added === undefined ? '' : Number(added) > 0
     ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from this week's plan.`
     : "Everything from this week's plan is already on the list.";
-  const body = listBody(h, items.results, { editable: true, base: '/app/list', shareLink: true, notice });
+  const body = listBody(h, items.results, { editable: true, base: '/app/list', shareLink: true, notice, suggestions });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -726,7 +730,9 @@ app.post('/app/list/clear', async (c) => {
   return c.redirect('/app/list');
 });
 
-function listBody(h, items, { editable, base, shareLink, notice }) {
+const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
+
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [] }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = [...new Set([...STANDARD_CATEGORIES, ...cats])];
   return `
@@ -743,7 +749,8 @@ ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
 </div>
 ${editable ? `
 <form method="post" action="/app/list/add" class="flex gap-2 mb-5 max-w-md print:hidden">
-  <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <input name="label" required aria-label="Add item" placeholder="Add item (e.g. 2 lemons)" list="item-suggestions" autocomplete="off" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+  <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>` : ''}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">

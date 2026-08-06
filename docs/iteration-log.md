@@ -81,3 +81,14 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Checked rows hidden in print output; action buttons `whitespace-nowrap` at 375px.
 
 **Evidence:** `test-report-iter4.md` + recording; live regression PASSED (guides + 12-URL sitemap, aria-labels, copy-list content/feedback, clean print preview, share sync, 375px header); RUM setting API response `"value":"off"`.
+
+## Round 6 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor deep-dive (real logged-in session, Samsung Food web app): their shopping list "Add item" input offers instant autocomplete suggestions ("mil" → Milk, Milk 1%, Milk 2%…); MealLoop's add-item was a bare text field. Their other extras (multiple named lists, online cart ordering) noted for backlog.
+- ①/②/③/⑤: no new findings beyond rounds 4–5 regression; traffic still internal-only.
+
+**Fixes shipped:**
+- Add-item autocomplete on /app/list via native `<datalist>`: household staples first, then ~29 common grocery items; no JS, works with keyboard and mobile.
+
+**Evidence:** Samsung Food screenshots (`ss_c773c378.png`, `ss_1b447bae.png`); live check after deploy.
