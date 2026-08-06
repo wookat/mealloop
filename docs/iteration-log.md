@@ -449,3 +449,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 39b: testing found the share recipe page's "← Back to …'s week" link still printed (prepended outside recipeBody) — fixed with `print:hidden` and re-verified.
 
 **Evidence:** live verification (`test-report-iter39.md` incl. 39b addendum + recordings): clean Chrome Save-as-PDF previews on app and share pages, section headers bold in print, Cook mode and grocery/planner print regressions pass; Console/Issues clean; 375/375; fixtures cleaned. Notes: verified via print preview (no physical printer); photo hiding proven on the app page only (share fixture had no photo).
+
+## Round 40 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ data/growth: pSEO remains the acquisition lever; Round 39's clean recipe printing addresses a widely-searched pain (cluttered recipe-site printouts) but had no landing/SEO surface.
+
+**Fixes shipped:**
+- New guide `/guides/print-a-recipe-without-ads-and-clutter` ("How to print a recipe without the ads, photos and life story") — sitemap 17→18 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter40.md` + recording): guide listed and renders (h1, both h2s, bullets, meta description = excerpt); sitemap has exactly 18 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: IndexNow 200 verified from shell, not re-verified by the testing agent.

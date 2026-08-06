@@ -198,4 +198,21 @@ export const GUIDES = [
       p('This keeps the recipe usable — scaled servings, unit conversion, cook mode, and a link-shareable copy for whoever is cooking — without violating anyone\'s terms by scraping around a block.'),
     ].join(''),
   },
+  {
+    slug: 'print-a-recipe-without-ads-and-clutter',
+    title: 'How to print a recipe without the ads, photos and life story',
+    excerpt: 'Recipe sites print terribly: ads, giant photos, comments. Two ways to get a clean one-page recipe card.',
+    body: [
+      p('Hit print on most recipe sites and you get five pages: hero photos, ad slots, the author\'s trip to Tuscany, and — somewhere on page four — the actual ingredients. If you cook from paper, you want a one-page card: title, ingredients, numbered steps, nothing else.'),
+      h2('Option 1: the site\'s own print button'),
+      p('Some recipe sites offer a "print recipe" link inside the recipe card that strips the page down. It works when it exists, but many blogs don\'t have one, and you\'ll have to find it again every time you re-cook the dish.'),
+      h2('Option 2: save the recipe once, print it clean forever'),
+      ul([
+        'Import the recipe into your meal planner (by URL, or by pasting the text if the site blocks importers).',
+        'Print from the planner instead — a good one prints just the title, timings, ingredients (with section headings like <strong>For the sauce</strong> kept intact) and numbered steps on a single page.',
+        'The saved copy also feeds your grocery list and can be shared with whoever is cooking — no re-finding the original page.',
+      ]),
+      p('Bonus: printing from your own recipe box means the recipe never disappears behind a redesign, a paywall, or a dead link.'),
+    ].join(''),
+  },
 ];
