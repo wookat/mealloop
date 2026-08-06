@@ -523,3 +523,80 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - 46b: version poll now also runs on any page with a `[data-poll data-version data-base]` marker; share recipe page carries it, so open share recipe tabs self-update.
 
 **Evidence:** live verification (`test-report-iter46.md` + recording): no-note recipe clean; multi-line note renders with line breaks, XSS probe escaped; note visible on share view with no edit controls; clearing removes callout; open share recipe tab self-reloaded ~14s after app-side save and self-dropped the callout after clearing (46b); /app/list toggle+poll and share-planner poll regressions clean; 375/375; Console/Issues clean; fixtures reverted. Note: the note prints (accepted); initial deploy failed the share-tab check — fixed same round.
+
+## Round 47 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: planning a recipe from the recipe box took two hops (open recipe → “Add to your week plan”); no way to browse only favourites despite the ★ toggle existing since R4.
+
+**Fixes shipped:**
+- “+ Plan this week” quick action on every recipe card (→ `/app?recipe=<id>` preselect flow from R14); cards restructured to an outer div with inner link so the action isn’t nested inside the card anchor.
+- “★ Favourites” filter chip (shown only when ≥1 favourite exists; solid amber when active; `✕ Clear filter` covers tag and fav; fav-specific empty state).
+
+**Evidence:** live verification (`test-report-iter47.md` + recording): quick action lands on the planner with banner + preselected dropdown and the entry adds end-to-end; card title/image still open the recipe; chip lifecycle proven in both directions (0 favourites → chip hidden + empty state; restored → filters exactly the favourites); tag chips and search regressions clean; 375/375; Console/Issues clean; fixtures restored.
+
+## Round 48 — 2026-08-06
+
+**Findings (by driver):**
+- ③ visual / ④ competitor: competitors push native apps; MealLoop’s “no app needed” stance still benefits from Add-to-Home-Screen — the site had no web app manifest, icons, or theme-color.
+
+**Fixes shipped:**
+- PWA install metadata: `public/manifest.webmanifest` (id/start_url `/app`, standalone, theme `#059669`, 192/512 icons incl. maskable), new emerald plate-logo icons, and manifest/apple-touch-icon/theme-color tags in the layout head on every page. Intentionally no service worker (no offline claim).
+
+**Evidence:** live verification (`test-report-iter48.md` + recording): manifest 200 `application/manifest+json` and parses in DevTools Application → Manifest with all 3 icon entries; icons 200 png at 192/512; exactly one manifest/theme-color/apple-touch-icon tag on `/`, `/login`, `/guides`, `/app/list`; no CSP violations; Chrome install icon appears in the omnibox; homepage//app/list visuals unchanged; 375/375; Console/Issues clean; read-only round. Notes: actual install not performed on the test box; `id` field added post-test to silence the DevTools note (curl-verified); Richer-Install-UI screenshot warnings accepted.
+
+## Round 49 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth: food-waste / leftovers planning is a high-demand search topic with a direct product hook (R25’s “+ Leftovers next day”); no guide covered it.
+
+**Fixes shipped:**
+- New guide `/guides/plan-leftovers-nights-reduce-food-waste` (“Plan leftovers nights on purpose (and stop throwing food away)”) — sitemap 19→20 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter49.md` + recording): guide listed with exact title/excerpt and navigates; h1 + both h2 sections + 3-bullet list + CTA render; title/meta exact; sitemap exactly 20 locs incl. the new URL; 375/375; Console/Issues clean; read-only round, no fixtures. Note: card sits second-to-last on /guides (array order); IndexNow 200 shell-verified only.
+
+## Round 50 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth / ③ visual: guide pages were dead ends — after the CTA there was nowhere to go, wasting internal-link equity and engagement across 16 guides.
+- ① testing: guides had no unit coverage (slug collisions or missing metadata would ship silently).
+
+**Fixes shipped:**
+- “More guides” nav on every guide page (after the CTA): 3 deterministic links = next 3 guides in array order with wrap-around (`relatedGuides`).
+- New `test/guides.test.js`: slug uniqueness/format + title/excerpt length bounds + body structure (suite 15→16 tests).
+
+**Evidence:** live verification (`test-report-iter50.md` + recording): More guides section renders after the CTA with exactly 3 links in expected order on a mid-array guide; last guide wraps to the first 3; navigation works; /guides listing unchanged (16 cards, no section there); 375/375; Console/Issues clean; read-only round. Local: 16/16 tests pass.
+
+## Round 51 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: manual and pasted recipes had no photo and no way to add one — imported recipes get images, so the recipe box was visually split into rich and bare cards (Plan to Eat/Samsung Food both allow user photos).
+- ① testing: user-supplied URL fields need injection coverage (javascript:/data: URIs).
+
+**Fixes shipped:**
+- Optional “Photo URL” field on the recipe edit form; `sanitizeImageUrl` (src/util.js) keeps only http/https URLs, else stores NULL. Photo renders on the card grid, detail page and share recipe page; clearing restores the 🍽 placeholder; save bumps version so open share pages self-update.
+- New unit test for `sanitizeImageUrl` (javascript:/data:/garbage → null); suite 16→17.
+
+**Evidence:** live verification (`test-report-iter51.md` + recording): add photo → renders on card/detail/share; clear → placeholder returns; `javascript:alert(1)` submitted through the real form → no alert, no img, stored NULL; notes/title regression clean; 375/375; Console/Issues clean; fixtures restored. Local: 17/17 tests pass.
+
+## Round 52 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: prep/cook/servings meta only existed on imported recipes — manual/pasted recipes could never show it and imported values couldn’t be corrected (both competitors allow editing recipe meta).
+- ① testing: numeric form fields need clamp/NULL coverage.
+
+**Fixes shipped:**
+- 3-col Prep (min) / Cook (min) / Servings row on the recipe edit form; `clampMinutes` (src/util.js) keeps positive integers up to 6000 else NULL, servings trimmed to 40 chars (empty→NULL). Meta renders on the card grid, detail and share recipe pages; save bumps version.
+- New unit test for `clampMinutes`; suite 17→18.
+
+**Evidence:** live verification (`test-report-iter52.md` + recording): set 10/25/“Serves 4” → meta on card/detail/share; clear-all removes it; Prep=0 through the real form → stored NULL (negatives/letters blocked client-side by type=number, server path source-verified); imported bolognese meta preserved on re-save; 375/375 (3-col row fits); Console/Issues clean; fixtures restored. Local: 18/18 tests pass.
+
+## Round 53 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ growth / ④ competitor: batch cooking is a high-intent evergreen topic that maps directly onto existing features (×2/×3 scaling, quantity merge, leftovers nights) — no guide covered it.
+
+**Fixes shipped:**
+- New pSEO guide `/guides/batch-cooking-for-busy-weeks` (“Batch cooking for busy weeks: cook twice, eat five times”); sitemap 20→21 locs; IndexNow HTTP 200.
+
+**Evidence:** live verification (`test-report-iter53.md` + recording): listed last on /guides with exact title/excerpt; page renders h1 + both h2 sections + bullets + CTA; title/meta exact; More guides wraps to the first 3 guides and navigates; sitemap exactly 21 locs incl. new URL (first fetch was a stale CDN copy — re-fetch fixed); 375/375; Console/Issues clean; read-only round.

@@ -22,6 +22,9 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <link rel="canonical" href="https://mealloop.zalize.com${esc(path)}">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="theme-color" content="#059669">
 <script src="/app.js" defer></script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">

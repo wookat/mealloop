@@ -150,3 +150,27 @@ test('isIngredientHeading detects section headers only', async () => {
   assert.equal(isIngredientHeading('plain flour'), false);
   assert.equal(isIngredientHeading(''), false);
 });
+
+test('sanitizeImageUrl accepts http(s) only', async () => {
+  const { sanitizeImageUrl } = await import('../src/util.js');
+  assert.equal(sanitizeImageUrl('https://example.com/a.jpg'), 'https://example.com/a.jpg');
+  assert.equal(sanitizeImageUrl('  http://example.com/b.png  '), 'http://example.com/b.png');
+  assert.equal(sanitizeImageUrl('javascript:alert(1)'), null);
+  assert.equal(sanitizeImageUrl('data:image/png;base64,AAAA'), null);
+  assert.equal(sanitizeImageUrl('not a url'), null);
+  assert.equal(sanitizeImageUrl(''), null);
+  assert.equal(sanitizeImageUrl(undefined), null);
+});
+
+test('clampMinutes keeps positive integers up to 6000', async () => {
+  const { clampMinutes } = await import('../src/util.js');
+  assert.equal(clampMinutes('25'), 25);
+  assert.equal(clampMinutes(' 90 '), 90);
+  assert.equal(clampMinutes('45.6'), 46);
+  assert.equal(clampMinutes('999999'), 6000);
+  assert.equal(clampMinutes('0'), null);
+  assert.equal(clampMinutes('-5'), null);
+  assert.equal(clampMinutes('abc'), null);
+  assert.equal(clampMinutes(''), null);
+  assert.equal(clampMinutes(undefined), null);
+});

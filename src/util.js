@@ -178,6 +178,24 @@ export function convertUnits(label, system) {
   return String(label);
 }
 
+// User-provided recipe photo URLs: http(s) only, else null.
+export function sanitizeImageUrl(v) {
+  const s = String(v || '').trim().slice(0, 500);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch {
+    return null;
+  }
+}
+
+// User-entered prep/cook minutes: positive integer up to 6000, else null.
+export function clampMinutes(v) {
+  const n = Math.round(Number(String(v ?? '').trim()));
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 6000) : null;
+}
+
 // Section headers inside ingredient lists, e.g. "For the sauce:".
 export function isIngredientHeading(label) {
   const s = String(label || '').trim();

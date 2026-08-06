@@ -216,6 +216,22 @@ export const GUIDES = [
     ].join(''),
   },
   {
+    slug: 'plan-leftovers-nights-reduce-food-waste',
+    title: 'Plan leftovers nights on purpose (and stop throwing food away)',
+    excerpt: 'The average family bins hours of cooking every week. One planned leftovers night fixes most of it.',
+    body: [
+      p('Leftovers get wasted for one reason: nobody plans to eat them. They sit in the fridge as a vague possibility until they become a science experiment. The fix isn\'t cooking less — it\'s giving leftovers a slot in the week like any other dinner.'),
+      h2('Make it a named night, not a maybe'),
+      ul([
+        'When you plan a big-batch dinner (chili, roast, lasagne), immediately book the next night as “Leftovers” — one decision, two dinners.',
+        'Plan 4–5 cooked dinners plus 1–2 leftovers nights instead of 7 fresh meals; the week gets cheaper and calmer.',
+        'Put the leftovers night on the shared plan so whoever cooks (or doesn\'t) sees it — it only works if everyone knows the fridge is the menu.',
+      ]),
+      h2('Let the plan do the remembering'),
+      p('A meal planner that adds a “Leftovers” entry for the next day in one click removes the friction entirely: cook once, tap once, and tomorrow\'s dinner is already decided and visible to the whole household. No guilt, no fridge archaeology, and a grocery list that\'s one dinner shorter.'),
+    ].join(''),
+  },
+  {
     slug: 'organize-grocery-list-by-store-aisle',
     title: 'How to organize your grocery list by store aisle (and stop backtracking)',
     excerpt: 'A list sorted the way you walk your store turns a 40-minute shop into 20. Here\'s how to set one up.',
@@ -230,6 +246,22 @@ export const GUIDES = [
         'If different people shop different stores, per-store filters plus one shared aisle order still beat a flat list.',
       ]),
       p('Do this once and every future list comes out pre-sorted: you sweep the store in one pass, and whoever you share the list with walks the same route — no backtracking, no forgotten parmesan.'),
+    ].join(''),
+  },
+  {
+    slug: 'batch-cooking-for-busy-weeks',
+    title: 'Batch cooking for busy weeks: cook twice, eat five times',
+    excerpt: 'Two bigger cooking sessions can cover most of a week\'s dinners — if the plan and the maths are done for you.',
+    body: [
+      p('Batch cooking sounds like a Sunday spent chained to the stove. It doesn\'t have to be: two ordinary cooking sessions, each just scaled up, can cover most of a week\'s dinners. The hard parts — doubling the ingredients correctly and remembering which night eats what — are exactly what a planner should do for you.'),
+      h2('Pick batch-friendly dinners'),
+      ul([
+        'Stews, chili, curries, lasagne and roasts all reheat as well as (or better than) they cook — pick two of these per week.',
+        'Scale the recipe ×2 or ×3 when you plan it, so the grocery list gets the doubled quantities automatically — no mental arithmetic at the store.',
+        'Book the repeat nights immediately: cook Monday, plan “Leftovers” for Tuesday and Thursday, and the week is nearly done.',
+      ]),
+      h2('Let the list do the maths'),
+      p('The most common batch-cooking failure is under-buying: you double the recipe in your head but shop from the original quantities. A planner that scales ingredients per planned meal and merges them into one aisle-sorted grocery list closes that gap — 750g of mince twice becomes 1.5kg on the list, and everyone shopping sees the same numbers.'),
     ].join(''),
   },
 ];
