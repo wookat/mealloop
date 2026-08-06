@@ -23,17 +23,17 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<meta property="og:type"
 <body class="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
 <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-emerald-600 focus:px-3 focus:py-2 focus:text-white">Skip to content</a>
 <header class="border-b border-stone-200 bg-white/80 backdrop-blur sticky top-0 z-20 print:hidden">
-  <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-    <a href="/" class="flex items-center gap-2 font-bold text-lg text-emerald-700">
+  <div class="max-w-5xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-1.5 font-bold text-base sm:text-lg text-emerald-700">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18" stroke-dasharray="3 3"/><path d="M8 12h8M12 8v8"/></svg>
       MealLoop
     </a>
     <nav class="flex items-center gap-1 sm:gap-3 text-sm">
       ${user
-        ? `<a href="/app" ${path === '/app' ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Planner</a>
-           <a href="/app/recipes" ${path.startsWith('/app/recipes') ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Recipes</a>
-           <a href="/app/list" ${path.startsWith('/app/list') ? 'aria-current="page" class="px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>List</a>
-           <form method="post" action="/logout" class="inline"><button class="px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 whitespace-nowrap">Log out</button></form>`
+        ? `<a href="/app" ${path === '/app' ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Planner</a>
+           <a href="/app/recipes" ${path.startsWith('/app/recipes') ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Recipes</a>
+           <a href="/app/list" ${path.startsWith('/app/list') ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>List</a>
+           <form method="post" action="/logout" class="inline"><button class="px-2 sm:px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 whitespace-nowrap">Log out</button></form>`
         : `<a href="/login" class="px-3 py-1.5 rounded-lg hover:bg-stone-100">Log in</a>
            <a href="/login" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Get started free</a>`}
     </nav>

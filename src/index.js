@@ -87,7 +87,7 @@ app.get('/privacy', (c) =>
 <li><strong>Email address</strong> — to send login codes and run your account. Legal basis: performance of a contract (Art. 6(1)(b) GDPR).</li>
 <li><strong>Your meal-planning content</strong> (recipes, plan entries, grocery items, household name) — to provide the service. Legal basis: contract.</li>
 <li><strong>Product-update emails</strong>, only if you submit the signup form. Legal basis: consent (Art. 6(1)(a)); withdraw anytime by emailing us.</li>
-<li><strong>Aggregate page counts</strong> (date + page path only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
+<li><strong>Aggregate page counts and recipe-search terms</strong> (date + page path or search text only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Cookies</h2>
 <p>One strictly necessary cookie (<code>ml_session</code>, HttpOnly/Secure/SameSite=Lax, 30 days) is set only after you log in. No analytics or advertising cookies, so no consent banner is required.</p>
@@ -101,7 +101,7 @@ app.get('/privacy', (c) =>
 <ul class="list-disc pl-5 space-y-1">
 <li>Login codes: 10 minutes. Session tokens: 30 days (or until you log out).</li>
 <li>Account and meal-planning content: until you ask us to delete it.</li>
-<li>Newsletter emails: until you unsubscribe. Aggregate page counts: 24 months (they contain no personal data).</li>
+<li>Newsletter emails: until you unsubscribe. Aggregate page counts and search terms: 24 months (they contain no personal data).</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Your rights</h2>
 <p>You have the right to access, rectify, erase, restrict or object to processing, to data portability, to withdraw consent, and to lodge a complaint with your supervisory authority. Email <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a> and we will respond within 30 days.</p>
@@ -437,7 +437,7 @@ app.post('/app/plan/to-list', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
   const rows = await c.env.DB.prepare(
-    `SELECT r.id, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
+    `SELECT r.id, r.title, r.ingredients_json, MAX(p.scale) AS scale FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id
      WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.id`
   ).bind(h.id, String(f.from || ''), String(f.to || '')).all();
   // Merge duplicate ingredients across recipes (summing quantities). Existing
@@ -445,16 +445,23 @@ app.post('/app/plan/to-list', async (c) => {
   // (checked) instead of duplicated, so the button stays idempotent even when
   // scales change between clicks.
   const labels = [];
+  const sourcesByKey = new Map();
   for (const row of rows.results) {
     for (const ing of JSON.parse(row.ingredients_json || '[]')) {
       const label = String(ing).slice(0, 200);
-      if (label) labels.push(scaleIngredient(label, row.scale));
+      if (!label) continue;
+      const scaled = scaleIngredient(label, row.scale);
+      labels.push(scaled);
+      const key = ingredientKey(scaled);
+      const set = sourcesByKey.get(key) || new Set();
+      set.add(row.title);
+      sourcesByKey.set(key, set);
     }
   }
   const merged = mergeIngredients(labels);
   const staples = await c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all();
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
-  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
   const stmts = [];
@@ -464,18 +471,24 @@ app.post('/app/plan/to-list', async (c) => {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
+    const sources = [...(sourcesByKey.get(key) || [])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
     const hit = byKey.get(key);
     if (hit) {
-      if (!hit.checked && hit.label !== label) {
-        stmts.push(c.env.DB.prepare('UPDATE shopping_items SET label = ? WHERE id = ?').bind(label, hit.id));
+      if (!hit.checked && (hit.label !== label || (hit.sources || '') !== sources)) {
+        stmts.push(c.env.DB.prepare('UPDATE shopping_items SET label = ?, sources = ? WHERE id = ?').bind(label, sources, hit.id));
       }
       continue;
     }
     added++;
     stmts.push(
-      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
-        .bind(uid(), h.id, label, categorize(label))
+      c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category, sources) VALUES (?, ?, ?, ?, ?)')
+        .bind(uid(), h.id, label, categorize(label), sources)
     );
+  }
+  for (const r of existing.results) {
+    if (!r.checked && r.sources && !seen.has(ingredientKey(r.label))) {
+      stmts.push(c.env.DB.prepare("UPDATE shopping_items SET sources = '' WHERE id = ?").bind(r.id));
+    }
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
@@ -500,6 +513,14 @@ app.get('/app/recipes', async (c) => {
   const err = c.req.query('err');
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
+  if (q) {
+    // Aggregate search terms (no user/household attribution) to learn what people look for.
+    const term = q.toLowerCase().slice(0, 60);
+    c.executionCtx.waitUntil(
+      c.env.DB.prepare('INSERT INTO search_terms (day, term, count) VALUES (?, ?, 1) ON CONFLICT(day, term) DO UPDATE SET count = count + 1')
+        .bind(today(), term).run()
+    );
+  }
   const recipes = q
     ? await c.env.DB.prepare("SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY favorite DESC, created_at DESC")
         .bind(h.id, `%${q}%`, `%${q}%`).all()
@@ -739,7 +760,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
 ${notice ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list</h1>
-  <div class="flex gap-2 print:hidden">
+  <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
@@ -756,7 +777,7 @@ ${editable ? `
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${cats.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
 ${cats.map((cat) => `
-  <section>
+  <section class="${items.filter((i) => i.category === cat).every((i) => i.checked) ? 'print:hidden' : ''}">
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${items.filter((i) => i.category === cat).map((i) => `
@@ -765,7 +786,7 @@ ${cats.map((cat) => `
           <input type="hidden" name="id" value="${i.id}">
           <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}</span>
+            <span class="${i.checked ? 'line-through' : ''}">${esc(i.label)}${i.sources ? `<span class="block text-xs text-stone-400">for ${esc(i.sources)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/category" class="pr-2 print:hidden">
