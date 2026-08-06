@@ -578,3 +578,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - New unit test for `sanitizeImageUrl` (javascript:/data:/garbage → null); suite 16→17.
 
 **Evidence:** live verification (`test-report-iter51.md` + recording): add photo → renders on card/detail/share; clear → placeholder returns; `javascript:alert(1)` submitted through the real form → no alert, no img, stored NULL; notes/title regression clean; 375/375; Console/Issues clean; fixtures restored. Local: 17/17 tests pass.
+
+## Round 52 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ④ competitor: prep/cook/servings meta only existed on imported recipes — manual/pasted recipes could never show it and imported values couldn’t be corrected (both competitors allow editing recipe meta).
+- ① testing: numeric form fields need clamp/NULL coverage.
+
+**Fixes shipped:**
+- 3-col Prep (min) / Cook (min) / Servings row on the recipe edit form; `clampMinutes` (src/util.js) keeps positive integers up to 6000 else NULL, servings trimmed to 40 chars (empty→NULL). Meta renders on the card grid, detail and share recipe pages; save bumps version.
+- New unit test for `clampMinutes`; suite 17→18.
+
+**Evidence:** live verification (`test-report-iter52.md` + recording): set 10/25/“Serves 4” → meta on card/detail/share; clear-all removes it; Prep=0 through the real form → stored NULL (negatives/letters blocked client-side by type=number, server path source-verified); imported bolognese meta preserved on re-save; 375/375 (3-col row fits); Console/Issues clean; fixtures restored. Local: 18/18 tests pass.

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -832,6 +832,14 @@ app.get('/app/recipes/:id/edit', async (c) => {
     <textarea name="ingredients" rows="${Math.min(Math.max(ingredients.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(ingredients.join('\n'))}</textarea></label>
   <label class="block"><span class="text-sm font-medium">Steps <span class="font-normal text-stone-500">(one per line)</span></span>
     <textarea name="steps" rows="${Math.min(Math.max(steps.length + 1, 6), 20)}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">${esc(steps.join('\n'))}</textarea></label>
+  <div class="grid grid-cols-3 gap-3">
+    <label class="block"><span class="text-sm font-medium">Prep <span class="font-normal text-stone-500">(min)</span></span>
+      <input name="prep_minutes" type="number" min="0" max="6000" inputmode="numeric" value="${r.prep_minutes ?? ''}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"></label>
+    <label class="block"><span class="text-sm font-medium">Cook <span class="font-normal text-stone-500">(min)</span></span>
+      <input name="cook_minutes" type="number" min="0" max="6000" inputmode="numeric" value="${r.cook_minutes ?? ''}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"></label>
+    <label class="block"><span class="text-sm font-medium">Servings</span>
+      <input name="servings" maxlength="40" placeholder="Serves 4" autocomplete="off" value="${esc(r.servings || '')}" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"></label>
+  </div>
   <label class="block"><span class="text-sm font-medium">Photo URL <span class="font-normal text-stone-500">(optional — paste a link to an image)</span></span>
     <input name="image_url" type="url" maxlength="500" placeholder="https://…" value="${esc(r.image_url || '')}" autocomplete="off" class="mt-1 w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"></label>
   <label class="block"><span class="text-sm font-medium">Notes <span class="font-normal text-stone-500">(shared with your household — “double the sauce”, “kids loved it”)</span></span>
@@ -855,8 +863,9 @@ app.post('/app/recipes/:id/edit', async (c) => {
   const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const notes = String(f.notes || '').trim().slice(0, 2000);
   const imageUrl = sanitizeImageUrl(f.image_url);
-  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ?, notes = ?, image_url = ? WHERE id = ? AND household_id = ?')
-    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), notes, imageUrl, id, h.id).run();
+  const servings = String(f.servings || '').trim().slice(0, 40) || null;
+  await c.env.DB.prepare('UPDATE recipes SET title = ?, ingredients_json = ?, steps_json = ?, notes = ?, image_url = ?, prep_minutes = ?, cook_minutes = ?, servings = ? WHERE id = ? AND household_id = ?')
+    .bind(title, JSON.stringify(ingredients), JSON.stringify(steps), notes, imageUrl, clampMinutes(f.prep_minutes), clampMinutes(f.cook_minutes), servings, id, h.id).run();
   await bumpVersion(c.env, h.id);
   return c.redirect(`/app/recipes/${id}`);
 });
