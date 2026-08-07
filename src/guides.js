@@ -72,7 +72,7 @@ export const GUIDES = [
         '<strong>Drag-to-plan</strong> weekly calendar.',
         '<strong>Auto-generated shopping list</strong> grouped by store section.',
       ]),
-      p('MealLoop offers this loop free, web-first, with a family share link that requires no accounts for family members. Import a recipe, plan your week, and send one link to the household.'),
+      p('MealLoop offers this loop web-first, with a family share link that requires no accounts for family members — and every feature is free during its open beta. Import a recipe, plan your week, and send one link to the household.'),
     ].join(''),
   },
   {
