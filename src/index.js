@@ -2100,7 +2100,12 @@ app.get('/s/:token', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' });
+  const ctaHtml = `
+<aside class="mt-10 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center print:hidden">
+  <p class="text-sm text-emerald-900">This live plan &amp; grocery list is made with <strong>MealLoop</strong> — plan your own family's week in minutes.</p>
+  <a href="/" class="mt-2 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Start yours — free during beta</a>
+</aside>`;
+  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' }) + ctaHtml;
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 

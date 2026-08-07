@@ -434,4 +434,22 @@ export const GUIDES = [
       p('Teams work when the routine is automatic: staples always go on the list, leftovers follow the big cook, and the picky-eater constraints live in the recipe box as tags rather than in one person\'s memory. Save the discussion for the one new recipe a week — not for re-negotiating the whole system every Sunday.'),
     ].join(''),
   },
+  {
+    slug: 'back-to-school-meal-planning',
+    title: 'Back-to-school meal planning: dinners and lunchboxes on a school-night clock',
+    excerpt: 'September compresses the dinner window to 45 minutes. Plan the week around the school calendar, not against it.',
+    body: [
+      p('The first weeks of school break most summer routines: dinner has to land between pickup, homework and bedtime, and lunchboxes need packing five mornings in a row. The fix isn\'t cooking faster — it\'s planning the week so the busy nights are already solved before Monday.'),
+      h2('Plan the week backwards from the calendar'),
+      ul([
+        'Mark the crunch nights first (practice, clubs, late meetings) and assign them <strong>15-minute meals or leftovers</strong> — never a new recipe.',
+        'Put the one slow or new recipe on the calmest night, usually Sunday, and <strong>cook double</strong> so a crunch night inherits the leftovers.',
+        'Batch the lunchbox base once: a grain, a protein and cut fruit made Sunday covers most of the week\'s boxes.',
+      ]),
+      h2('One list, one shop, no weekday store runs'),
+      p('School weeks fall apart on the Wednesday "we\'re out of bread" run. Generate the whole week\'s grocery list from the plan in one go — dinners plus lunchbox staples — group it by aisle, and shop once. A shared live list catches the rest: whoever notices the empty peanut-butter jar adds it from their phone, and whoever passes a store sees it.'),
+      h2('Let the plan answer the 5pm question'),
+      p('When the week\'s dinners are visible to the whole household on one link, "what\'s for dinner?" stops being a nightly decision and becomes a lookup — for the kids too. Rotate two or three known-good school-week menus and September runs itself.'),
+    ].join(''),
+  },
 ];

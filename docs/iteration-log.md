@@ -1267,3 +1267,12 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Findings:** the landing `/subscribe` form stored raw email intents with **no** confirmation — sending product email to that list would violate the double-opt-in red line.
 **Fixes shipped:** migration 0014 (confirmed/confirm_token/unsub_token/confirmed_at/unsubscribed_at on email_intents); `/subscribe` now sends a confirmation email (Resend) with `List-Unsubscribe` + `List-Unsubscribe-Post: One-Click` headers and neutral "check your inbox" response (no address enumeration, 2 sends/hour rate limit); `GET /subscribe/confirm?t=` marks confirmed; `GET|POST /unsubscribe?t=` (one-click capable) marks unsubscribed and invalidates the confirm token. Product email may only ever target `confirmed = 1 AND unsubscribed_at IS NULL`; legacy unconfirmed intents get no email.
 **Verified in production:** full loop — subscribe → confirmation email received (headers verified in raw source) → confirm page → unsubscribe (GET and POST) → confirm token invalid after unsubscribe → bad token safe. Login magic-code emails unchanged (worker secret already present).
+
+## Round 121 — 2026-08-08 (data-driven: share-page conversion CTA)
+
+**Findings:** `/s` share pages are the single highest-traffic path (810 views last 7 days) but had zero conversion surface — anonymous family viewers had no route into the product.
+**Fixes shipped:** warm footer CTA on `/s/:token` ("made with MealLoop — Start yours, free during beta" → /), print-hidden, read-only page behavior unchanged.
+
+## Round 122 — 2026-08-08 (pSEO: back-to-school guide, seasonal)
+
+**Fixes shipped:** 27th guide `back-to-school-meal-planning` (seasonal August/September topic: school-night dinners + lunchbox batching + one-shop weeks). Sitemap 32 locs, IndexNow ping 200.
