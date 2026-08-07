@@ -955,3 +955,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter87.md` + recording): accept path (36→35 to buy), cancel path keeps item, delete under an active ?store= filter stays on the filtered URL, share-page rows remain checkbox-only, 375px popup fits, Console/Issues clean; restored to 35 to buy · 0 checked with no QA87/store residue.
 
 **Caveats:** the back-rejection branch (non-/app/list back) not adversarially probed live — same prefix-validation pattern as the R27 routes; share-page sync covered implicitly (zero residue) rather than a dedicated add+reload cycle.
+
+## Round 88 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: guide cluster keeps drawing the only non-QA traffic (picky-eaters guide at 16 views); "how to meal plan fast / 20 minutes" is a high-intent evergreen query competitors target with heavy content while our cluster lacked a time-boxed routine piece.
+
+**Fixes shipped:**
+- pSEO guide #24 `meal-plan-in-20-minutes` ("The 20-minute Sunday meal plan (a lazy, repeatable routine)") — 0–5/5–15/15–20 minute structure tying into recipe box, planned leftovers, one-shot list generation, staples and family share. Sitemap 27→28 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter88.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 24 cards, ItemList 24 items at position 24, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 28 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
+
+**Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round, no household data changed.

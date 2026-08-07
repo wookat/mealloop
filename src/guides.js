@@ -362,4 +362,22 @@ export const GUIDES = [
       p('Keep meals independent so any night can be swapped without dominoes. Put the plan where the whole family can see it — a shared link or the family calendar — so anyone can answer "what\'s for dinner?" and anyone can start it. And when a night goes sideways, swap instead of scrapping: the plan isn\'t broken, it just moved.'),
     ].join(''),
   },
+  {
+    slug: 'meal-plan-in-20-minutes',
+    title: 'The 20-minute Sunday meal plan (a lazy, repeatable routine)',
+    excerpt: 'You don\'t need a food-prep personality to meal plan. Twenty minutes, a recipe box you already trust, and one list — done before the coffee is.',
+    body: [
+      p('Most meal-planning advice assumes you enjoy it. This routine assumes you don\'t: it\'s the minimum viable version that still saves the weeknight scramble and the third supermarket trip, and it fits in twenty minutes on a Sunday.'),
+      h2('Minutes 0–5: read the week, not recipes'),
+      p('Open the family calendar first. Mark the rushed nights, the normal nights, and the one night with time to cook. Decide how many dinners you actually need to plan — usually four or five, because at least one night is leftovers and one takes care of itself.'),
+      h2('Minutes 5–15: pick from what you already know'),
+      ul([
+        'Pull from your own recipe box, not from browsing — the 8–12 meals your family already eats are faster to pick and guaranteed to get eaten.',
+        'Match effort to the night: quick meals on rushed nights, the interesting one on the relaxed night.',
+        'Schedule leftovers on purpose the day after the biggest meal, so it\'s a plan rather than fridge roulette.',
+      ]),
+      h2('Minutes 15–20: one list, then stop'),
+      p('Generate the shopping list from the planned meals in one go, add the household staples, and share both the plan and the list with the family so anyone can shop or start cooking. Don\'t optimise further — a finished 20-minute plan beats a perfect one that never happens, and next Sunday it\'s faster because the recipe box is already loaded.'),
+    ].join(''),
+  },
 ];
