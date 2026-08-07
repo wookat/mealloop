@@ -1501,10 +1501,13 @@ ${canAdd ? `
   <datalist id="item-suggestions">${suggestions.map((s) => `<option value="${esc(s)}">`).join('')}</datalist>
   <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
 </form>` : ''}
+${(() => { const openCats = sortCategories([...new Set(open.map((i) => i.category))], h.category_order); return openCats.length >= 3 ? `<nav aria-label="Jump to aisle" class="flex flex-wrap gap-1.5 mb-4 max-w-2xl print:hidden">
+  ${openCats.map((cat, idx) => `<a href="#cat-${idx}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200">${esc(cat)} <span class="text-stone-400">${open.filter((i) => i.category === cat).length}</span></a>`).join('')}
+</nav>` : ''; })()}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${items.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
-${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat) => `
-  <section>
+${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat, idx) => `
+  <section id="cat-${idx}" class="scroll-mt-4">
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>
     <ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100">
     ${open.filter((i) => i.category === cat).map(row).join('')}

@@ -1053,3 +1053,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter95.md` + recording): lasagne card ✓/other 6 cards +, full plan→✓→unplan→+ round-trip through the native UI (Test Soup on Mon snacks, then removed), A–Z sort keeps badges, 375px single-column grid clean, Console/Issues clean, household left exactly as found (35 to buy · 0 checked, Wed lasagne ×1, Fruit + yogurt note).
 
 **Caveats:** note-only exclusion asserted from code (recipe_id IS NOT NULL); tag-filter variant covered by the shared `planned` Set + A–Z spot check; badge keys off today()'s week, not ?week=.
+
+## Round 96 — 2026-08-06
+
+**Findings (by driver):**
+- ③ Visual/mobile + ② UX: with 35 open items across 7 categories the grocery list is several screens tall on mobile — no quick way to jump to a section while shopping; competitor list apps offer aisle/section navigation.
+
+**Fixes shipped:**
+- "Jump to aisle" chip nav above the grocery list (App + share page, shared listBody): rendered when ≥3 open (unchecked) categories, one pill "<Category> <count>" → #cat-<idx>; sections get id=cat-<idx> class=scroll-mt-4; print:hidden; chip order follows the household's aisle order and counts are open items per category (store filters recompute upstream).
+
+**Evidence:** live verification (`test-report-iter96.md` + recording): 7 chips 1:1 with sections (name/href/count/order), counts sum to 35, anchor jump to #cat-6 on both /app/list and /s/<token>, print preview excludes the nav, 375px chips wrap on 3 rows at 375/375 with working tap; Console/Issues clean; read-only round, household untouched.
+
+**Caveats:** store-filter chip variant untested at runtime (standing household has no stores; same items pipeline feeds listBody); <3-categories hide threshold asserted from code only.
