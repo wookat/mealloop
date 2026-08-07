@@ -32,8 +32,8 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <header class="border-b border-stone-200 bg-white/80 backdrop-blur sticky top-0 z-20 print:hidden">
   <div class="max-w-5xl mx-auto px-2 sm:px-4 h-14 flex items-center justify-between">
     <a href="/" class="flex items-center gap-1.5 font-bold text-base sm:text-lg text-emerald-700">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18" stroke-dasharray="3 3"/><path d="M8 12h8M12 8v8"/></svg>
-      MealLoop
+      <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="33" r="13.5" fill="none" stroke="currentColor" stroke-width="4"/><circle cx="32" cy="33" r="4" fill="#f59e0b"/><path d="M48 15.5 A23 23 0 1 0 55 33" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"/><path d="M46.5 6.5 L48 15.5 L39 17" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span class="font-display">MealLoop</span>
     </a>
     <nav class="flex items-center gap-1 sm:gap-3 text-sm">
       ${user
