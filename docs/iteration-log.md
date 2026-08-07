@@ -1077,3 +1077,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification on disposable household D (`test-report-iter97.md` + recording): URL import of the fixture stored title exactly 199 a's / description 499 d's / servings 39 s's, no U+FFFD (normalize() clips runtime-proven); store-filter chips — with milk+bread on "QA97 Mart" and dish soap on "QA97 B", the QA97 Mart filter showed 3 to buy with exactly 3 chips (no Other), All stores restored 4 chips; cleanup: D GDPR-deleted, share token 404, standing household intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
 
 **Caveats:** store filter keeps unassigned items (`!i.store || i.store===storeFilter`), so a distinguishing test requires an item on a *different* store — the originally planned single-store fixture was strengthened mid-run.
+
+## Round 98 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ⑤ Data: Plan to Eat's 2025–26 content leans heavily on household stress/mental-load topics ("Dinner shouldn't add to your stress", grocery-cost content); the guide cluster had no piece on sharing the planning work itself — which is exactly the product's differentiator (no-login family share link).
+
+**Fixes shipped:**
+- pSEO guide #26 `meal-planning-as-a-team` ("Meal planning as a team: splitting the work without the friction") — role-based split, read-only share link as the no-app-for-everyone answer, defaults-vs-exceptions. Sitemap 29→30 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter98.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 26 cards, ItemList 26 items position 26, single @graph [Article, BreadcrumbList], metadata identities all hold, sitemap 30 locs, More-guides wrap = first 3 titles, 375px 375/375 + Console/Issues clean.
+
+**Caveats:** More-guides verified by titles (mechanism click-proven R84); logged-out CTA covered R73; read-only round.

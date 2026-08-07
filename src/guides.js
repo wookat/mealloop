@@ -398,4 +398,22 @@ export const GUIDES = [
       p('A staples list turns "did anyone check if we have coffee?" into a solved problem: the default is that staples are always on the list, and the household only has to notice the exceptions. Combined with a shared family list, whoever is doing the shop — or adding "we\'re out of dish soap" from the sofa — is always working from the same, complete picture.'),
     ].join(''),
   },
+  {
+    slug: 'meal-planning-as-a-team',
+    title: 'Meal planning as a team: splitting the work without the friction',
+    excerpt: 'When one person plans, shops, and cooks, dinner becomes their full-time side job. Here\'s a simple split that keeps the whole household in the loop.',
+    body: [
+      p('In most households, meal planning quietly becomes one person\'s job — and with it the mental load of remembering what everyone eats, what\'s in the fridge, and what\'s for dinner on Thursday. The fix isn\'t a chore chart; it\'s making the plan and the list visible to everyone, then splitting the work along natural lines.'),
+      h2('Split by role, not by day'),
+      ul([
+        'One person owns the plan: ten minutes on Sunday picking the week\'s dinners from the shared recipe box.',
+        'Another owns the shop: they work from the generated list, and anything they notice missing goes straight onto it — not into a text message.',
+        'Whoever is home first starts cooking: the plan says what, the recipe says how, so no handoff conversation is needed.',
+      ]),
+      h2('Make the plan visible without an app for everyone'),
+      p('The biggest friction in shared planning is tooling: not everyone wants another account or another app. A read-only share link solves this — the week\'s plan and the live grocery list open in any browser, so a partner can check "what\'s for dinner?" from work and a teenager can add "we\'re out of milk" from the sofa, no login required.'),
+      h2('Agree on the defaults, argue about the exceptions'),
+      p('Teams work when the routine is automatic: staples always go on the list, leftovers follow the big cook, and the picky-eater constraints live in the recipe box as tags rather than in one person\'s memory. Save the discussion for the one new recipe a week — not for re-negotiating the whole system every Sunday.'),
+    ].join(''),
+  },
 ];
