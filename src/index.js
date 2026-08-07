@@ -410,7 +410,16 @@ ${days.map((d) => `
                 <select name="scale" data-autosubmit aria-label="Servings scale" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
                   ${SCALES.map((s) => `<option value="${s}"${s === (e.scale || 1) ? ' selected' : ''}>×${s}</option>`).join('')}
                 </select>
-              </form>` : ''}
+              </form>` : `<details class="relative">
+                <summary aria-label="Edit note" title="Edit note" class="cursor-pointer list-none px-1 text-sm text-stone-300 hover:text-stone-500">✎</summary>
+                <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
+                  <form method="post" action="/app/plan/note" class="flex gap-1">
+                    <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
+                    <input name="note" required value="${esc(e.note)}" maxlength="120" aria-label="Note text" autocomplete="off" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+                    <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
+                  </form>
+                </div>
+              </details>`}
               <form method="post" action="/app/plan/move">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
                 <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-500 max-w-16 px-0 py-0.5">
@@ -471,6 +480,18 @@ app.post('/app/plan/delete', async (c) => {
   const f = await c.req.parseBody();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/note', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const note = String(f.note || '').trim().slice(0, 120);
+  if (note) {
+    await c.env.DB.prepare('UPDATE plan_entries SET note = ? WHERE id = ? AND household_id = ? AND recipe_id IS NULL')
+      .bind(note, String(f.id || ''), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
   return c.redirect(`/app?week=${f.week || ''}`);
 });
 

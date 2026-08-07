@@ -967,3 +967,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter88.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 24 cards, ItemList 24 items at position 24, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 28 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
 
 **Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round, no household data changed.
+
+## Round 89 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: note-only planner entries (e.g. "Fruit + yogurt", "Leftovers: …") could only be deleted and re-added to fix a typo or change wording — recipe entries got in-place scale editing in R85 but notes had no in-place edit at all.
+
+**Fixes shipped:**
+- ✎ details-popup on note-only planner rows (prefilled required input, maxlength 120, Save) posting to new `POST /app/plan/note` — household-scoped UPDATE with `recipe_id IS NULL` guard, empty note no-op, bumps version, redirects preserving ?week. Recipe rows unchanged; R37 Esc/click-outside close applies; action span stays print-hidden.
+
+**Evidence:** live verification (`test-report-iter89.md` + recording): edit→save→reload persistence, share page synced both ways (edited + restored), recipe row has scale select and no ✎, Esc/click-outside close, required guard blocks empty save, print preview shows text only, 375px with popup open clean, Console/Issues clean; household restored exactly (note original, lasagne ×1, 35 to buy · 0 checked).
+
+**Caveats:** whitespace-only server no-op, 121-char truncation, and cross-household POST not probed live — the route reuses the household-scoped pattern live-proven for /app/plan/scale in R86.
