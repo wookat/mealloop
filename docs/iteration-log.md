@@ -931,3 +931,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter85.md` + recording): ×1→×2 autosubmit + persistence across reload, note-only entry has no scale select, print preview shows ×2 badge with zero controls, share page unaffected, state restored to ×1 / 35 to buy · 0 checked, 375px + Console/Issues clean.
 
 **Caveats:** ×2 ingredient-to-grocery-list flow not exercised (would have polluted the standing 35-item list; scale→quantity math is the same code path proven in earlier rounds); adversarial cross-household POST skipped (route reuses the household-scoped UPDATE pattern live-proven in R80/R81).
+
+## Round 86 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R85 shipped inline scale editing with two unverified branches — the ×N ingredient-quantity flow into the grocery list and the /app/plan/scale adversarial guards (cross-household id, invalid scale value).
+
+**Fixes shipped:**
+- QA hardening round, no code change. Disposable-account production run (R68/R80 pattern): deterministic 2-ingredient fixture at ×2 produced exactly "2 cups milk"/"4 onions" via Add week's ingredients, and ×1 restore re-produced "1 cup milk"/"2 onions"; cross-household POST with the standing QA entry id and an invalid scale=7 both silently no-op'd (state verified in the owning session after reload); disposable account GDPR-deleted, share token 404.
+
+**Evidence:** `test-report-iter86.md` + recording; standing QA household verified untouched (Wed lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
+
+**Caveats:** adversarial POSTs were page-context fetch calls from the disposable session (route redirects unconditionally, so guard proof = unchanged state in owning session); 375px out of scope this round.
