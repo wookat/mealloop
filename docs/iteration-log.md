@@ -1203,4 +1203,4 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - ⑤ Data/SEO: weekly pSEO cadence due; R109 shipped the import feature with no acquisition surface targeting "export recipes from <app>" / switching intent.
 
 **Fixes shipped:**
-- New guide `/guides/move-recipes-from-another-app` ("How to move your recipes out of another meal planning app") — export → verify schema.org JSON → import walkthrough; added to the Recipes & cooking hub section (now 7). Sitemap 30→31 locs; IndexNow HTTP 200.
+- New guide `/guides/move-recipes-from-another-app` ("How to move your recipes out of another meal planning app") — export → verify schema.org JSON → import walkthrough; added to the Recipes & cooking hub section (now 7). Sitemap 31→32 locs; IndexNow HTTP 200.
