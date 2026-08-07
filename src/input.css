@@ -10,6 +10,35 @@
 .cook-mode .steps-list li.done {
   opacity: 0.4;
 }
+/* Focus the current step: dim every other unfinished step (Mela-style). */
+.cook-mode .steps-list li:not(.current):not(.done) {
+  opacity: 0.55;
+}
+.cook-mode .steps-list li.current {
+  opacity: 1;
+}
+/* Tap-to-start timers detected in step text. */
+.timer-btn {
+  display: inline;
+  font: inherit;
+  color: var(--color-emerald-700, #047857);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  cursor: pointer;
+}
+.timer-btn.running {
+  color: #b45309;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.timer-btn.finished {
+  color: #b91c1c;
+  font-weight: 700;
+  animation: timer-flash 1s ease-in-out 6;
+}
+@keyframes timer-flash {
+  50% { opacity: 0.3; }
+}
 .cook-mode .steps-list li.done span:last-child {
   text-decoration: line-through;
 }

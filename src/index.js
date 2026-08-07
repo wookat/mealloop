@@ -69,6 +69,24 @@ app.get('/', async (c) => {
     <p class="mt-1.5 text-sm text-stone-600">${d}</p>
   </div>`).join('')}
 </section>
+<section class="py-8">
+  <h2 class="text-2xl font-bold text-center">How it works</h2>
+  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+    ${[
+      ['1', 'Plan', 'Pick dinners for the week from your recipe box — import from any site, paste text, or type your own. Ten minutes on Sunday.'],
+      ['2', 'Shop', 'One tap turns the week into an aisle-sorted grocery list. Quantities merge, staples auto-add, and everyone sees the same live list.'],
+      ['3', 'Cook', 'Open the recipe on any device: cook mode keeps the screen awake, scales servings, and lets you tap off steps as you go.'],
+    ].map(([n, t, d]) => `
+    <div class="rounded-2xl bg-white border border-stone-200 p-5">
+      <div class="flex items-center gap-3">
+        <span aria-hidden="true" class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white font-bold">${n}</span>
+        <h3 class="font-semibold text-lg text-stone-900">${t}</h3>
+      </div>
+      <p class="mt-3 text-sm text-stone-600">${d}</p>
+    </div>`).join('')}
+  </div>
+  <p class="mt-6 text-center text-sm text-stone-600">Curious what it will cost after the beta? <a class="text-emerald-700 underline" href="/pricing">See pricing</a> — everything is free while we're in beta.</p>
+</section>
 <section class="rounded-2xl bg-emerald-700 text-white p-6 sm:p-8 my-8">
   <h2 class="text-xl font-bold">Get new features first</h2>
   <p class="text-emerald-100 text-sm mt-1">Leave your email and we'll let you know when meal rotation, leftovers tracking and more launch.</p>
@@ -1687,7 +1705,12 @@ app.get('/app/share', async (c) => {
   </div>
 </div>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
-<div class="mt-12 rounded-xl border border-stone-200 bg-white p-5 text-left">
+<div class="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-left">
+  <h2 class="font-semibold">Your data</h2>
+  <p class="mt-1 text-sm text-stone-600">Your recipes are yours. Download the whole recipe box as JSON (schema.org Recipe format) — importable elsewhere, good as a backup.</p>
+  <a href="/app/export.json" download="mealloop-recipes.json" class="mt-3 inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Download recipes (JSON)</a>
+</div>
+<div class="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-left">
   <h2 class="font-semibold">Account</h2>
   <p class="mt-1 text-sm text-stone-600">Signed in as <strong>${esc(user.email)}</strong>.</p>
   <form method="post" action="/app/account/delete" class="mt-3" data-confirm="Permanently delete your account and ALL household data (recipes, plans, grocery list)? This cannot be undone and the share link will stop working.">
@@ -1697,6 +1720,33 @@ app.get('/app/share', async (c) => {
 </div>
 </div>`;
   return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
+});
+
+app.get('/app/export.json', async (c) => {
+  const h = c.get('household');
+  const rows = await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY created_at').bind(h.id).all();
+  const recipes = rows.results.map((r) => {
+    const out = {
+      '@context': 'https://schema.org',
+      '@type': 'Recipe',
+      name: r.title,
+      recipeIngredient: JSON.parse(r.ingredients_json || '[]'),
+      recipeInstructions: JSON.parse(r.steps_json || '[]').map((s) => ({ '@type': 'HowToStep', text: s })),
+      dateCreated: r.created_at,
+    };
+    if (r.description) out.description = r.description;
+    if (r.source_url) out.url = r.source_url;
+    if (r.image_url) out.image = r.image_url;
+    if (r.servings) out.recipeYield = r.servings;
+    if (r.prep_minutes) out.prepTime = `PT${r.prep_minutes}M`;
+    if (r.cook_minutes) out.cookTime = `PT${r.cook_minutes}M`;
+    if (r.tags) out.keywords = r.tags;
+    if (r.notes) out.comment = r.notes;
+    return out;
+  });
+  return c.json({ exportedAt: new Date().toISOString(), household: h.name, recipeCount: recipes.length, recipes }, 200, {
+    'Content-Disposition': 'attachment; filename="mealloop-recipes.json"',
+  });
 });
 
 app.get('/s/:token/calendar.ics', async (c) => {

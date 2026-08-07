@@ -1133,3 +1133,30 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - sitemap.xml 30 → 31 locations (adds /pricing).
 
 **Evidence:** live checks — /pricing 200 with tier table; landing badge/CTA/FAQ updated; sitemap 31 locs; terms beta clause live. npm test 24/24, build:css clean. Constraint respected: no real payment collection; CTAs route to /login.
+
+## Round 103 — 2026-08-05 (competitor sprint: landing "Plan → Shop → Cook")
+
+**Findings (by driver):**
+- ④ Competitor (P1, from docs/competitor-scan-2026-08.md): Mealime/Plan to Eat/Eat This Much all anchor their landing on a 3-step outcome narrative ("Plan → Shop → Cook" / generator-first); our landing jumped from feature grid straight to email capture with no story arc and no pricing teaser.
+- Constraint respected: no fabricated outcome metrics or testimonials (red line: 不伪造数据) — we have no organic users yet, so the section states what the product does, not invented stats.
+
+**Fixes shipped:**
+- `src/index.js` landing: new "How it works" section — numbered Plan / Shop / Cook cards (emerald step badges, white cards) + a pricing teaser line linking /pricing, placed between the feature grid and the email-capture band.
+
+## Round 104 — 2026-08-05 (competitor sprint: cook-mode step focus + tap-to-start timers)
+
+**Findings (by driver):**
+- ④ Competitor (P1): Mela dims all but the current cooking step; Paprika/Crouton auto-detect durations in step text and make them tap-to-start timers. Our cook mode had tap-to-done but no current-step focus and no timers.
+
+**Fixes shipped:**
+- `public/app.js`: in cook mode the first not-done step gets `.current` (recomputed on every toggle); duration phrases ("10 minutes", "1 hour", ranges like "10–12 minutes", via TreeWalker on step text nodes, one per step, ≤24h) become inline `timer-btn` buttons — tap starts a mm:ss countdown (amber), finish flashes red "⏰ Time's up — tap to reset", tap while running/finished resets; `stopPropagation` so timers don't toggle step done.
+- `src/input.css`: `.cook-mode .steps-list li:not(.current):not(.done) { opacity:.55 }`, timer-btn states (dotted underline → running amber tabular-nums → finished red flash animation). Works on both /app/recipes/:id and the anonymous share recipe page (same recipeBody + app.js).
+
+## Round 105 — 2026-08-05 (competitor sprint: recipe JSON export — data portability)
+
+**Findings (by driver):**
+- ④ Competitor (P1): RecipeSage/Umami/Tandoor treat data export as a trust lever (JSON-LD/PDF/Markdown exports); AnyList/Paprika lock data in. We had GDPR delete but no export.
+
+**Fixes shipped:**
+- `src/index.js`: new `GET /app/export.json` (behind requireHousehold, household-scoped) — all recipes as schema.org `Recipe` objects (name, recipeIngredient, HowToStep instructions, description/url/image/recipeYield/prepTime/cookTime ISO-8601 durations, keywords=tags, comment=notes, dateCreated) wrapped in `{exportedAt, household, recipeCount, recipes}`, served with `Content-Disposition: attachment; filename="mealloop-recipes.json"`.
+- `/app/share`: new "Your data" card with a Download recipes (JSON) link, placed above the Account card.
