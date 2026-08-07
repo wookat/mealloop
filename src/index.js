@@ -853,6 +853,10 @@ app.get('/app/recipes', async (c) => {
         : await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? ORDER BY ${order}`).bind(h.id).all();
   const allTags = await c.env.DB.prepare('SELECT tags FROM recipes WHERE household_id = ? AND tags != \'\'').bind(h.id).all();
   const anyFav = await c.env.DB.prepare('SELECT 1 FROM recipes WHERE household_id = ? AND favorite = 1 LIMIT 1').bind(h.id).first();
+  const wk = weekDates(today());
+  const plannedRows = await c.env.DB.prepare('SELECT DISTINCT recipe_id FROM plan_entries WHERE household_id = ? AND recipe_id IS NOT NULL AND date BETWEEN ? AND ?')
+    .bind(h.id, wk[0], wk[6]).all();
+  const planned = new Set(plannedRows.results.map((r) => r.recipe_id));
   const tagSet = [...new Set(allTags.results.flatMap((r) => r.tags.split(',')).filter(Boolean))].sort();
   const body = `
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -888,7 +892,9 @@ ${recipes.results.map((r) => `
       </div>
     </a>
     <div class="px-3 pb-2.5">
-      <a href="/app?recipe=${r.id}" class="inline-block rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100" aria-label="Plan ${esc(r.title)} this week">+ Plan this week</a>
+      ${planned.has(r.id)
+        ? `<a href="/app" class="inline-block rounded-md bg-stone-100 px-2 py-1 text-xs font-medium text-stone-600 hover:bg-stone-200" aria-label="${esc(r.title)} is on this week's plan">✓ On this week's plan</a>`
+        : `<a href="/app?recipe=${r.id}" class="inline-block rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 hover:bg-emerald-100" aria-label="Plan ${esc(r.title)} this week">+ Plan this week</a>`}
     </div>
   </div>`).join('')}
 </div>

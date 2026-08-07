@@ -1041,3 +1041,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** `test-report-iter94.md` + two recordings: R94 failing proof (`aaa…a���`), 94b re-verification on production — same fixture now stores exactly 199 'a's (`[199,'61',false,false,true]`), cleanup verified (both disposable households GDPR-deleted, share tokens 404, standing household intact: 35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
 
 **Caveats:** normalize() clips (URL-import title/description/servings) verified in source + unit path only, not runtime (needs a controllable external recipe URL); manual-form/edit recipe title clip call sites remain code-read only.
+
+## Round 95 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ⑤ Data: /app/recipes is the #4 app path (270 views since 8/1) but every card unconditionally showed "+ Plan this week", even for recipes already on the current week — no signal, easy double-plan. Plan to Eat/Samsung Food both surface planned-state on recipe entries.
+
+**Fixes shipped:**
+- Recipe-box cards now show plan status: recipes on the CURRENT real week's plan (weekDates(today()), recipe-backed entries only, one DISTINCT recipe_id query) get a stone "✓ On this week's plan" link → /app with aria-label "<title> is on this week's plan"; others keep the emerald "+ Plan this week" → /app?recipe=<id>.
+
+**Evidence:** live verification (`test-report-iter95.md` + recording): lasagne card ✓/other 6 cards +, full plan→✓→unplan→+ round-trip through the native UI (Test Soup on Mon snacks, then removed), A–Z sort keeps badges, 375px single-column grid clean, Console/Issues clean, household left exactly as found (35 to buy · 0 checked, Wed lasagne ×1, Fruit + yogurt note).
+
+**Caveats:** note-only exclusion asserted from code (recipe_id IS NOT NULL); tag-filter variant covered by the shared `planned` Set + A–Z spot check; badge keys off today()'s week, not ?week=.
