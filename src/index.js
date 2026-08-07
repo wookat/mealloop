@@ -87,6 +87,39 @@ app.get('/', async (c) => {
   </div>
   <p class="mt-6 text-center text-sm text-stone-600">Curious what it will cost after the beta? <a class="text-emerald-700 underline" href="/pricing">See pricing</a> — everything is free while we're in beta.</p>
 </section>
+<section class="py-8" aria-labelledby="demo-heading">
+  <h2 id="demo-heading" class="text-2xl font-bold text-center">See it in action</h2>
+  <p class="mt-2 text-center text-sm text-stone-600">A live-feel preview — click around, nothing to install.</p>
+  <div class="mt-6 mx-auto max-w-2xl rounded-2xl bg-white border border-stone-200 p-4 sm:p-6" data-demo>
+    <div role="tablist" aria-label="Product demo" class="flex gap-2">
+      ${['Plan', 'Shop', 'Cook'].map((t, i) => `<button type="button" role="tab" id="demo-tab-${i}" aria-controls="demo-panel-${i}" aria-selected="${i === 0}" data-demo-tab="${i}" class="rounded-full px-4 py-1.5 text-sm font-semibold ${i === 0 ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-600 hover:bg-stone-200'}">${t}</button>`).join('')}
+    </div>
+    <div id="demo-panel-0" role="tabpanel" aria-labelledby="demo-tab-0" data-demo-panel="0" class="mt-4">
+      <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Week of Mon, Aug 10</p>
+      <div class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+        ${[['Mon', 'Chicken fajitas'], ['Tue', 'Lentil soup ×2'], ['Wed', 'Family lasagne']].map(([d, m]) => `
+        <div class="rounded-lg border border-stone-200 p-2.5"><p class="text-xs font-semibold text-stone-500">${d}</p><p class="mt-1 rounded bg-emerald-50 px-2 py-1 text-sm text-emerald-900">${m}</p></div>`).join('')}
+      </div>
+      <p class="mt-3 text-sm text-stone-600">Pick dinners from your recipe box — scaled servings and notes included. One button turns the whole week into a grocery list.</p>
+    </div>
+    <div id="demo-panel-1" role="tabpanel" aria-labelledby="demo-tab-1" data-demo-panel="1" class="mt-4 hidden">
+      <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Produce</p>
+      <ul class="mt-1 space-y-1">
+        ${[['2 onions', false], ['3 bell peppers', false], ['1 bag spinach', true]].map(([label, done], i) => `
+        <li><label class="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-stone-50 cursor-pointer"><input type="checkbox"${done ? ' checked' : ''} class="h-4.5 w-4.5 accent-emerald-600 peer" aria-label="${label} (demo)"><span class="text-sm peer-checked:line-through peer-checked:text-stone-400">${label}</span></label></li>`).join('')}
+      </ul>
+      <p class="mt-3 text-sm text-stone-600">Try checking items off — in the real app it syncs to everyone's phone in seconds, grouped by store aisle.</p>
+    </div>
+    <div id="demo-panel-2" role="tabpanel" aria-labelledby="demo-tab-2" data-demo-panel="2" class="mt-4 hidden">
+      <ol class="space-y-2">
+        <li class="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-950"><span class="font-semibold">Step 2 of 6.</span> Simmer the sauce for 15 minutes, stirring occasionally.</li>
+        <li class="rounded-lg px-3 py-2 text-sm text-stone-400">Step 3. Layer pasta, sauce and cheese in the dish…</li>
+      </ol>
+      <p class="mt-3 text-sm text-stone-600">Cook mode keeps your screen awake, dims everything but the current step, and turns "15 minutes" into a tap-to-start timer.</p>
+    </div>
+    <p class="mt-4 text-center"><a href="${user ? '/app' : '/login'}" class="inline-block rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white hover:bg-emerald-700">${user ? 'Open your planner' : 'Try the real thing — free in beta'}</a></p>
+  </div>
+</section>
 <section class="rounded-2xl bg-emerald-700 text-white p-6 sm:p-8 my-8">
   <h2 class="text-xl font-bold">Get new features first</h2>
   <p class="text-emerald-100 text-sm mt-1">Leave your email and we'll let you know when meal rotation, leftovers tracking and more launch.</p>
@@ -423,7 +456,7 @@ app.get('/app', async (c) => {
   const [entries, recipes] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ?')
       .bind(h.id, days[0], days[6]).all(),
-    c.env.DB.prepare('SELECT id, title FROM recipes WHERE household_id = ? ORDER BY created_at DESC LIMIT 200').bind(h.id).all(),
+    c.env.DB.prepare('SELECT id, title, favorite FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 200').bind(h.id).all(),
   ]);
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
@@ -534,7 +567,7 @@ ${days.map((d) => `
             ${recipes.results.length
               ? `<select name="recipe_id" aria-label="Recipe" class="w-full rounded border border-stone-300 text-sm px-1 py-1">
               <option value="">— pick recipe —</option>
-              ${recipes.results.map((r) => `<option value="${r.id}"${picked && r.id === picked.id ? ' selected' : ''}>${esc(r.title)}</option>`).join('')}
+              ${(() => { const opt = (r) => `<option value="${r.id}"${picked && r.id === picked.id ? ' selected' : ''}>${esc(r.title)}</option>`; const favs = recipes.results.filter((r) => r.favorite); const rest = recipes.results.filter((r) => !r.favorite); return favs.length ? `<optgroup label="★ Favourites">${favs.map(opt).join('')}</optgroup><optgroup label="All recipes">${rest.map(opt).join('')}</optgroup>` : recipes.results.map(opt).join(''); })()}
             </select>
             <select name="scale" class="w-full rounded border border-stone-300 text-sm px-1 py-1" aria-label="Servings scale">
               ${SCALES.map((s) => `<option value="${s}"${s === 1 ? ' selected' : ''}>${s === 1 ? 'Normal servings (×1)' : `Scale ingredients ×${s}`}</option>`).join('')}
@@ -1371,7 +1404,7 @@ ${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-
       <h2 class="font-semibold text-lg">Steps</h2>
       <span class="flex gap-1.5 print:hidden">
         <button type="button" data-print class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Print</button>
-        ${steps.length ? `<button type="button" data-cook-mode class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-medium hover:bg-stone-100">Cook mode</button>` : ''}
+        ${steps.length ? `<button type="button" data-cook-mode class="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">▶ Start cooking</button>` : ''}
       </span>
     </div>
     <ol class="steps-list space-y-2.5 text-sm list-none">${steps.map((s, i) => `<li class="flex gap-2.5"><span class="shrink-0 w-5 h-5 rounded-full bg-emerald-100 text-emerald-800 text-xs font-bold flex items-center justify-center">${i + 1}</span><span>${esc(s)}</span></li>`).join('')}</ol>
