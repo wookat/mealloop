@@ -12,6 +12,23 @@
     btn.addEventListener('click', function () { window.print(); });
   });
 
+  var demo = document.querySelector('[data-demo]');
+  if (demo) {
+    demo.querySelectorAll('[data-demo-tab]').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        demo.querySelectorAll('[data-demo-tab]').forEach(function (t) {
+          var on = t === tab;
+          t.setAttribute('aria-selected', String(on));
+          t.classList.toggle('bg-emerald-600', on); t.classList.toggle('text-white', on);
+          t.classList.toggle('bg-stone-100', !on); t.classList.toggle('text-stone-600', !on); t.classList.toggle('hover:bg-stone-200', !on);
+        });
+        demo.querySelectorAll('[data-demo-panel]').forEach(function (p) {
+          p.classList.toggle('hidden', p.dataset.demoPanel !== tab.dataset.demoTab);
+        });
+      });
+    });
+  }
+
   document.querySelectorAll('[data-copy-list]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var lines = [];
@@ -79,7 +96,7 @@
     };
     cookBtn.addEventListener('click', function () {
       var on = article.classList.toggle('cook-mode');
-      cookBtn.textContent = on ? 'Exit cook mode' : 'Cook mode';
+      cookBtn.textContent = on ? 'Exit cook mode' : '▶ Start cooking';
       if (on) { requestWake(); } else if (wakeLock) { wakeLock.release().catch(function () {}); wakeLock = null; }
     });
     document.addEventListener('visibilitychange', function () {

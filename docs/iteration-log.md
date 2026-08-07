@@ -1204,3 +1204,27 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 
 **Fixes shipped:**
 - New guide `/guides/move-recipes-from-another-app` ("How to move your recipes out of another meal planning app") — export → verify schema.org JSON → import walkthrough; added to the Recipes & cooking hub section (now 7). Sitemap 31→32 locs; IndexNow HTTP 200.
+
+## Round 111 — 2026-08-07 (competitor sprint P2: favourites-first planning)
+
+**Findings (by driver):**
+- ② UX / ④ Competitor: pinned/quick-access recipes (Plan to Eat) — our recipe box already floats favourites first, but the planner's "+ add" recipe dropdown was pure created_at order, so favourites sank as the box grows.
+
+**Fixes shipped:**
+- Planner recipe dropdown now orders `favorite DESC, created_at DESC` and, when favourites exist, splits into `<optgroup>` "★ Favourites" / "All recipes" — pinned quick access at the exact point of use.
+
+## Round 112 — 2026-08-07 (competitor sprint P2: interactive landing demo)
+
+**Findings (by driver):**
+- ④ Competitor (P2, last major backlog item): Mealime/SideChef landings show the product, ours only described it — no way to "feel" the app before signing up.
+
+**Fixes shipped:**
+- Landing gains a "See it in action" section: Plan/Shop/Cook tab demo (role=tablist/tabpanel with aria-selected), Plan shows a 3-day mock week, Shop has real client-only checkboxes with line-through on check (CSS peer, no JS state), Cook shows the dimmed-steps + timer narrative; CTA into /login (or /app when logged in). Tab switching is ~15 lines in app.js, CSP-clean (self-hosted, no framework).
+
+## Round 113 — 2026-08-07 (competitor adopt: prominent Start cooking CTA)
+
+**Findings (by driver):**
+- ④ Competitor (Umami adopt note): our Cook mode was hidden behind a subdued text-xs outline button; Umami makes "Start Cooking" the recipe page's primary action.
+
+**Fixes shipped:**
+- Recipe pages (App + share) now show an emerald "▶ Start cooking" primary button; exits back to the same label. Data check: search_terms still only {test 2, stew 2, onion 1, lasagne 1} — no new organic terms to feed pSEO this week (guide cadence satisfied by R110).
