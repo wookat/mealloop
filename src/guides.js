@@ -380,4 +380,22 @@ export const GUIDES = [
       p('Generate the shopping list from the planned meals in one go, add the household staples, and share both the plan and the list with the family so anyone can shop or start cooking. Don\'t optimise further — a finished 20-minute plan beats a perfect one that never happens, and next Sunday it\'s faster because the recipe box is already loaded.'),
     ].join(''),
   },
+  {
+    slug: 'household-staples-list',
+    title: 'The household staples list that ends midweek store runs',
+    excerpt: 'Most "emergency" grocery trips are for the same ten boring items. A maintained staples list — added to every shop in one tap — makes them disappear.',
+    body: [
+      p('Think about your last three unplanned store runs. Chances are they weren\'t for anything exotic — they were for milk, bread, eggs, coffee, or toilet paper. Recipe ingredients get planned; the boring background items that every household burns through get forgotten, because they belong to no particular meal.'),
+      h2('What belongs on a staples list'),
+      ul([
+        'Consumables you buy on almost every shop: milk, bread, eggs, butter, fruit for lunchboxes, coffee or tea.',
+        'Cooking infrastructure you never want to run out of: oil, onions, garlic, rice or pasta, stock cubes, salt.',
+        'Household non-food that ambushes you at the worst moment: toilet paper, dish soap, bin bags.',
+      ]),
+      h2('Maintain it once, reuse it forever'),
+      p('Write the list once and keep it in the same tool as your grocery list, not in your head. It should take one tap to pour the staples into this week\'s shop, and the tool should be smart enough to skip anything already on the list — no duplicate milk because a recipe needed it too. Prune it every month or two: if something keeps coming home unused, it isn\'t a staple.'),
+      h2('Why this beats memory'),
+      p('A staples list turns "did anyone check if we have coffee?" into a solved problem: the default is that staples are always on the list, and the household only has to notice the exceptions. Combined with a shared family list, whoever is doing the shop — or adding "we\'re out of dish soap" from the sofa — is always working from the same, complete picture.'),
+    ].join(''),
+  },
 ];

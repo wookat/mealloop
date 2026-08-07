@@ -1017,3 +1017,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter92.md` + recording): no-op branch ("Everything from your staples is already on the list.", milk not duplicated), insert branch with stored category (Spices & Baking, not the inferred one), idempotence, buy-again branch, cleanup to 35 to buy · 0 checked with milk staple intact, share page has no button, 375px header wraps cleanly, Console/Issues clean.
 
 **Caveats:** cross-household POST not adversarially probed (same household-scoped pattern proven R80/86/90); the one console 404 was tester's own wrong URL (/s/token/list doesn't exist).
+
+## Round 93 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: R92 shipped one-tap staples→list but the guide cluster had no staples/pantry content; "grocery staples list" is an evergreen query and Plan to Eat's content repeatedly leans on lowering grocery costs / fewer store runs.
+
+**Fixes shipped:**
+- pSEO guide #25 `household-staples-list` ("The household staples list that ends midweek store runs") — what belongs on a staples list, maintain-once/reuse-forever (describes the dedupe-aware one-tap add), why it beats memory; companion content to the R92 feature. Sitemap 28→29 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter93.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 25 cards, ItemList 25 items at position 25, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 29 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
+
+**Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round.
