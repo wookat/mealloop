@@ -1005,3 +1005,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** `test-report-iter91.md` (91/91b/91c sections) + recordings: emoji label round-trip via UI; boundary POSTs stored exactly 199/119 'a's with no U+FFFD or lone surrogate; 91b honest FAIL documented (859/375), 91c re-verified 375/375 with 8-line wrapped label and native ✎ click; restored to 35 to buy · 0 checked.
 
 **Caveats:** only 2 of the clip call sites runtime-tested (shared util covers the rest); desktop wrap only exercised at 2 lines.
+
+## Round 92 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ④ Competitor: staples could only reach the grocery list through the planner's "Add week's ingredients" — a list-only user (no meal plan that week) had no way to pull their staples in; Plan to Eat exposes staples directly on the shopping list.
+
+**Fixes shipped:**
+- "+ Add staples" button on the /app/list header (App view only) posting to new household-scoped `POST /app/list/staples`: per staple, ingredientKey dedupe — unchecked match skipped, checked match unchecked ("buy again", counted), no match inserted with the staple's stored category (fallback categorize()); bumpVersion only when something changed; redirect `?added=N&src=staples` with a "from your staples" notice variant.
+
+**Evidence:** live verification (`test-report-iter92.md` + recording): no-op branch ("Everything from your staples is already on the list.", milk not duplicated), insert branch with stored category (Spices & Baking, not the inferred one), idempotence, buy-again branch, cleanup to 35 to buy · 0 checked with milk staple intact, share page has no button, 375px header wraps cleanly, Console/Issues clean.
+
+**Caveats:** cross-household POST not adversarially probed (same household-scoped pattern proven R80/86/90); the one console 404 was tester's own wrong URL (/s/token/list doesn't exist).

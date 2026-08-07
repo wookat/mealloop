@@ -1165,7 +1165,7 @@ app.get('/app/list', async (c) => {
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
-  const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : "this week's plan";
+  const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : c.req.query('src') === 'staples' ? 'your staples' : "this week's plan";
   const notice = added === undefined ? '' : Number(added) > 0
     ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from ${srcLabel}.`
     : `Everything from ${srcLabel} is already on the list.`;
@@ -1340,6 +1340,29 @@ app.post('/app/list/aisles', async (c) => {
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
 });
 
+app.post('/app/list/staples', async (c) => {
+  const h = c.get('household');
+  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  let added = 0;
+  for (const s of staples.results) {
+    const key = ingredientKey(s.label);
+    const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+    if (hit) {
+      if (hit.checked) {
+        await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();
+        added++;
+      }
+    } else {
+      await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, s.label, s.category || categorize(s.label)).run();
+      added++;
+    }
+  }
+  if (added) await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/list?added=${added}&src=staples`);
+});
+
 app.post('/app/list/uncheck', async (c) => {
   const h = c.get('household');
   await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE household_id = ? AND checked = 1').bind(h.id).run();
@@ -1423,7 +1446,8 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
   <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
-    ${shareLink ? `<a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
+    ${shareLink ? `<form method="post" action="/app/list/staples"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">+ Add staples</button></form>
+    <a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
     ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
