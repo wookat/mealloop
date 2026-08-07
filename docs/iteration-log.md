@@ -1101,3 +1101,13 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter99.md` + recording): lasagne detail shows ✓ + Plan again (Plan again lands on the planner preselect banner, nothing added), Test Soup detail unchanged, Favourite/Add-ingredients unaffected, share recipe page has no action row, print hides the row, 375px wraps at 375/375, Console/Issues clean on fresh load; household untouched (35 to buy · 0 checked).
 
 **Caveats:** print preview with an external hero image triggers harmless third-party CORB warnings in the Issues panel (pre-existing, print-only); "Plan again" verified to the preselect banner only.
+
+## Round 100 — 2026-08-06 (capstone)
+
+**Findings (by driver):**
+- ① QA (capstone): after 100 rounds of iteration, ran a full golden-path production sweep on a disposable household to prove the entire product loop end-to-end — no code change this round.
+
+**Sweep verified (test-report-iter100.md + showcase recording):**
+- Signup via email code → empty planner; recipe intake ×3 (URL import with clipped 199-char title, paste-parse, manual); week planning (×1 and ×2 entries + note, ✎ note edit, Today anchor); "Add week's ingredients" (5 items, ×2 quantities doubled, staple auto-added, aisle chips match sections, check/uncheck, rename+note, per-item delete); anonymous share link (week + list sync, anonymous add flowing back, read-only recipe page, calendar.ics 200 with 3 VEVENTs incl. note entries); guides/SEO (26 cards, sitemap 30 locs); 375px planner+list at 375/375; Console/Issues clean; GDPR delete → share token and calendar.ics 404; standing household exactly intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** share "logged-out" check used incognito (the share route renders anonymously regardless of session); print view and store filters not re-exercised (runtime-proven R92/R96/R97/R99).
