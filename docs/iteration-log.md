@@ -919,3 +919,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - pSEO guide #23 `why-meal-plans-fall-apart` ("Why your meal plan falls apart by Wednesday (and how to fix it)") — fantasy-week/rigid/invisible failure modes, planning the real week, survivable plans; cross-promotes share link + calendar visibility. Sitemap 26→27 locs; IndexNow 202.
 
 **Evidence:** live verification (`test-report-iter84.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/CTA), last of 23 cards, ItemList 23 items at position 23, @graph [Article, BreadcrumbList], og:type=article, og:description=excerpt, canonical, sitemap 27 locs, More-guides link click-proven (closing the standing exact-match caveat), 375px + Console/Issues clean.
+
+## Round 85 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX walkthrough: changing servings on an already-planned recipe required delete + re-add (scale was only settable at add time via the "+ add" form); Plan to Eat allows adjusting servings on a planned meal in place.
+
+**Fixes shipped:**
+- Inline ×N scale select on recipe-backed planner entry rows (options ×0.5–×4 from SCALES, autosubmit, emerald/semibold when ≠1); new household-scoped `POST /app/plan/scale` (SCALES-validated, `recipe_id IS NOT NULL` guard, preserves ?week). Static ×N badge is now print-only; note entries unchanged.
+
+**Evidence:** live verification (`test-report-iter85.md` + recording): ×1→×2 autosubmit + persistence across reload, note-only entry has no scale select, print preview shows ×2 badge with zero controls, share page unaffected, state restored to ×1 / 35 to buy · 0 checked, 375px + Console/Issues clean.
+
+**Caveats:** ×2 ingredient-to-grocery-list flow not exercised (would have polluted the standing 35-item list; scale→quantity math is the same code path proven in earlier rounds); adversarial cross-household POST skipped (route reuses the household-scoped UPDATE pattern live-proven in R80/R81).

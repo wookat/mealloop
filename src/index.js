@@ -403,8 +403,14 @@ ${days.map((d) => `
         <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
           <div class="mt-1 flex flex-wrap items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
-            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
+            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500 print:inline hidden">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
             <span class="flex shrink-0 items-center gap-1 print:hidden">
+              ${e.recipe_id ? `<form method="post" action="/app/plan/scale">
+                <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
+                <select name="scale" data-autosubmit aria-label="Servings scale" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
+                  ${SCALES.map((s) => `<option value="${s}"${s === (e.scale || 1) ? ' selected' : ''}>×${s}</option>`).join('')}
+                </select>
+              </form>` : ''}
               <form method="post" action="/app/plan/move">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
                 <select name="date" data-autosubmit aria-label="Move to another day" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs text-stone-500 max-w-16 px-0 py-0.5">
@@ -465,6 +471,18 @@ app.post('/app/plan/delete', async (c) => {
   const f = await c.req.parseBody();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
+  return c.redirect(`/app?week=${f.week || ''}`);
+});
+
+app.post('/app/plan/scale', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const scale = Number(f.scale);
+  if (SCALES.includes(scale)) {
+    await c.env.DB.prepare('UPDATE plan_entries SET scale = ? WHERE id = ? AND household_id = ? AND recipe_id IS NOT NULL')
+      .bind(scale, String(f.id || ''), h.id).run();
+    await bumpVersion(c.env, h.id);
+  }
   return c.redirect(`/app?week=${f.week || ''}`);
 });
 
