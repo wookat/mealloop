@@ -1187,3 +1187,20 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 
 **Fixes shipped:**
 - `/guides` now groups guides into 4 themed sections (Meal planning basics 10 / Grocery lists & shopping 5 / Recipes & cooking 6 / Family, sharing & tools 5) with anchor chip nav (`#topic-N`, scroll-mt); ItemList JSON-LD reordered to match visible order (26 items); card headings h2→h3 under section h2s; leftover-guard appends any future unmapped guide to the last section so new guides can't drop out of the hub.
+
+## Round 109 — 2026-08-07 (competitor sprint P2: JSON recipe importer / migration path)
+
+**Findings (by driver):**
+- ④ Competitor (P2 backlog): RecipeSage/Paprika/Mela make export easy, but switching *into* a new planner still means retyping. We had one-way portability (R105 /app/export.json) but no import — a real adoption blocker for users with existing collections.
+
+**Fixes shipped:**
+- New `POST /app/recipes/import-json` (file upload, 5 MB cap, ≤200 recipes/file): accepts a MealLoop export (`{recipes:[…]}`), a bare schema.org Recipe array, or a single Recipe object. Maps `name/recipeIngredient/recipeInstructions` (incl. HowToStep objects and HowToSection flattening), ISO-8601 `prepTime/cookTime` → minutes via clampMinutes, `recipeYield`, description, source URL (http/https only), image via sanitizeImageUrl; every string through surrogate-safe clip(). Batch insert; success notice "Imported N recipes"; friendly errors for bad JSON / no titled recipes.
+- Recipes page gains a fourth intake path: "Or import a JSON backup (moving from another app)".
+
+## Round 110 — 2026-08-07 (weekly pSEO: recipe portability guide)
+
+**Findings (by driver):**
+- ⑤ Data/SEO: weekly pSEO cadence due; R109 shipped the import feature with no acquisition surface targeting "export recipes from <app>" / switching intent.
+
+**Fixes shipped:**
+- New guide `/guides/move-recipes-from-another-app` ("How to move your recipes out of another meal planning app") — export → verify schema.org JSON → import walkthrough; added to the Recipes & cooking hub section (now 7). Sitemap 30→31 locs; IndexNow HTTP 200.

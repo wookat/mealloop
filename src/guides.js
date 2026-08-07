@@ -399,6 +399,24 @@ export const GUIDES = [
     ].join(''),
   },
   {
+    slug: 'move-recipes-from-another-app',
+    title: 'How to move your recipes out of another meal planning app',
+    excerpt: 'Your recipe collection should be portable. How to export from your old app and import it anywhere as JSON.',
+    body: [
+      p('Recipe collections take years to build, and they shouldn\'t be trapped inside whichever app you happened to start with. Most decent tools can export your recipes as a file — and if that file is JSON, especially schema.org Recipe JSON, moving to a new planner takes minutes.'),
+      h2('Step 1: export from your old app'),
+      ul([
+        '<strong>RecipeSage</strong> and other open tools export JSON-LD (schema.org Recipe) directly from settings.',
+        '<strong>Paprika, Mela, and Crouton</strong> export their own backup formats; several converters can turn these into standard Recipe JSON.',
+        'If your app only exports plain text, a paste-based recipe parser can still rescue each recipe individually.',
+      ]),
+      h2('Step 2: check the file is standard'),
+      p('Open the file in a text editor. If you see fields like <code>"name"</code>, <code>"recipeIngredient"</code>, and <code>"recipeInstructions"</code>, it\'s schema.org Recipe data — the same format recipe websites embed for search engines, and the most widely accepted interchange format.'),
+      h2('Step 3: import it into the new tool'),
+      p('A good planner accepts that JSON file as-is — single recipe or a whole array — and keeps titles, ingredients, steps, photos, timings, and source links intact. And before you commit to any new app, check it can export the same way: portability in both directions is the real test that your recipes stay yours.'),
+    ].join(''),
+  },
+  {
     slug: 'meal-planning-as-a-team',
     title: 'Meal planning as a team: splitting the work without the friction',
     excerpt: 'When one person plans, shops, and cooks, dinner becomes their full-time side job. Here\'s a simple split that keeps the whole household in the loop.',

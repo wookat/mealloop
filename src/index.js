@@ -249,7 +249,7 @@ function legalBody(title, inner) {
 const GUIDE_TOPICS = [
   ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
   ['Grocery lists & shopping', ['grocery-list-by-aisle', 'organize-grocery-list-by-store-aisle', 'weekly-grocery-list-with-staples', 'household-staples-list', 'shared-grocery-list-without-an-app']],
-  ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock']],
+  ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock', 'move-recipes-from-another-app']],
   ['Family, sharing & tools', ['meal-planning-as-a-team', 'meal-plan-in-your-family-calendar', 'meal-planning-apps-vs-shared-notes', 'plan-to-eat-alternatives', 'samsung-food-review-for-families']],
 ];
 
@@ -1027,6 +1027,7 @@ app.get('/app/recipes', async (c) => {
   </div>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
+${/^\d+$/.test(String(c.req.query('imported') || '')) ? `<p role="status" class="mb-3 text-sm rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2">Imported ${Number(c.req.query('imported'))} recipe${Number(c.req.query('imported')) === 1 ? '' : 's'} from your file.</p>` : ''}
 ${tagSet.length || anyFav ? `<div class="flex flex-wrap gap-1.5 mb-4">
   ${tag || fav ? `<a href="/app/recipes" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-200 text-stone-700 hover:bg-stone-300">✕ Clear filter</a>` : ''}
   ${anyFav ? `<a href="/app/recipes?fav=1" class="px-2.5 py-1 rounded-full text-xs font-medium ${fav ? 'bg-amber-500 text-white' : 'bg-amber-50 text-amber-800 hover:bg-amber-100'}">★ Favourites</a>` : ''}
@@ -1069,6 +1070,14 @@ ${recipes.results.length === 0 ? (q || tag || fav ? `<p class="text-stone-500 te
     <textarea name="ingredients" aria-label="Ingredients" rows="5" placeholder="Ingredients — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <textarea name="steps" aria-label="Steps" rows="5" placeholder="Steps — one per line" class="w-full rounded-lg border border-stone-300 px-3 py-2"></textarea>
     <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Save recipe</button>
+  </form>
+</details>
+<details class="mt-3">
+  <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or import a JSON backup (moving from another app)</summary>
+  <form method="post" action="/app/recipes/import-json" enctype="multipart/form-data" class="mt-3 max-w-lg space-y-2">
+    <input type="file" name="file" required accept=".json,application/json" aria-label="Recipe JSON file" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white">
+    <p class="text-xs text-stone-500">Works with a MealLoop export, any schema.org Recipe JSON (single or array), or JSON-LD exports from apps like RecipeSage. Up to 200 recipes per file.</p>
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-5 py-2 hover:bg-emerald-700">Import recipes</button>
   </form>
 </details>`;
   return c.html(page({ title: 'Recipes', body, user, path: '/app/recipes', noindex: true }));
@@ -1134,6 +1143,70 @@ app.post('/app/recipes/paste', async (c) => {
     'INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, h.id, parsed.title, JSON.stringify(parsed.ingredients.map((s) => s.slice(0, 300))), JSON.stringify(parsed.steps.map((s) => s.slice(0, 1000))), user.id).run();
   return c.redirect(`/app/recipes/${id}`);
+});
+
+app.post('/app/recipes/import-json', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const fail = (msg) => c.redirect(`/app/recipes?err=${encodeURIComponent(msg)}`);
+  let text = '';
+  if (f.file && typeof f.file.text === 'function') {
+    if (f.file.size > 5_000_000) return fail('That file is too large (5 MB max).');
+    text = await f.file.text();
+  } else text = String(f.file || '');
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return fail("That file isn't valid JSON \u2014 export your recipes as JSON (e.g. a MealLoop backup or a schema.org Recipe file) and try again.");
+  }
+  const arr = Array.isArray(data) ? data : Array.isArray(data?.recipes) ? data.recipes : data && typeof data === 'object' ? [data] : null;
+  if (!arr) return fail('No recipes found in that file.');
+  const toText = (x) => (typeof x === 'string' ? x : x && typeof x === 'object' ? String(x.text || x.name || '') : '');
+  const isoMinutes = (v) => {
+    const m = /^PT(?:(\d+)H)?(?:(\d+)M)?/.exec(String(v || ''));
+    return m ? clampMinutes(Number(m[1] || 0) * 60 + Number(m[2] || 0)) : null;
+  };
+  const stmts = [];
+  for (const r of arr.slice(0, 200)) {
+    if (!r || typeof r !== 'object') continue;
+    const title = clip(String(r.name || r.title || '').trim(), 200);
+    if (!title) continue;
+    const ings = (Array.isArray(r.recipeIngredient) ? r.recipeIngredient : Array.isArray(r.ingredients) ? r.ingredients : [])
+      .map(toText).map((s) => clip(s.trim(), 300)).filter(Boolean).slice(0, 150);
+    let inst = r.recipeInstructions ?? r.steps ?? [];
+    if (typeof inst === 'string') inst = inst.split(/\n+/);
+    if (!Array.isArray(inst)) inst = [];
+    const steps = [];
+    for (const s of inst) {
+      if (s && typeof s === 'object' && Array.isArray(s.itemListElement)) for (const t of s.itemListElement) steps.push(toText(t));
+      else steps.push(toText(s));
+    }
+    const stepsClean = steps.map((s) => clip(String(s).trim(), 1000)).filter(Boolean).slice(0, 80);
+    let sourceUrl = null;
+    try {
+      const u = new URL(String(r.url || r.source_url || ''));
+      if (u.protocol === 'https:' || u.protocol === 'http:') sourceUrl = u.href;
+    } catch { /* no source url */ }
+    const image = sanitizeImageUrl(toText(Array.isArray(r.image) ? r.image[0] : r.image));
+    stmts.push(
+      c.env.DB.prepare(
+        'INSERT INTO recipes (id, household_id, title, source_url, image_url, description, prep_minutes, cook_minutes, servings, ingredients_json, steps_json, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+      ).bind(
+        uid(), h.id, title, sourceUrl, image,
+        clip(String(r.description || '').trim(), 500) || null,
+        isoMinutes(r.prepTime), isoMinutes(r.cookTime),
+        clip(String(r.recipeYield || r.servings || '').trim(), 40) || null,
+        JSON.stringify(ings), JSON.stringify(stepsClean),
+        clip(typeof r.comment === 'string' ? r.comment.trim() : '', 2000),
+        user.id
+      )
+    );
+  }
+  if (!stmts.length) return fail('No recipes with a title were found in that file.');
+  await c.env.DB.batch(stmts);
+  return c.redirect(`/app/recipes?imported=${stmts.length}`);
 });
 
 app.get('/app/recipes/:id', async (c) => {
