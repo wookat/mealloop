@@ -35,3 +35,14 @@ test('splitListInput splits on commas but keeps decimal commas', () => {
   assert.deepEqual(splitListInput(''), []);
   assert.equal(splitListInput(Array.from({ length: 30 }, (_, i) => `item${i}`).join(', ')).length, 20);
 });
+
+test('clip truncates without splitting surrogate pairs', async () => {
+  const { clip } = await import('../src/util.js');
+  assert.equal(clip('hello', 10), 'hello');
+  assert.equal(clip('hello world', 5), 'hello');
+  assert.equal(clip('a'.repeat(3) + '🍕', 4), 'aaa');
+  assert.equal(clip('a'.repeat(3) + '🍕', 5), 'aaa🍕');
+  assert.equal(clip('🍕🍕🍕', 3), '🍕');
+  assert.equal(clip('', 5), '');
+  assert.equal(clip(null, 5), '');
+});

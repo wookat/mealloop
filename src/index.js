@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
 
 const app = new Hono();
@@ -461,7 +461,7 @@ app.post('/app/plan', async (c) => {
   const date = String(f.date || '');
   const meal = String(f.meal || '');
   const recipeId = String(f.recipe_id || '') || null;
-  const note = String(f.note || '').trim().slice(0, 120) || null;
+  const note = clip(String(f.note || '').trim(), 120) || null;
   const scale = SCALES.includes(Number(f.scale)) ? Number(f.scale) : 1;
   if (recipeId) {
     const owned = await c.env.DB.prepare('SELECT id FROM recipes WHERE id = ? AND household_id = ?').bind(recipeId, h.id).first();
@@ -486,7 +486,7 @@ app.post('/app/plan/delete', async (c) => {
 app.post('/app/plan/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
-  const note = String(f.note || '').trim().slice(0, 120);
+  const note = clip(String(f.note || '').trim(), 120);
   if (note) {
     await c.env.DB.prepare('UPDATE plan_entries SET note = ? WHERE id = ? AND household_id = ? AND recipe_id IS NULL')
       .bind(note, String(f.id || ''), h.id).run();
@@ -946,7 +946,7 @@ app.post('/app/recipes/new', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
   const f = await c.req.parseBody();
-  const title = String(f.title || '').trim().slice(0, 200);
+  const title = clip(String(f.title || '').trim(), 200);
   if (!title) return c.redirect('/app/recipes');
   const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1047,7 +1047,7 @@ app.post('/app/recipes/:id/edit', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
   const f = await c.req.parseBody();
-  const title = String(f.title || '').trim().slice(0, 200);
+  const title = clip(String(f.title || '').trim(), 200);
   if (!title) return c.redirect(`/app/recipes/${id}/edit`);
   const ingredients = String(f.ingredients || '').split('\n').map((s) => s.trim()).filter(Boolean);
   const steps = String(f.steps || '').split('\n').map((s) => s.trim()).filter(Boolean);
@@ -1200,8 +1200,8 @@ async function addListItem(env, householdId, label) {
 app.post('/app/list/add', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
-  for (const label of splitListInput(String(f.label || '').slice(0, 500))) {
-    await addListItem(c.env, h.id, label.slice(0, 200));
+  for (const label of splitListInput(clip(String(f.label || ''), 500))) {
+    await addListItem(c.env, h.id, clip(label, 200));
   }
   const back = String(f.back || '');
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
@@ -1292,8 +1292,8 @@ app.post('/app/list/remove', async (c) => {
 app.post('/app/list/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
-  const note = String(f.note || '').trim().slice(0, 140);
-  const label = String(f.label || '').trim().slice(0, 200);
+  const note = clip(String(f.note || '').trim(), 140);
+  const label = clip(String(f.label || '').trim(), 200);
   if (label) {
     await c.env.DB.prepare('UPDATE shopping_items SET label = ?, note = ? WHERE id = ? AND household_id = ?')
       .bind(label, note, String(f.id || ''), h.id).run();
@@ -1371,12 +1371,12 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
   const done = items.filter((i) => i.checked);
   const row = (i) => `
       <li class="flex items-center${i.checked ? ' print:hidden' : ''}">
-        <form method="post" action="${base}/toggle" class="toggle-form flex-1">
+        <form method="post" action="${base}/toggle" class="toggle-form flex-1 min-w-0">
           <input type="hidden" name="id" value="${i.id}">
           <input type="hidden" name="back" value="${back}">
-          <button class="w-full flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
+          <button class="w-full min-w-0 flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
-            <span class="${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-500">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
+            <span class="min-w-0 [overflow-wrap:anywhere] ${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-500">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
           </button>
         </form>
         ${editable ? `<form method="post" action="/app/list/store" class="print:hidden">
@@ -1529,7 +1529,7 @@ ${staples.results.map((s) => `<li class="flex items-center justify-between gap-2
 app.post('/app/staples/add', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
-  const label = String(f.label || '').trim().slice(0, 200);
+  const label = clip(String(f.label || '').trim(), 200);
   if (label) {
     const existing = await c.env.DB.prepare('SELECT id FROM staples WHERE household_id = ? AND lower(label) = lower(?)')
       .bind(h.id, label).first();
@@ -1735,12 +1735,12 @@ app.post('/s/:token/add', async (c) => {
   const h = await shareHousehold(c);
   if (!h) return c.notFound();
   const f = await c.req.parseBody();
-  const labels = splitListInput(String(f.label || '').slice(0, 500));
+  const labels = splitListInput(clip(String(f.label || ''), 500));
   const count = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM shopping_items WHERE household_id = ?').bind(h.id).first();
   let room = 500 - count.n;
   for (const label of labels) {
     if (room <= 0) break;
-    await addListItem(c.env, h.id, label.slice(0, 200));
+    await addListItem(c.env, h.id, clip(label, 200));
     room--;
   }
   const back = String(f.back || '');

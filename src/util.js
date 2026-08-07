@@ -251,6 +251,14 @@ export function copyName(name) {
   return `Copy of ${name}`.slice(0, 60);
 }
 
+// Truncate to at most n UTF-16 units without splitting a surrogate pair.
+export function clip(s, n) {
+  let out = String(s ?? '').slice(0, n);
+  const last = out.charCodeAt(out.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) out = out.slice(0, -1);
+  return out;
+}
+
 // Split a manual list-add input into separate items on commas, keeping
 // decimal commas ("1,5 kg") intact. Returns trimmed non-empty parts, max 20.
 export function splitListInput(input) {

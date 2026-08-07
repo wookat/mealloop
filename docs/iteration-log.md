@@ -991,3 +991,17 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** `test-report-iter90.md` + recording; standing QA household verified untouched (note "Fruit + yogurt", lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
 
 **Caveats:** multi-byte/emoji truncation across the 120 boundary (UTF-16 slice) not probed; adversarial POSTs were page-context fetch calls, guard proof = unchanged state in the owning session.
+
+## Round 91 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R90 flagged that all user-input truncations used raw `slice(0, n)`, which can split an emoji's UTF-16 surrogate pair at the limit and store a broken half-character.
+- ③ Visual (found in-round by 91b testing): very long unbroken grocery labels overflowed the row horizontally at 375px (scrollWidth 859/375), pushing the ✎ off-screen.
+
+**Fixes shipped:**
+- New `clip(s, n)` util (slice to n UTF-16 units, drop a trailing lone high surrogate) + 7-case unit test (suite 24); applied to all user-typed fields: plan note create/edit (120), grocery note (140), labels/titles (200), staples, list/share add and the 500-char multi-add input.
+- 91b/91c: grocery row wrap fix — `min-w-0` on toggle form and button, `[overflow-wrap:anywhere]` on the label span (`break-words` alone never triggered because flex wrappers sized to min-content).
+
+**Evidence:** `test-report-iter91.md` (91/91b/91c sections) + recordings: emoji label round-trip via UI; boundary POSTs stored exactly 199/119 'a's with no U+FFFD or lone surrogate; 91b honest FAIL documented (859/375), 91c re-verified 375/375 with 8-line wrapped label and native ✎ click; restored to 35 to buy · 0 checked.
+
+**Caveats:** only 2 of the clip call sites runtime-tested (shared util covers the rest); desktop wrap only exercised at 2 lines.
