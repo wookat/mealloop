@@ -34,12 +34,13 @@ export function weekDates(startParam) {
 
 const CATEGORY_RULES = [
   ['Canned & Sauces', /\b(stock|broth|passata|sauce|canned|paste|beans|soup|vinegar|soy)/i],
-  ['Produce', /\b(onion|garlic|tomato(es)?|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|mushroom|ginger|scallion|herb)/i],
-  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|prosciutto|pancetta|chorizo|mince|fish|salmon|shrimp|prawn|tuna|steak)/i],
-  ['Dairy & Eggs', /\b(milk|butter|cheese|cream|yogurt|egg[s]?|mozzarella|parmesan|provolone|cheddar)/i],
-  ['Bakery & Grains', /\b(bread|flour|pasta|rice|noodle|tortilla|panko|crumb|oat|quinoa)/i],
+  ['Oils & Condiments', /\b(jam|jelly|marmalade|peanut butter)\b/i],
+  ['Produce', /\b(onion|garlic|tomato(es)?|lettuce|spinach|basil|cilantro|parsley|pepper[s]?|carrot|celery|potato|lemon|lime|apple|banana|avocado|cucumber|zucchini|broccoli|cauliflower|cabbage|kale|leek|mushroom|ginger|scallion|herb|pear[s]?|plum[s]?|peach(es)?|grape[s]?|[a-z]*berr(y|ies)|orange[s]?|mango(es)?|melon|kiwi|pineapple|corn|squash|pumpkin|radish|beetroot|asparagus|salad)/i],
+  ['Meat & Seafood', /\b(chicken|beef|pork|lamb|turkey|bacon|sausage|ham|prosciutto|pancetta|chorizo|mince|fish|salmon|cod|haddock|shrimp|prawn|tuna|steak|tofu)/i],
+  ['Dairy & Eggs', /\b(milk|(?<!peanut )butter|cheese|cream|yogurt|egg[s]?|mozzarella|parmesan|provolone|cheddar)/i],
+  ['Bakery & Grains', /\b(bread|flour|pasta|rice|noodle|tortilla|panko|crumb|oat|quinoa|bun[s]?|bagel|roll[s]?|croissant|baguette|cereal|couscous)/i],
   ['Spices & Baking', /\b(salt|sugar|spice|cumin|paprika|oregano|cinnamon|baking|yeast|vanilla|pepper\b)/i],
-  ['Oils & Condiments', /\b(oil|olive oil|mayo|mustard|ketchup|honey|syrup)/i],
+  ['Oils & Condiments', /\b(oil|olive oil|mayo|mustard|ketchup|honey|syrup|dressing)/i],
 ];
 
 export function categorize(label) {
@@ -47,7 +48,7 @@ export function categorize(label) {
   return 'Other';
 }
 
-export const STANDARD_CATEGORIES = [...CATEGORY_RULES.map(([cat]) => cat), 'Other'];
+export const STANDARD_CATEGORIES = [...new Set(CATEGORY_RULES.map(([cat]) => cat)), 'Other'];
 
 // Store-walk default: produce first, long-life aisles later, Other last.
 export const DEFAULT_CATEGORY_ORDER = ['Produce', 'Meat & Seafood', 'Dairy & Eggs', 'Bakery & Grains', 'Canned & Sauces', 'Spices & Baking', 'Oils & Condiments', 'Other'];
@@ -234,4 +235,36 @@ export function mergeIngredients(labels) {
     // same key but unquantifiable on either side: treat as duplicate, keep first
   }
   return out.map(formatIngredient);
+}
+
+// iCalendar TEXT escaping (RFC 5545 §3.3.11): backslash, semicolon, comma, newline.
+export function icsEscape(s) {
+  return String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/;/g, '\\;')
+    .replace(/,/g, '\\,')
+    .replace(/\r?\n/g, '\\n');
+}
+
+// Name for a duplicated menu, kept within the 60-char menu name limit.
+export function copyName(name) {
+  return `Copy of ${name}`.slice(0, 60);
+}
+
+// Truncate to at most n UTF-16 units without splitting a surrogate pair.
+export function clip(s, n) {
+  let out = String(s ?? '').slice(0, n);
+  const last = out.charCodeAt(out.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) out = out.slice(0, -1);
+  return out;
+}
+
+// Split a manual list-add input into separate items on commas, keeping
+// decimal commas ("1,5 kg") intact. Returns trimmed non-empty parts, max 20.
+export function splitListInput(input) {
+  return String(input ?? '')
+    .split(/,(?!\d)/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 20);
 }

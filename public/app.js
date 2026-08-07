@@ -92,6 +92,25 @@
     });
   }
 
+  var prevLink = document.querySelector('a[data-swipe-prev]');
+  var nextLink = document.querySelector('a[data-swipe-next]');
+  if (prevLink || nextLink) {
+    var startX = null, startY = null;
+    document.addEventListener('touchstart', function (e) {
+      if (e.target.closest('input, select, textarea, button, a, summary')) { startX = null; return; }
+      startX = e.touches[0].clientX; startY = e.touches[0].clientY;
+    }, { passive: true });
+    document.addEventListener('touchend', function (e) {
+      if (startX === null) return;
+      var dx = e.changedTouches[0].clientX - startX;
+      var dy = e.changedTouches[0].clientY - startY;
+      startX = null;
+      if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) / 2) return;
+      var target = dx < 0 ? nextLink : prevLink;
+      if (target) location.href = target.href;
+    }, { passive: true });
+  }
+
   var list = document.getElementById('list');
   var poller = list || document.querySelector('[data-poll]');
   if (!poller) return;

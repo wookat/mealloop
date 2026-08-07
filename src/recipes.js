@@ -1,5 +1,6 @@
 // Server-side recipe import: fetch a URL and extract schema.org/Recipe JSON-LD.
 import puppeteer from '@cloudflare/puppeteer';
+import { clip } from './util.js';
 
 const MAX_HTML_BYTES = 4 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15000;
@@ -151,12 +152,12 @@ function normalize(node) {
   const ingredients = toArray(node.recipeIngredient || node.ingredients).map((s) => clean(String(s)));
   const steps = flattenInstructions(node.recipeInstructions);
   return {
-    title: clean(text(node.name)) || 'Untitled recipe',
-    description: clean(text(node.description)).slice(0, 500),
+    title: clip(clean(text(node.name)), 200) || 'Untitled recipe',
+    description: clip(clean(text(node.description)), 500),
     image_url: firstImage(node.image),
     prep_minutes: isoDurationToMinutes(node.prepTime),
     cook_minutes: isoDurationToMinutes(node.cookTime),
-    servings: clean(text(Array.isArray(node.recipeYield) ? node.recipeYield[0] : node.recipeYield)).slice(0, 40) || null,
+    servings: clip(clean(text(Array.isArray(node.recipeYield) ? node.recipeYield[0] : node.recipeYield)), 40) || null,
     ingredients,
     steps,
   };
@@ -213,7 +214,7 @@ export function parseRecipeText(raw) {
   const ingredients = nonEmpty(lines.slice(ingAt + 1, stepAt));
   const steps = nonEmpty(lines.slice(stepAt + 1));
   if (!ingredients.length || !steps.length) return null;
-  return { title: title.slice(0, 200), ingredients, steps };
+  return { title: clip(title, 200), ingredients, steps };
 }
 
 function clean(s) {

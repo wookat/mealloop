@@ -773,3 +773,341 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - "From the guides" section on `/` between the FAQ and the FAQPage JSON-LD: 3 featured whole-card links (`FEATURED_SLUGS`: picky-eaters, batch-cooking, budget) with title + excerpt from `src/guides.js`, plus an "All guides →" link. Escaped output; no new JSON-LD.
 
 **Evidence:** live verification (`test-report-iter70.md` + recording): exactly 3 cards in order with character-identical titles/excerpts; whole-card link proven by body-text click → correct guide; "All guides →" → /guides (20 guides); FAQ accordions + email form + FAQPage JSON-LD (still the only ld+json, 6 questions) intact with correct document order; 375px single-column stack, 375/375 no overflow; Console/Issues clean; logged-out CTA regression passed. Not re-tested: logged-in CTA variant (unchanged code path).
+
+## Round 71 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX / ① QA: staples were auto-categorized once by `categorize()` with no way to fix a wrong bucket ("QA71 fixture bar" → Other), and even a correct staple category was ignored when "Add week's ingredients" inserted the item — it re-ran `categorize()`.
+
+**Fixes shipped:**
+- Each /app/staples row gets a `data-autosubmit` category select (STANDARD_CATEGORIES + current) posting to household-scoped `POST /app/staples/category`; ✕ delete aria-labels now include the staple label.
+- "Add week's ingredients" inserts staples with the staple's stored category (`stapleCats.get(key) || categorize(label)`); recipe ingredients unchanged.
+
+**Evidence:** live verification (`test-report-iter71.md` + recording): milk row shows Dairy & Eggs selected; fixture staple defaulted to Other, select change auto-submitted and persisted across reload; with fixture set to Spices & Baking, "Add week's ingredients" landed it under Spices & Baking (old behavior would be Other); cleanup restored the list to 35 to buy and staples to milk only; 375px + Console/Issues clean. Note: the propagation test re-attached display-only "for <recipe>" source sub-labels to existing unchecked items (normal recompute, self-corrects next run).
+
+## Round 72 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat's June 2026 update added Menu printing and duplication — menus are an active investment area for them. MealLoop's saved menus were "blind": only name dropdowns on the planner, no way to see what a menu contains, rename it, or print it.
+
+**Fixes shipped:**
+- New `GET /app/menus` "Saved menus" page: one card per menu (newest first) with day-by-day preview (days with entries only, `meal: recipe title || note`, ×N badge when scale≠1 via LEFT JOIN recipes), inline rename (`POST /app/menus/rename`, household-scoped), ✕ delete (confirm, `back=/app/menus` redirect), Print button (controls print:hidden), empty state.
+- Planner shows a "View menus" link whenever the household has menus.
+
+**Evidence:** live verification (`test-report-iter72.md` + recording): QA72 fixture menu from an empty future week → preview/rename-persistence/print-preview/delete-to-empty-state all passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested minor gaps: positive ×N badge (only the no-badge case shown) and multi-menu newest-first ordering (single menu existed).
+
+## Round 73 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ② UX: /guides pages are getting real views (39 + per-guide counts) but rendered the logged-out header ("Log in / Get started free") and a "Start planning → /login" CTA even for logged-in users — /guides, /guides/:slug, /privacy and /terms never resolved the session.
+
+**Fixes shipped:**
+- Those four public routes now pass `user: await getUser(c)` into `page()`, so logged-in visitors get the app header (Planner / Recipes / List / Log out).
+- Guide-detail CTA box is session-aware: `user ? 'Open your planner' → /app : 'Start planning' → /login`.
+
+**Evidence:** live verification (`test-report-iter73.md` + recording): logged-in session sees the app header on all four pages and the planner CTA lands on /app; incognito contrast shows the unchanged logged-out state; SEO regression via cache-busted curl (guide Article+Breadcrumb JSON-LD + og:type=article, /guides ItemList 20 items, landing FAQPage) all intact; 375px + Console/Issues clean. Minor untested gap: incognito /terms (same code path as /privacy).
+
+## Round 74 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: guide pages are the only organic-facing surface accruing views, and the R72 saved-menus feature (a Plan to Eat parity point) had no content surface explaining the workflow.
+
+**Fixes shipped:**
+- New pSEO guide #21 `reusable-weekly-menu-template` ("Build a reusable weekly menu (plan once, use it forever)") — cross-promotes saved menus. Sitemap 24→25 locs; IndexNow submitted (200).
+
+**Evidence:** live verification (`test-report-iter74.md` + recording): guide renders with breadcrumb/h1/2×h2+bullets/session-aware CTA and More-guides wrap to the first 3 guides; /guides shows 21 cards with ItemList JSON-LD at 21 items (new guide position 21); single @graph [Article, BreadcrumbList] ld+json + og:type=article + correct canonical; 375px + Console/Issues clean.
+
+## Round 75 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ① QA: Plan to Eat's June 2026 update added menu duplication — MealLoop menus couldn't be copied; plus two R72 untested gaps remained (positive ×N badge render, newest-first multi-card ordering).
+
+**Fixes shipped:**
+- Duplicate button on each /app/menus card → `POST /app/menus/duplicate`: household-scoped SELECT, inserts `Copy of <name>` (60-char cap) and copies all menu_entries (dow/meal/recipe_id/note/scale); copy renders first (newest-first).
+
+**Evidence:** live verification (`test-report-iter75.md` + recording): QA75 fixture with a ×2-scaled entry proved the ×2 badge in the preview (R72 gap closed); Duplicate produced "Copy of QA75 menu" first (ordering gap closed) with an identical preview; renaming the copy left the original unchanged (entries copied, not shared); print/delete regressions to empty state passed; cleanup restored zero menus and the empty future week; 375px + Console/Issues clean. Untested edges: 60-char copy-name truncation; cross-household menu_id guard (needs a second account).
+
+## Round 76 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat's app integrates planned recipes with calendar apps; MealLoop had no calendar surface for the plan.
+
+**Fixes shipped:**
+- New `GET /s/:token/calendar.ics` — share-token-scoped iCal feed (window today−7..today+28): one all-day VEVENT per plan entry (`SUMMARY "Meal: Title[ ×N]"`, note text for note-only entries, comma/semicolon escaping, CRLF, `X-PUBLISHED-TTL PT1H`), invalid token → 404. Resetting the share link also rotates this URL.
+- `/app/share` gains a "Meal plan in your calendar" card: readonly feed URL + Copy (data-copy), Google/Apple/Outlook explainer.
+
+**Evidence:** live verification (`test-report-iter76.md` + recording): card renders and Copy proven via a real clipboard paste; feed parsed structurally (8 VEVENTs matching current-week plan entries, correct window, VCALENDAR headers); wrong token 404; share page/account card regressions clean; 375px + Console/Issues clean. Untested: real calendar-client subscription; SUMMARY escaping/×N branches (no such entries in standing plan).
+
+## Round 77 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: the R76 iCal feed (a differentiator vs Samsung Food web and a parity point vs Plan to Eat's app) had no content surface; guides remain the organic-facing channel accruing views.
+
+**Fixes shipped:**
+- New pSEO guide #22 `meal-plan-in-your-family-calendar` ("Put the meal plan in the calendar your family already checks") — cross-promotes the calendar feed. Sitemap 25→26 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter77.md` + recording): breadcrumb/h1/2×h2+3 bullets/session-aware CTA render; More-guides wraps to first 3; /guides 22 cards + ItemList 22 items (position 22); single @graph [Article, BreadcrumbList] + og:type=article + canonical correct; sitemap 26 locs; 375px + Console/Issues clean.
+
+## Round 78 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two R76 untested edges remained (iCal comma/semicolon escaping and the ×N SUMMARY branch); the feed's escaping was an inline lambda with no unit coverage.
+
+**Fixes shipped:**
+- Extracted `icsEscape` into src/util.js (RFC 5545 TEXT escaping) with unit tests (`test/util.test.js`, suite 20→21); calendar-feed SUMMARY and X-WR-CALNAME now use it.
+
+**Evidence:** live verification (`test-report-iter78.md` + recording): feed regression (8 VEVENTs, structure/CRLF/Content-Type unchanged); live comma fixture "QA78 pasta, salad night" → raw `SUMMARY:Dinner: QA78 pasta\, salad night`; live ×2 recipe fixture → `SUMMARY:Lunch: Test Stew ×2`; fixtures cleaned with byte-identical feed baseline; 375px + Console/Issues clean. Caveat: semicolon/backslash branches proven by unit tests only (same replace-chain code path).
+
+## Round 79 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ③ Mobile: week navigation on the planner and share page required tapping small Prev/Next links on phones; competitor mobile apps navigate weeks by swipe. Long-standing candidate finally scheduled.
+
+**Fixes shipped:**
+- Swipe week navigation (public/app.js): pages with `a[data-swipe-prev]`/`a[data-swipe-next]` (planner + share page) navigate on a horizontal touch swipe (≥70px, vertical < half horizontal to protect scrolling; swipes starting on form controls/links ignored).
+
+**Evidence:** live verification (`test-report-iter79.md` + recording): click nav regression; device-emulated swipes left/right navigate ?week=±7 on /app and /s; vertical-scroll, short-swipe and form-control guards all hold; desktop mouse drag unaffected; 375px + Console/Issues clean. Caveat: proven via Chrome touch emulation, not a physical device.
+
+## Round 80 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R75's two untested edges were still open (menu-duplicate 60-char name truncation, cross-household adversarial menu_id guard); testing surfaced a new 375px overflow with unbroken long menu names on /app/menus.
+
+**Fixes shipped:**
+- Extracted `copyName` into src/util.js with unit tests (suite 21→22); `/app/menus/duplicate` uses it.
+- 80b: `/app/menus` card h2 gained `break-words min-w-0 max-w-full`, fixing the 375px horizontal overflow with space-free long names.
+
+**Evidence:** live verification (`test-report-iter80.md` + recording): 60-X menu duplicated to a name of exactly 60 chars ("Copy of " + 52 X's); adversarial duplicate POST from a disposable second household with the QA household's menu_id = silent no-op (both households' menu counts unchanged); disposable account GDPR-deleted; 80b re-check: 60-char unbroken name wraps at 375px (scrollWidth 375, was 753); Console/Issues clean; all fixtures cleaned, standing data intact.
+
+## Round 81 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: the only bulk action on checked grocery items was the destructive "Clear checked" — re-shopping recurring items meant re-adding them by hand. Common list-app parity gap.
+
+**Fixes shipped:**
+- "Uncheck all" button on the /app/list "Checked off (N)" header (app view only; share page stays without it), backed by household-scoped POST /app/list/uncheck (checked=0 + version bump for share-page sync).
+
+**Evidence:** live verification (`test-report-iter81.md` + recording): 2-item checked fixture → one click restored both to their open categories with sources/notes/stores intact ("33 to buy · 2 checked" → "35 to buy"); share page synced and shows no button; single-toggle and Clear-checked regressions pass; 375px + Console/Issues clean; household restored to 35 to buy · 0 checked. Caveat: adversarial cross-household POST on the new route not exercised (same scoping pattern as proven in R80).
+
+## Round 82 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor: Plan to Eat July 2026 update reviewed — content/podcast growth only, no web product change requiring action (their nutrition/macro tracking stays out of our v1 scope).
+- ② UX: typing "milk, eggs, bread" in the grocery add box created one item; multi-add in one line is standard in list apps.
+
+**Fixes shipped:**
+- Comma multi-add: `splitListInput` in src/util.js (splits on commas but keeps decimal commas like "1,5 kg"; max 20 parts; unit-tested, suite 22→23), used in /app/list/add and the anonymous share add (respecting the 500-item cap). Placeholder now "Add items (e.g. milk, eggs, 2 lemons)".
+
+**Evidence:** live verification (`test-report-iter82.md` + recording): 3-way split on the app view, decimal comma kept as one item, re-add merge regression, share-page 2-way split synced to app, cleanup back to exactly 35 to buy · 0 checked, 375px + Console/Issues clean. Caveats: 20-part cap and length truncation proven by unit tests only; single-word QA labels categorize to "Other" (pre-existing categorizer, unrelated to the split).
+
+## Round 83 — 2026-08-06
+
+**Findings (by driver):**
+- ①/⑤: R82 testing showed common groceries (pears, plums, buns, jam) auto-categorized to "Other"; hand-typed items get no useful aisle grouping.
+
+**Fixes shipped:**
+- Expanded CATEGORY_RULES (src/util.js): Produce +fruits/vegetables (pears, plums, berries, oranges, melon, cauliflower, kale, …), Meat & Seafood +cod/haddock/tofu, Bakery +buns/bagel/rolls/baguette/cereal/couscous; new early rule sends jam/jelly/marmalade/peanut butter to Oils & Condiments (before Produce so "strawberry jam" isn't a berry); Dairy butter gained a `(?<!peanut )` lookbehind. Unit tests extended.
+
+**Evidence:** live verification (`test-report-iter83.md` + recording): pears→Produce, buns→Bakery, strawberry jam + peanut butter→Oils & Condiments, tofu→Meat & Seafood, plain butter→Dairy & Eggs; cleanup back to 35 to buy · 0 checked; 375px + Console/Issues clean. Caveat: 5 of ~30 new keywords proven live (rest unit-tested); existing rows keep their stored category by design.
+
+## Round 84 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ⑤ Data: Plan to Eat's July 2026 content push centers on "why meal plans fail / most common planning mistakes" (podcast #137 + Instagram series) — validated topic demand our guide cluster didn't cover.
+
+**Fixes shipped:**
+- pSEO guide #23 `why-meal-plans-fall-apart` ("Why your meal plan falls apart by Wednesday (and how to fix it)") — fantasy-week/rigid/invisible failure modes, planning the real week, survivable plans; cross-promotes share link + calendar visibility. Sitemap 26→27 locs; IndexNow 202.
+
+**Evidence:** live verification (`test-report-iter84.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/CTA), last of 23 cards, ItemList 23 items at position 23, @graph [Article, BreadcrumbList], og:type=article, og:description=excerpt, canonical, sitemap 27 locs, More-guides link click-proven (closing the standing exact-match caveat), 375px + Console/Issues clean.
+
+## Round 85 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX walkthrough: changing servings on an already-planned recipe required delete + re-add (scale was only settable at add time via the "+ add" form); Plan to Eat allows adjusting servings on a planned meal in place.
+
+**Fixes shipped:**
+- Inline ×N scale select on recipe-backed planner entry rows (options ×0.5–×4 from SCALES, autosubmit, emerald/semibold when ≠1); new household-scoped `POST /app/plan/scale` (SCALES-validated, `recipe_id IS NOT NULL` guard, preserves ?week). Static ×N badge is now print-only; note entries unchanged.
+
+**Evidence:** live verification (`test-report-iter85.md` + recording): ×1→×2 autosubmit + persistence across reload, note-only entry has no scale select, print preview shows ×2 badge with zero controls, share page unaffected, state restored to ×1 / 35 to buy · 0 checked, 375px + Console/Issues clean.
+
+**Caveats:** ×2 ingredient-to-grocery-list flow not exercised (would have polluted the standing 35-item list; scale→quantity math is the same code path proven in earlier rounds); adversarial cross-household POST skipped (route reuses the household-scoped UPDATE pattern live-proven in R80/R81).
+
+## Round 86 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R85 shipped inline scale editing with two unverified branches — the ×N ingredient-quantity flow into the grocery list and the /app/plan/scale adversarial guards (cross-household id, invalid scale value).
+
+**Fixes shipped:**
+- QA hardening round, no code change. Disposable-account production run (R68/R80 pattern): deterministic 2-ingredient fixture at ×2 produced exactly "2 cups milk"/"4 onions" via Add week's ingredients, and ×1 restore re-produced "1 cup milk"/"2 onions"; cross-household POST with the standing QA entry id and an invalid scale=7 both silently no-op'd (state verified in the owning session after reload); disposable account GDPR-deleted, share token 404.
+
+**Evidence:** `test-report-iter86.md` + recording; standing QA household verified untouched (Wed lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
+
+**Caveats:** adversarial POSTs were page-context fetch calls from the disposable session (route redirects unconditionally, so guard proof = unchanged state in owning session); 375px out of scope this round.
+
+## Round 87 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ④ Competitor: removing a single grocery item required check + "Clear checked" (destructive to other checked items' state); Plan to Eat and every mainstream list app offer per-item delete.
+
+**Fixes shipped:**
+- Red "Delete item" action in the grocery ✎ Edit-item popup (App view only), with a data-confirm prompt naming the item; new household-scoped `POST /app/list/remove` (DELETE + bumpVersion, back validated to /app/list prefix so store-filtered views are preserved).
+
+**Evidence:** live verification (`test-report-iter87.md` + recording): accept path (36→35 to buy), cancel path keeps item, delete under an active ?store= filter stays on the filtered URL, share-page rows remain checkbox-only, 375px popup fits, Console/Issues clean; restored to 35 to buy · 0 checked with no QA87/store residue.
+
+**Caveats:** the back-rejection branch (non-/app/list back) not adversarially probed live — same prefix-validation pattern as the R27 routes; share-page sync covered implicitly (zero residue) rather than a dedicated add+reload cycle.
+
+## Round 88 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: guide cluster keeps drawing the only non-QA traffic (picky-eaters guide at 16 views); "how to meal plan fast / 20 minutes" is a high-intent evergreen query competitors target with heavy content while our cluster lacked a time-boxed routine piece.
+
+**Fixes shipped:**
+- pSEO guide #24 `meal-plan-in-20-minutes` ("The 20-minute Sunday meal plan (a lazy, repeatable routine)") — 0–5/5–15/15–20 minute structure tying into recipe box, planned leftovers, one-shot list generation, staples and family share. Sitemap 27→28 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter88.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 24 cards, ItemList 24 items at position 24, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 28 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
+
+**Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round, no household data changed.
+
+## Round 89 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: note-only planner entries (e.g. "Fruit + yogurt", "Leftovers: …") could only be deleted and re-added to fix a typo or change wording — recipe entries got in-place scale editing in R85 but notes had no in-place edit at all.
+
+**Fixes shipped:**
+- ✎ details-popup on note-only planner rows (prefilled required input, maxlength 120, Save) posting to new `POST /app/plan/note` — household-scoped UPDATE with `recipe_id IS NULL` guard, empty note no-op, bumps version, redirects preserving ?week. Recipe rows unchanged; R37 Esc/click-outside close applies; action span stays print-hidden.
+
+**Evidence:** live verification (`test-report-iter89.md` + recording): edit→save→reload persistence, share page synced both ways (edited + restored), recipe row has scale select and no ✎, Esc/click-outside close, required guard blocks empty save, print preview shows text only, 375px with popup open clean, Console/Issues clean; household restored exactly (note original, lasagne ×1, 35 to buy · 0 checked).
+
+**Caveats:** whitespace-only server no-op, 121-char truncation, and cross-household POST not probed live — the route reuses the household-scoped pattern live-proven for /app/plan/scale in R86.
+
+## Round 90 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R89 shipped the note editor with four unverified server branches — 120-char truncation, whitespace-only no-op, cross-household guard, and the `recipe_id IS NULL` guard against recipe-backed entries.
+
+**Fixes shipped:**
+- QA hardening round, no code change. Disposable-account production run (R86 pattern): 150-char POST stored exactly the first 120 chars; whitespace-only note was a pure no-op; foreign-household entry id ("HACKED") and the QA household's own recipe-backed lasagne id both silently no-op'd (state verified in the owning sessions after reload); disposable account GDPR-deleted, share token 404.
+
+**Evidence:** `test-report-iter90.md` + recording; standing QA household verified untouched (note "Fruit + yogurt", lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
+
+**Caveats:** multi-byte/emoji truncation across the 120 boundary (UTF-16 slice) not probed; adversarial POSTs were page-context fetch calls, guard proof = unchanged state in the owning session.
+
+## Round 91 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R90 flagged that all user-input truncations used raw `slice(0, n)`, which can split an emoji's UTF-16 surrogate pair at the limit and store a broken half-character.
+- ③ Visual (found in-round by 91b testing): very long unbroken grocery labels overflowed the row horizontally at 375px (scrollWidth 859/375), pushing the ✎ off-screen.
+
+**Fixes shipped:**
+- New `clip(s, n)` util (slice to n UTF-16 units, drop a trailing lone high surrogate) + 7-case unit test (suite 24); applied to all user-typed fields: plan note create/edit (120), grocery note (140), labels/titles (200), staples, list/share add and the 500-char multi-add input.
+- 91b/91c: grocery row wrap fix — `min-w-0` on toggle form and button, `[overflow-wrap:anywhere]` on the label span (`break-words` alone never triggered because flex wrappers sized to min-content).
+
+**Evidence:** `test-report-iter91.md` (91/91b/91c sections) + recordings: emoji label round-trip via UI; boundary POSTs stored exactly 199/119 'a's with no U+FFFD or lone surrogate; 91b honest FAIL documented (859/375), 91c re-verified 375/375 with 8-line wrapped label and native ✎ click; restored to 35 to buy · 0 checked.
+
+**Caveats:** only 2 of the clip call sites runtime-tested (shared util covers the rest); desktop wrap only exercised at 2 lines.
+
+## Round 92 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ④ Competitor: staples could only reach the grocery list through the planner's "Add week's ingredients" — a list-only user (no meal plan that week) had no way to pull their staples in; Plan to Eat exposes staples directly on the shopping list.
+
+**Fixes shipped:**
+- "+ Add staples" button on the /app/list header (App view only) posting to new household-scoped `POST /app/list/staples`: per staple, ingredientKey dedupe — unchecked match skipped, checked match unchecked ("buy again", counted), no match inserted with the staple's stored category (fallback categorize()); bumpVersion only when something changed; redirect `?added=N&src=staples` with a "from your staples" notice variant.
+
+**Evidence:** live verification (`test-report-iter92.md` + recording): no-op branch ("Everything from your staples is already on the list.", milk not duplicated), insert branch with stored category (Spices & Baking, not the inferred one), idempotence, buy-again branch, cleanup to 35 to buy · 0 checked with milk staple intact, share page has no button, 375px header wraps cleanly, Console/Issues clean.
+
+**Caveats:** cross-household POST not adversarially probed (same household-scoped pattern proven R80/86/90); the one console 404 was tester's own wrong URL (/s/token/list doesn't exist).
+
+## Round 93 — 2026-08-06
+
+**Findings (by driver):**
+- ⑤ Data + ④ Competitor: R92 shipped one-tap staples→list but the guide cluster had no staples/pantry content; "grocery staples list" is an evergreen query and Plan to Eat's content repeatedly leans on lowering grocery costs / fewer store runs.
+
+**Fixes shipped:**
+- pSEO guide #25 `household-staples-list` ("The household staples list that ends midweek store runs") — what belongs on a staples list, maintain-once/reuse-forever (describes the dedupe-aware one-tap add), why it beats memory; companion content to the R92 feature. Sitemap 28→29 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter93.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 25 cards, ItemList 25 items at position 25, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 29 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
+
+**Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round.
+
+## Round 94 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (adversarial round, closing R91/R92 recorded gaps): live-proved cross-household isolation of `POST /app/list/staples` (session-scoped, disposable household B's press only touched B's list; standing list stayed 35 to buy · 0 checked) and the remaining clip() boundaries at runtime — item note 140 and label rename 200 both surrogate-safe. **Found 1 real bug (P1)**: paste import bypassed clip() — `parseRecipeText` used raw `title.slice(0, 200)`, so a title with an emoji straddling the 200-unit boundary stored a lone surrogate that rendered as `���` (measured `[202,'fffd']`).
+
+**Fixes shipped (94b):**
+- `src/recipes.js` now clips everywhere it truncates text: `parseRecipeText` returns `clip(title, 200)`, and JSON-LD `normalize()` clips title (200), description (500) and servings (40). New unit test covers the paste-title emoji boundary (suite 24/24).
+
+**Evidence:** `test-report-iter94.md` + two recordings: R94 failing proof (`aaa…a���`), 94b re-verification on production — same fixture now stores exactly 199 'a's (`[199,'61',false,false,true]`), cleanup verified (both disposable households GDPR-deleted, share tokens 404, standing household intact: 35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** normalize() clips (URL-import title/description/servings) verified in source + unit path only, not runtime (needs a controllable external recipe URL); manual-form/edit recipe title clip call sites remain code-read only.
+
+## Round 95 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ⑤ Data: /app/recipes is the #4 app path (270 views since 8/1) but every card unconditionally showed "+ Plan this week", even for recipes already on the current week — no signal, easy double-plan. Plan to Eat/Samsung Food both surface planned-state on recipe entries.
+
+**Fixes shipped:**
+- Recipe-box cards now show plan status: recipes on the CURRENT real week's plan (weekDates(today()), recipe-backed entries only, one DISTINCT recipe_id query) get a stone "✓ On this week's plan" link → /app with aria-label "<title> is on this week's plan"; others keep the emerald "+ Plan this week" → /app?recipe=<id>.
+
+**Evidence:** live verification (`test-report-iter95.md` + recording): lasagne card ✓/other 6 cards +, full plan→✓→unplan→+ round-trip through the native UI (Test Soup on Mon snacks, then removed), A–Z sort keeps badges, 375px single-column grid clean, Console/Issues clean, household left exactly as found (35 to buy · 0 checked, Wed lasagne ×1, Fruit + yogurt note).
+
+**Caveats:** note-only exclusion asserted from code (recipe_id IS NOT NULL); tag-filter variant covered by the shared `planned` Set + A–Z spot check; badge keys off today()'s week, not ?week=.
+
+## Round 96 — 2026-08-06
+
+**Findings (by driver):**
+- ③ Visual/mobile + ② UX: with 35 open items across 7 categories the grocery list is several screens tall on mobile — no quick way to jump to a section while shopping; competitor list apps offer aisle/section navigation.
+
+**Fixes shipped:**
+- "Jump to aisle" chip nav above the grocery list (App + share page, shared listBody): rendered when ≥3 open (unchecked) categories, one pill "<Category> <count>" → #cat-<idx>; sections get id=cat-<idx> class=scroll-mt-4; print:hidden; chip order follows the household's aisle order and counts are open items per category (store filters recompute upstream).
+
+**Evidence:** live verification (`test-report-iter96.md` + recording): 7 chips 1:1 with sections (name/href/count/order), counts sum to 35, anchor jump to #cat-6 on both /app/list and /s/<token>, print preview excludes the nav, 375px chips wrap on 3 rows at 375/375 with working tap; Console/Issues clean; read-only round, household untouched.
+
+**Caveats:** store-filter chip variant untested at runtime (standing household has no stores; same items pipeline feeds listBody); <3-categories hide threshold asserted from code only.
+
+## Round 97 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two recorded runtime gaps remained — R94's normalize() clips on the URL-import path (title 200 / description 500 / servings 40) were code-read only, and R96's store-filtered Jump-to-aisle chips had never run against a household with stores.
+
+**Fixes shipped:**
+- No app code change. Added a controllable JSON-LD import fixture `test/fixtures/qa97-recipe.html` (Recipe with name 201 UTF-16 units / description 501 / recipeYield 41, each ending in 🍕 straddling the cap), servable via raw.githubusercontent.com — reusable for future import boundary tests.
+
+**Evidence:** live verification on disposable household D (`test-report-iter97.md` + recording): URL import of the fixture stored title exactly 199 a's / description 499 d's / servings 39 s's, no U+FFFD (normalize() clips runtime-proven); store-filter chips — with milk+bread on "QA97 Mart" and dish soap on "QA97 B", the QA97 Mart filter showed 3 to buy with exactly 3 chips (no Other), All stores restored 4 chips; cleanup: D GDPR-deleted, share token 404, standing household intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** store filter keeps unassigned items (`!i.store || i.store===storeFilter`), so a distinguishing test requires an item on a *different* store — the originally planned single-store fixture was strengthened mid-run.
+
+## Round 98 — 2026-08-06
+
+**Findings (by driver):**
+- ④ Competitor + ⑤ Data: Plan to Eat's 2025–26 content leans heavily on household stress/mental-load topics ("Dinner shouldn't add to your stress", grocery-cost content); the guide cluster had no piece on sharing the planning work itself — which is exactly the product's differentiator (no-login family share link).
+
+**Fixes shipped:**
+- pSEO guide #26 `meal-planning-as-a-team` ("Meal planning as a team: splitting the work without the friction") — role-based split, read-only share link as the no-app-for-everyone answer, defaults-vs-exceptions. Sitemap 29→30 locs; IndexNow 200.
+
+**Evidence:** live verification (`test-report-iter98.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 26 cards, ItemList 26 items position 26, single @graph [Article, BreadcrumbList], metadata identities all hold, sitemap 30 locs, More-guides wrap = first 3 titles, 375px 375/375 + Console/Issues clean.
+
+**Caveats:** More-guides verified by titles (mechanism click-proven R84); logged-out CTA covered R73; read-only round.
+
+## Round 99 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: R95 added plan-status to recipe-box cards, but the recipe DETAIL page still showed an unconditional emerald "Add to your week plan" — inconsistent signal and the same double-plan risk on the page users read before cooking.
+
+**Fixes shipped:**
+- /app/recipes/:id now computes plannedThisWeek (recipe-backed plan_entries in the current weekDates(today()) window) and the action row shows a stone "✓ On this week's plan" link → /app plus a small underlined "Plan again" link → /app?recipe=<id> when planned (preserving intentional re-planning), else the unchanged emerald button. Share recipe page (canEdit=false) unchanged.
+
+**Evidence:** live verification (`test-report-iter99.md` + recording): lasagne detail shows ✓ + Plan again (Plan again lands on the planner preselect banner, nothing added), Test Soup detail unchanged, Favourite/Add-ingredients unaffected, share recipe page has no action row, print hides the row, 375px wraps at 375/375, Console/Issues clean on fresh load; household untouched (35 to buy · 0 checked).
+
+**Caveats:** print preview with an external hero image triggers harmless third-party CORB warnings in the Issues panel (pre-existing, print-only); "Plan again" verified to the preselect banner only.
+
+## Round 100 — 2026-08-06 (capstone)
+
+**Findings (by driver):**
+- ① QA (capstone): after 100 rounds of iteration, ran a full golden-path production sweep on a disposable household to prove the entire product loop end-to-end — no code change this round.
+
+**Sweep verified (test-report-iter100.md + showcase recording):**
+- Signup via email code → empty planner; recipe intake ×3 (URL import with clipped 199-char title, paste-parse, manual); week planning (×1 and ×2 entries + note, ✎ note edit, Today anchor); "Add week's ingredients" (5 items, ×2 quantities doubled, staple auto-added, aisle chips match sections, check/uncheck, rename+note, per-item delete); anonymous share link (week + list sync, anonymous add flowing back, read-only recipe page, calendar.ics 200 with 3 VEVENTs incl. note entries); guides/SEO (26 cards, sitemap 30 locs); 375px planner+list at 375/375; Console/Issues clean; GDPR delete → share token and calendar.ics 404; standing household exactly intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** share "logged-out" check used incognito (the share route renders anonymously regardless of session); print view and store filters not re-exercised (runtime-proven R92/R96/R97/R99).
