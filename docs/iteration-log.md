@@ -1111,3 +1111,52 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 - Signup via email code → empty planner; recipe intake ×3 (URL import with clipped 199-char title, paste-parse, manual); week planning (×1 and ×2 entries + note, ✎ note edit, Today anchor); "Add week's ingredients" (5 items, ×2 quantities doubled, staple auto-added, aisle chips match sections, check/uncheck, rename+note, per-item delete); anonymous share link (week + list sync, anonymous add flowing back, read-only recipe page, calendar.ics 200 with 3 VEVENTs incl. note entries); guides/SEO (26 cards, sitemap 30 locs); 375px planner+list at 375/375; Console/Issues clean; GDPR delete → share token and calendar.ics 404; standing household exactly intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
 
 **Caveats:** share "logged-out" check used incognito (the share route renders anonymously regardless of session); print view and store filters not re-exercised (runtime-proven R92/R96/R97/R99).
+
+## Round 101 — 2026-08-07 (专项 sprint: multi-competitor deep scan)
+
+**Driver ④ (competitor research, expanded):** scanned 16+ competitors beyond the two head-to-head benchmarks (Plan to Eat, Samsung Food): Paprika, AnyList, CopyMeThat, Eat This Much, Mealime, SideChef, RecipeSage, Tandoor, Grocy, OurGroceries, Crouton, Umami, Mela, MealBoard, Cooklist, BigOven. Method: real page fetches of marketing/pricing pages + prior logged-in product experience; observable-tech reverse notes (frameworks, pSEO structure, pricing patterns). No anti-bot bypass (Samsung Food/BigOven 403 plain fetch — covered from prior in-browser sessions).
+
+**Output:** docs/competitor-scan-2026-08.md — per-competitor notes, cross-cutting takeaways, priority-ordered adoption backlog. Key finding: no credible competitor is "free forever"; every one anchors a paid tier ($1/mo CopyMeThat → $5.95/mo Plan to Eat). Interaction patterns to adopt: tap-to-start timers (Paprika/Crouton), cook-mode step dimming (Mela), 3-step narrative + outcome metrics (Mealime/Plan to Eat), data export (RecipeSage/Umami), household-vs-individual pricing (AnyList).
+
+**Evidence:** docs/competitor-scan-2026-08.md; raw fetches in /tmp/comp (session-local).
+
+## Round 102 — 2026-08-07 (定价改造: Beta free trial + published paid plans)
+
+**Boss directive (P0):** stop positioning as "free"; display real paid plans; all features open as "Beta free trial" (no actual billing — payments not yet connected).
+
+**Fixes shipped:**
+- New `/pricing` page: 3 tiers (Free $0 / Household $3/mo or $24/yr, highlighted / Supporter $29/yr) + prominent open-beta banner ("free for everyone during the beta, no card required, billing starts only at launch with prior notice") + 3 pricing FAQs.
+- Landing: badge → "OPEN BETA · ALL FEATURES FREE DURING BETA · NO ADS"; hero CTA → "Start your free beta trial"; FAQ #1 rewritten to cost/beta framing with /pricing link; meta description updated.
+- layout.js: "Pricing" in logged-out nav + footer; header CTA → "Start free trial"; footer/default-description reworded to open-beta framing.
+- Terms: beta/pricing-at-GA clause replaces "provided free of charge".
+- Guide "Free Plan to Eat alternatives": MealLoop sentence reworded to open-beta framing.
+- sitemap.xml 30 → 31 locations (adds /pricing).
+
+**Evidence:** live checks — /pricing 200 with tier table; landing badge/CTA/FAQ updated; sitemap 31 locs; terms beta clause live. npm test 24/24, build:css clean. Constraint respected: no real payment collection; CTAs route to /login.
+
+## Round 103 — 2026-08-05 (competitor sprint: landing "Plan → Shop → Cook")
+
+**Findings (by driver):**
+- ④ Competitor (P1, from docs/competitor-scan-2026-08.md): Mealime/Plan to Eat/Eat This Much all anchor their landing on a 3-step outcome narrative ("Plan → Shop → Cook" / generator-first); our landing jumped from feature grid straight to email capture with no story arc and no pricing teaser.
+- Constraint respected: no fabricated outcome metrics or testimonials (red line: 不伪造数据) — we have no organic users yet, so the section states what the product does, not invented stats.
+
+**Fixes shipped:**
+- `src/index.js` landing: new "How it works" section — numbered Plan / Shop / Cook cards (emerald step badges, white cards) + a pricing teaser line linking /pricing, placed between the feature grid and the email-capture band.
+
+## Round 104 — 2026-08-05 (competitor sprint: cook-mode step focus + tap-to-start timers)
+
+**Findings (by driver):**
+- ④ Competitor (P1): Mela dims all but the current cooking step; Paprika/Crouton auto-detect durations in step text and make them tap-to-start timers. Our cook mode had tap-to-done but no current-step focus and no timers.
+
+**Fixes shipped:**
+- `public/app.js`: in cook mode the first not-done step gets `.current` (recomputed on every toggle); duration phrases ("10 minutes", "1 hour", ranges like "10–12 minutes", via TreeWalker on step text nodes, one per step, ≤24h) become inline `timer-btn` buttons — tap starts a mm:ss countdown (amber), finish flashes red "⏰ Time's up — tap to reset", tap while running/finished resets; `stopPropagation` so timers don't toggle step done.
+- `src/input.css`: `.cook-mode .steps-list li:not(.current):not(.done) { opacity:.55 }`, timer-btn states (dotted underline → running amber tabular-nums → finished red flash animation). Works on both /app/recipes/:id and the anonymous share recipe page (same recipeBody + app.js).
+
+## Round 105 — 2026-08-05 (competitor sprint: recipe JSON export — data portability)
+
+**Findings (by driver):**
+- ④ Competitor (P1): RecipeSage/Umami/Tandoor treat data export as a trust lever (JSON-LD/PDF/Markdown exports); AnyList/Paprika lock data in. We had GDPR delete but no export.
+
+**Fixes shipped:**
+- `src/index.js`: new `GET /app/export.json` (behind requireHousehold, household-scoped) — all recipes as schema.org `Recipe` objects (name, recipeIngredient, HowToStep instructions, description/url/image/recipeYield/prepTime/cookTime ISO-8601 durations, keywords=tags, comment=notes, dateCreated) wrapped in `{exportedAt, household, recipeCount, recipes}`, served with `Content-Disposition: attachment; filename="mealloop-recipes.json"`.
+- `/app/share`: new "Your data" card with a Download recipes (JSON) link, placed above the Account card.

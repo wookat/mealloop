@@ -38,7 +38,7 @@ const FEATURED_SLUGS = ['meal-planning-for-picky-eaters', 'batch-cooking-for-bus
 const FEATURED_GUIDES = FEATURED_SLUGS.map((s) => GUIDES.find((g) => g.slug === s)).filter(Boolean);
 
 const LANDING_FAQ = [
-  ['Is MealLoop really free?', 'Yes — the planner, recipe import, grocery list and family sharing are all free. No trial, no card, no ads.'],
+  ['How much does MealLoop cost?', 'MealLoop is in open beta: every feature — the planner, recipe import, grocery list and family sharing — is free while we finish the product, no card required. Paid plans (see our <a class="text-emerald-700 underline" href="/pricing">pricing</a>) start billing only when we launch, and beta users get notice first.'],
   ['Does my family need to install anything or sign up?', 'No. You share one private link; anyone who opens it sees the week\u2019s plan and the live grocery list in their browser and can check items off — no app, no account.'],
   ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, just paste the whole recipe text — we split it into title, ingredients and steps for you.'],
   ['Does the grocery list update for everyone in real time?', 'Yes. Checking an item on your phone shows up for everyone else viewing the list within a few seconds \u2014 handy when two people split the store.'],
@@ -50,11 +50,11 @@ app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
 <section class="py-10 sm:py-16 text-center">
-  <p class="inline-block mb-4 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold tracking-wide">FREE · NO APP REQUIRED · NO ADS</p>
+  <p class="inline-block mb-4 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold tracking-wide">OPEN BETA · ALL FEATURES FREE DURING BETA · NO ADS</p>
   <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-stone-900 max-w-2xl mx-auto">What's for dinner? <span class="text-emerald-600">Decide once, together.</span></h1>
   <p class="mt-4 text-lg text-stone-600 max-w-xl mx-auto">Import recipes from any site, plan your week, and share one live grocery list with your whole family — with a single link. No accounts needed for them.</p>
   <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-    <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Start planning — free'}</a>
+    <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Start your free beta trial'}</a>
     <a href="/guides" class="px-6 py-3 rounded-xl border border-stone-300 font-semibold text-lg hover:bg-stone-100">How it works</a>
   </div>
 </section>
@@ -68,6 +68,24 @@ app.get('/', async (c) => {
     <h3 class="font-semibold text-stone-900">${t}</h3>
     <p class="mt-1.5 text-sm text-stone-600">${d}</p>
   </div>`).join('')}
+</section>
+<section class="py-8">
+  <h2 class="text-2xl font-bold text-center">How it works</h2>
+  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+    ${[
+      ['1', 'Plan', 'Pick dinners for the week from your recipe box — import from any site, paste text, or type your own. Ten minutes on Sunday.'],
+      ['2', 'Shop', 'One tap turns the week into an aisle-sorted grocery list. Quantities merge, staples auto-add, and everyone sees the same live list.'],
+      ['3', 'Cook', 'Open the recipe on any device: cook mode keeps the screen awake, scales servings, and lets you tap off steps as you go.'],
+    ].map(([n, t, d]) => `
+    <div class="rounded-2xl bg-white border border-stone-200 p-5">
+      <div class="flex items-center gap-3">
+        <span aria-hidden="true" class="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white font-bold">${n}</span>
+        <h3 class="font-semibold text-lg text-stone-900">${t}</h3>
+      </div>
+      <p class="mt-3 text-sm text-stone-600">${d}</p>
+    </div>`).join('')}
+  </div>
+  <p class="mt-6 text-center text-sm text-stone-600">Curious what it will cost after the beta? <a class="text-emerald-700 underline" href="/pricing">See pricing</a> — everything is free while we're in beta.</p>
 </section>
 <section class="rounded-2xl bg-emerald-700 text-white p-6 sm:p-8 my-8">
   <h2 class="text-xl font-bold">Get new features first</h2>
@@ -109,7 +127,7 @@ app.get('/', async (c) => {
       acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '') },
     })),
   })}</script>`;
-  return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Free family meal planner: import recipes from any site, plan your week, share one live grocery list with a single link.', body, user, path: '/' }));
+  return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Family meal planner in open beta: import recipes from any site, plan your week, share one live grocery list with a single link. All features free during beta.', body, user, path: '/' }));
 });
 
 app.post('/subscribe', async (c) => {
@@ -120,6 +138,65 @@ app.post('/subscribe', async (c) => {
     if (!seen) await c.env.DB.prepare('INSERT INTO email_intents (id, email, source) VALUES (?, ?, ?)').bind(uid(), email, 'landing').run();
   }
   return c.html(page({ title: 'Thanks', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">We'll email you when new features ship.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
+});
+
+const PRICING_PLANS = [
+  {
+    name: 'Free', price: '$0', per: 'forever', cta: 'Start free',
+    blurb: 'For trying MealLoop or planning solo.',
+    features: ['Up to 30 recipes', 'Weekly meal planner', 'One grocery list, aisle-sorted', 'Recipe import from any site', 'Metric / imperial switch'],
+  },
+  {
+    name: 'Household', price: '$3', per: '/month · or $24/year', cta: 'Start free beta trial', highlight: true,
+    blurb: 'The full family loop — one plan for the whole house.',
+    features: ['Unlimited recipes', 'Family share link — no accounts for family', 'Live-syncing grocery list', 'Multiple stores & custom aisles', 'Staples, saved menus & leftovers planning', 'Calendar (iCal) subscription', 'Cook mode & recipe scaling'],
+  },
+  {
+    name: 'Supporter', price: '$29', per: '/year', cta: 'Start free beta trial',
+    blurb: 'Everything in Household, plus help shape the roadmap.',
+    features: ['Everything in Household', 'Priority support', 'Early access to new features', 'Vote on the roadmap'],
+  },
+];
+
+app.get('/pricing', async (c) => {
+  const user = await getUser(c);
+  const body = `
+<section class="py-8 sm:py-12 text-center">
+  <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900">Simple pricing, built for households</h1>
+  <p class="mt-3 text-lg text-stone-600 max-w-xl mx-auto">One subscription covers the whole family — people you share your link with never need an account or a plan.</p>
+  <div class="mt-5 max-w-xl mx-auto rounded-xl bg-amber-50 border border-amber-200 p-4 text-left">
+    <p class="font-semibold text-amber-900">MealLoop is in open beta</p>
+    <p class="text-sm text-amber-800 mt-1">Every plan below is <strong>free for everyone during the beta</strong> — all features unlocked, no card required. Billing starts only at launch, and beta users will be notified well in advance.</p>
+  </div>
+</section>
+<section class="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto items-stretch">
+  ${PRICING_PLANS.map((p) => `
+  <div class="rounded-2xl bg-white border ${p.highlight ? 'border-emerald-500 ring-1 ring-emerald-500 relative' : 'border-stone-200'} p-6 flex flex-col">
+    ${p.highlight ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-0.5">Most popular</span>' : ''}
+    <h2 class="font-bold text-lg text-stone-900">${p.name}</h2>
+    <p class="mt-1 text-sm text-stone-600">${p.blurb}</p>
+    <p class="mt-4"><span class="text-3xl font-extrabold text-stone-900">${p.price}</span> <span class="text-sm text-stone-500">${p.per}</span></p>
+    <ul class="mt-4 space-y-2 text-sm text-stone-700 flex-1">
+      ${p.features.map((f) => `<li class="flex gap-2"><span aria-hidden="true" class="text-emerald-600 font-bold">✓</span>${f}</li>`).join('')}
+    </ul>
+    <a href="${user ? '/app' : '/login'}" class="mt-6 inline-block text-center rounded-lg ${p.highlight ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'border border-stone-300 hover:bg-stone-100'} px-4 py-2.5 font-semibold">${user ? 'Open your planner' : p.cta}</a>
+  </div>`).join('')}
+</section>
+<section class="max-w-2xl mx-auto py-10">
+  <h2 class="text-xl font-bold text-center">Pricing questions</h2>
+  <div class="mt-5 space-y-3">
+    ${[
+      ['Is it really all free right now?', 'Yes. During the open beta every feature of every plan is unlocked for all accounts, and we don\u2019t collect any payment details. The prices above are what plans will cost when MealLoop launches.'],
+      ['What happens to my data when billing starts?', 'Nothing is deleted. You\u2019ll be asked to pick a plan; if you stay on Free, your recipes remain readable and exportable even if you\u2019re over the Free limits.'],
+      ['Do family members I share the link with need a plan?', 'No — that\u2019s the point of MealLoop. One Household subscription covers everyone; viewers via your share link never need an account or a payment.'],
+    ].map(([q, a]) => `
+    <details class="rounded-xl bg-white border border-stone-200 p-4">
+      <summary class="font-semibold cursor-pointer text-stone-900">${q}</summary>
+      <p class="mt-2 text-sm text-stone-600">${a}</p>
+    </details>`).join('')}
+  </div>
+</section>`;
+  return c.html(page({ title: 'Pricing', description: 'MealLoop pricing: Free, Household and Supporter plans. All features free for everyone during the open beta — no card required.', body, user, path: '/pricing' }));
 });
 
 app.get('/privacy', async (c) =>
@@ -155,7 +232,7 @@ app.get('/privacy', async (c) =>
 
 app.get('/terms', async (c) =>
   c.html(page({ title: 'Terms', path: '/terms', user: await getUser(c), body: legalBody('Terms of Service', `
-<p>MealLoop is provided free of charge, "as is", without warranty of any kind.</p>
+<p>MealLoop is currently in open beta: all features are provided free of charge during the beta period. Published pricing takes effect only at general availability, with prior notice to beta users. The service is provided "as is", without warranty of any kind.</p>
 <ul class="list-disc pl-5 space-y-1">
 <li>You retain ownership of the content you add. Imported recipes remain the property of their original publishers; we store them for your personal household use and always link back to the source.</li>
 <li>Do not use MealLoop for unlawful content or to abuse the import service.</li>
@@ -215,7 +292,7 @@ app.get('/guides/:slug', async (c) => {
 <nav aria-label="Breadcrumb" class="text-sm text-stone-500"><a class="hover:text-emerald-700 hover:underline" href="/guides">Guides</a> <span aria-hidden="true">›</span> <span class="text-stone-700">${esc(g.title)}</span></nav>
 <h1 class="text-3xl font-bold">${esc(g.title)}</h1>
 ${g.body}
-<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free, no app needed.</p><a href="${user ? '/app' : '/login'}" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">${user ? 'Open your planner' : 'Start planning'}</a></div>
+<div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4 mt-6"><p class="font-medium text-emerald-900">Try it with MealLoop — free during the open beta, no app needed.</p><a href="${user ? '/app' : '/login'}" class="inline-block mt-2 px-4 py-2 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">${user ? 'Open your planner' : 'Start planning'}</a></div>
 ${relatedGuides(g)}
 </article>`;
   return c.html(page({ title: g.title, description: g.excerpt, body, path: `/guides/${g.slug}`, ogType: 'article', user }));
@@ -1628,7 +1705,12 @@ app.get('/app/share', async (c) => {
   </div>
 </div>
 <a href="/app" class="inline-block mt-6 text-sm text-emerald-700 underline">Back to planner</a>
-<div class="mt-12 rounded-xl border border-stone-200 bg-white p-5 text-left">
+<div class="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-left">
+  <h2 class="font-semibold">Your data</h2>
+  <p class="mt-1 text-sm text-stone-600">Your recipes are yours. Download the whole recipe box as JSON (schema.org Recipe format) — importable elsewhere, good as a backup.</p>
+  <a href="/app/export.json" download="mealloop-recipes.json" class="mt-3 inline-block rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Download recipes (JSON)</a>
+</div>
+<div class="mt-6 rounded-xl border border-stone-200 bg-white p-5 text-left">
   <h2 class="font-semibold">Account</h2>
   <p class="mt-1 text-sm text-stone-600">Signed in as <strong>${esc(user.email)}</strong>.</p>
   <form method="post" action="/app/account/delete" class="mt-3" data-confirm="Permanently delete your account and ALL household data (recipes, plans, grocery list)? This cannot be undone and the share link will stop working.">
@@ -1638,6 +1720,33 @@ app.get('/app/share', async (c) => {
 </div>
 </div>`;
   return c.html(page({ title: 'Share & account', body, user, path: '/app/share', noindex: true }));
+});
+
+app.get('/app/export.json', async (c) => {
+  const h = c.get('household');
+  const rows = await c.env.DB.prepare('SELECT * FROM recipes WHERE household_id = ? ORDER BY created_at').bind(h.id).all();
+  const recipes = rows.results.map((r) => {
+    const out = {
+      '@context': 'https://schema.org',
+      '@type': 'Recipe',
+      name: r.title,
+      recipeIngredient: JSON.parse(r.ingredients_json || '[]'),
+      recipeInstructions: JSON.parse(r.steps_json || '[]').map((s) => ({ '@type': 'HowToStep', text: s })),
+      dateCreated: r.created_at,
+    };
+    if (r.description) out.description = r.description;
+    if (r.source_url) out.url = r.source_url;
+    if (r.image_url) out.image = r.image_url;
+    if (r.servings) out.recipeYield = r.servings;
+    if (r.prep_minutes) out.prepTime = `PT${r.prep_minutes}M`;
+    if (r.cook_minutes) out.cookTime = `PT${r.cook_minutes}M`;
+    if (r.tags) out.keywords = r.tags;
+    if (r.notes) out.comment = r.notes;
+    return out;
+  });
+  return c.json({ exportedAt: new Date().toISOString(), household: h.name, recipeCount: recipes.length, recipes }, 200, {
+    'Content-Disposition': 'attachment; filename="mealloop-recipes.json"',
+  });
 });
 
 app.get('/s/:token/calendar.ics', async (c) => {
@@ -1798,7 +1907,7 @@ app.get('/robots.txt', (c) =>
 );
 
 app.get('/sitemap.xml', (c) => {
-  const urls = ['/', '/guides', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+  const urls = ['/', '/pricing', '/guides', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join('\n')}

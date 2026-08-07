@@ -85,10 +85,60 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible' && article.classList.contains('cook-mode')) requestWake();
     });
+    var steps = article.querySelectorAll('.steps-list li');
+    var setCurrent = function () {
+      var found = false;
+      steps.forEach(function (li) {
+        li.classList.remove('current');
+        if (!found && !li.classList.contains('done')) { li.classList.add('current'); found = true; }
+      });
+    };
     article.querySelectorAll('.steps-list li, .ingredients-list li.flex').forEach(function (li) {
       li.addEventListener('click', function () {
-        if (article.classList.contains('cook-mode')) li.classList.toggle('done');
+        if (article.classList.contains('cook-mode')) { li.classList.toggle('done'); setCurrent(); }
       });
+    });
+    cookBtn.addEventListener('click', setCurrent);
+
+    // Tap-to-start timers: detect durations in step text (e.g. "10 minutes", "1 hour").
+    var timerRe = /(\d+(?:\s*[\u2013-]\s*\d+)?)\s*(minutes?|mins?|hours?|hrs?)\b/i;
+    steps.forEach(function (li) {
+      var walker = document.createTreeWalker(li, NodeFilter.SHOW_TEXT);
+      var node;
+      while ((node = walker.nextNode())) {
+        var m = timerRe.exec(node.textContent);
+        if (!m) continue;
+        var mins = parseInt(m[1], 10);
+        if (/hour|hr/i.test(m[2])) mins *= 60;
+        if (!mins || mins > 24 * 60) break;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'timer-btn';
+        btn.textContent = m[0];
+        btn.setAttribute('aria-label', 'Start a ' + mins + ' minute timer');
+        var after = node.splitText(m.index);
+        after.textContent = after.textContent.slice(m[0].length);
+        node.parentNode.insertBefore(btn, after);
+        (function (btn, total) {
+          var left = null, iv = null;
+          btn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (iv || btn.classList.contains('finished')) { clearInterval(iv); iv = null; left = null; btn.classList.remove('running', 'finished'); btn.textContent = btn.dataset.label; return; }
+            btn.dataset.label = btn.dataset.label || btn.textContent;
+            left = total * 60;
+            btn.classList.add('running');
+            btn.classList.remove('finished');
+            var tick = function () {
+              if (left <= 0) { clearInterval(iv); iv = null; btn.classList.remove('running'); btn.classList.add('finished'); btn.textContent = '\u23f0 Time\u2019s up \u2014 tap to reset'; return; }
+              btn.textContent = '\u23f1 ' + Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+              left--;
+            };
+            tick();
+            iv = setInterval(tick, 1000);
+          });
+        })(btn, mins);
+        break;
+      }
     });
   }
 

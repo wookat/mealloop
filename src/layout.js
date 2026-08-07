@@ -1,7 +1,7 @@
 import { esc } from './util.js';
 
 export function page({ title, description, body, user, path = '/', noindex = false, ogType = 'website' }) {
-  const desc = description || 'Family meal planning with real-time sync. Import recipes, plan your week, share one grocery list — free.';
+  const desc = description || 'Family meal planning with real-time sync. Import recipes, plan your week, share one grocery list. All features free during the open beta.';
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -41,8 +41,9 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
            <a href="/app/recipes" ${path.startsWith('/app/recipes') ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Recipes</a>
            <a href="/app/list" ${path.startsWith('/app/list') ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>List</a>
            <form method="post" action="/logout" class="inline"><button class="px-2 sm:px-3 py-1.5 rounded-lg text-stone-500 hover:bg-stone-100 whitespace-nowrap">Log out</button></form>`
-        : `<a href="/login" class="px-3 py-1.5 rounded-lg hover:bg-stone-100">Log in</a>
-           <a href="/login" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700">Get started free</a>`}
+        : `<a href="/pricing" ${path === '/pricing' ? 'aria-current="page" class="px-2 sm:px-3 py-1.5 rounded-lg bg-stone-100 font-medium"' : 'class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100"'}>Pricing</a>
+           <a href="/login" class="px-2 sm:px-3 py-1.5 rounded-lg hover:bg-stone-100">Log in</a>
+           <a href="/login" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 whitespace-nowrap">Start free trial</a>`}
     </nav>
   </div>
 </header>
@@ -50,6 +51,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <footer class="border-t border-stone-200 bg-white mt-10 print:hidden">
   <div class="max-w-5xl mx-auto px-4 py-8 text-sm text-stone-500 space-y-3">
     <div class="flex flex-wrap gap-x-5 gap-y-2">
+      <a class="hover:text-stone-700" href="/pricing">Pricing</a>
       <a class="hover:text-stone-700" href="/guides">Guides</a>
       <a class="hover:text-stone-700" href="/privacy">Privacy</a>
       <a class="hover:text-stone-700" href="/terms">Terms</a>
@@ -60,7 +62,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
       <a class="underline hover:text-stone-700" href="https://cv.zalize.com" rel="noopener">CV Builder</a> ·
       <a class="underline hover:text-stone-700" href="https://watchdeck.zalize.com" rel="noopener">WatchDeck</a>
     </p>
-    <p>© ${new Date().getFullYear()} MealLoop. Free family meal planning. No ads, no cookies-based tracking.</p>
+    <p>© ${new Date().getFullYear()} MealLoop. Family meal planning — in open beta, all features free during beta. No ads, no cookie-based tracking.</p>
   </div>
 </footer>
 </body>
