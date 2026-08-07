@@ -1254,3 +1254,16 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 118 — 2026-08-07 (visual sprint: stack/component-library review)
 
 **Findings & decision:** shadcn/ui and Motion/GSAP are React-runtime tools; MealLoop is CSP-strict server-rendered Hono + vanilla JS. Adopted the shadcn-style *token* architecture (design tokens in Tailwind v4 `@theme`) and CSS-native spring animations instead — same visual outcome, zero bundle/CSP cost. Tailwind already at v4 (latest). Recorded in docs/visual-research-2026-08.md + tech-stack-review addendum.
+
+## Round 119 — 2026-08-08 (performance: asset caching + font preload)
+
+**Findings:** All static assets served `max-age=0, must-revalidate` — the 39 KB brand font and icons re-validated on every view; font also discovered late (CSS-chained).
+**Fixes shipped:** `public/_headers` — `/fonts/*` → `max-age=31536000, immutable`; favicon/icons/og-card → `max-age=86400`. `<link rel=preload as=font>` for nunito-latin.woff2 in the shared head.
+**Verified in production:** font now `cache-control: public, max-age=31536000, immutable`, og-card 86400, preload tag present on landing. TTFB spot-check: / 131 ms, /pricing 74 ms, /login 108 ms.
+
+## Round 120 — 2026-08-08 (Resend integration: double opt-in product-updates subscription)
+
+**Context:** Boss provisioned org RESEND_API_KEY (send-only). DNS verified: DKIM `resend._domainkey.zalize.com`, SPF on `send.zalize.com`, DMARC `p=quarantine` — deliverability test to a Mail.tm inbox landed in ~5 s.
+**Findings:** the landing `/subscribe` form stored raw email intents with **no** confirmation — sending product email to that list would violate the double-opt-in red line.
+**Fixes shipped:** migration 0014 (confirmed/confirm_token/unsub_token/confirmed_at/unsubscribed_at on email_intents); `/subscribe` now sends a confirmation email (Resend) with `List-Unsubscribe` + `List-Unsubscribe-Post: One-Click` headers and neutral "check your inbox" response (no address enumeration, 2 sends/hour rate limit); `GET /subscribe/confirm?t=` marks confirmed; `GET|POST /unsubscribe?t=` (one-click capable) marks unsubscribed and invalidates the confirm token. Product email may only ever target `confirmed = 1 AND unsubscribed_at IS NULL`; legacy unconfirmed intents get no email.
+**Verified in production:** full loop — subscribe → confirmation email received (headers verified in raw source) → confirm page → unsubscribe (GET and POST) → confirm token invalid after unsubscribe → bad token safe. Login magic-code emails unchanged (worker secret already present).

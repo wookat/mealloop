@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
-import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
+import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
@@ -167,11 +167,62 @@ app.post('/subscribe', async (c) => {
   const form = await c.req.parseBody();
   const email = String(form.email || '').trim().toLowerCase();
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    const seen = await c.env.DB.prepare('SELECT id FROM email_intents WHERE email = ?').bind(email).first();
-    if (!seen) await c.env.DB.prepare('INSERT INTO email_intents (id, email, source) VALUES (?, ?, ?)').bind(uid(), email, 'landing').run();
+    const seen = await c.env.DB.prepare('SELECT id, confirmed, confirm_token, unsub_token FROM email_intents WHERE email = ? AND unsubscribed_at IS NULL').bind(email).first();
+    if (seen && seen.confirmed) {
+      // already confirmed — say nothing different (no enumeration), send no email
+    } else {
+      const rlKey = `subconfirm:${email}`;
+      const sent = parseInt((await c.env.KV.get(rlKey)) || '0', 10);
+      if (sent < 2) {
+        await c.env.KV.put(rlKey, String(sent + 1), { expirationTtl: 3600 });
+        let confirmToken = seen && seen.confirm_token;
+        let unsubToken = seen && seen.unsub_token;
+        if (!confirmToken || !unsubToken) {
+          confirmToken = token(24);
+          unsubToken = token(24);
+          if (seen) await c.env.DB.prepare('UPDATE email_intents SET confirm_token = ?, unsub_token = ? WHERE id = ?').bind(confirmToken, unsubToken, seen.id).run();
+          else await c.env.DB.prepare('INSERT INTO email_intents (id, email, source, confirm_token, unsub_token) VALUES (?, ?, ?, ?, ?)').bind(uid(), email, 'landing', confirmToken, unsubToken).run();
+        }
+        await sendSubscribeConfirm(c.env, email, confirmToken, unsubToken);
+      }
+    }
   }
-  return c.html(page({ title: 'Thanks', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">We'll email you when new features ship.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
+  return c.html(page({ title: 'Check your inbox', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Check your inbox 📬</h1><p class="mt-2 text-stone-600">If that address is valid, we've sent a confirmation link. Click it to finish subscribing — you won't get updates until you do.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
 });
+
+app.get('/subscribe/confirm', async (c) => {
+  const t = String(c.req.query('t') || '');
+  let ok = false;
+  if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
+    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
+    if (row) {
+      await c.env.DB.prepare("UPDATE email_intents SET confirmed = 1, confirmed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      ok = true;
+    }
+  }
+  const body = ok
+    ? `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">Subscription confirmed. We'll email you when new features ship — unsubscribe any time from the link in each email.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`
+    : `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Link not valid</h1><p class="mt-2 text-stone-600">This confirmation link is invalid or was already used after unsubscribing. You can subscribe again from the home page.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`;
+  return c.html(page({ title: ok ? 'Subscribed' : 'Link not valid', body, path: '/subscribe/confirm', noindex: true }));
+});
+
+const handleUnsubscribe = async (c) => {
+  const t = String(c.req.query('t') || '');
+  let ok = false;
+  if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
+    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE unsub_token = ?').bind(t).first();
+    if (row) {
+      await c.env.DB.prepare("UPDATE email_intents SET confirmed = 0, unsubscribed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      ok = true;
+    }
+  }
+  const body = ok
+    ? `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're unsubscribed</h1><p class="mt-2 text-stone-600">You won't receive any more product updates from MealLoop.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`
+    : `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Nothing to unsubscribe</h1><p class="mt-2 text-stone-600">This unsubscribe link is invalid or already used. If you keep getting emails, contact mealloop@zalize.com.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`;
+  return c.html(page({ title: 'Unsubscribe', body, path: '/unsubscribe', noindex: true }));
+};
+app.get('/unsubscribe', handleUnsubscribe);
+app.post('/unsubscribe', handleUnsubscribe);
 
 const PRICING_PLANS = [
   {
