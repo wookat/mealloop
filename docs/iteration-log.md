@@ -1029,3 +1029,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter93.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 25 cards, ItemList 25 items at position 25, single @graph [Article, BreadcrumbList], headline==title, description==og:description==excerpt, canonical==mainEntityOfPage, og:type=article, sitemap 29 locs, More-guides wrap = first 3 titles, 375px + Console/Issues clean.
 
 **Caveats:** More-guides links verified by exact titles (mechanism click-proven R84); logged-out CTA covered R73; IndexNow 200 pre-verified by lead; read-only round.
+
+## Round 94 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA (adversarial round, closing R91/R92 recorded gaps): live-proved cross-household isolation of `POST /app/list/staples` (session-scoped, disposable household B's press only touched B's list; standing list stayed 35 to buy · 0 checked) and the remaining clip() boundaries at runtime — item note 140 and label rename 200 both surrogate-safe. **Found 1 real bug (P1)**: paste import bypassed clip() — `parseRecipeText` used raw `title.slice(0, 200)`, so a title with an emoji straddling the 200-unit boundary stored a lone surrogate that rendered as `���` (measured `[202,'fffd']`).
+
+**Fixes shipped (94b):**
+- `src/recipes.js` now clips everywhere it truncates text: `parseRecipeText` returns `clip(title, 200)`, and JSON-LD `normalize()` clips title (200), description (500) and servings (40). New unit test covers the paste-title emoji boundary (suite 24/24).
+
+**Evidence:** `test-report-iter94.md` + two recordings: R94 failing proof (`aaa…a���`), 94b re-verification on production — same fixture now stores exactly 199 'a's (`[199,'61',false,false,true]`), cleanup verified (both disposable households GDPR-deleted, share tokens 404, standing household intact: 35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** normalize() clips (URL-import title/description/servings) verified in source + unit path only, not runtime (needs a controllable external recipe URL); manual-form/edit recipe title clip call sites remain code-read only.

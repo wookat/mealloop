@@ -136,6 +136,9 @@ test('parseRecipeText splits pasted recipe text', async () => {
   assert.equal(parseRecipeText('Title\nIngredients\n\nSteps\n1. do it'), null); // empty ingredients
   const h = parseRecipeText('Cake\nWhat you\u2019ll need:\nflour\nInstructions:\nbake');
   assert.deepEqual([h.title, h.ingredients, h.steps], ['Cake', ['flour'], ['bake']]);
+  // Surrogate-safe title cap: an emoji straddling the 200-unit boundary is dropped whole.
+  const long = parseRecipeText('a'.repeat(199) + '\u{1F355}\nIngredients\nflour\nMethod\nbake');
+  assert.equal(long.title, 'a'.repeat(199));
 });
 
 test('sortCategories orders by saved aisle order then store-walk default', async () => {
