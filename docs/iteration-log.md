@@ -1065,3 +1065,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter96.md` + recording): 7 chips 1:1 with sections (name/href/count/order), counts sum to 35, anchor jump to #cat-6 on both /app/list and /s/<token>, print preview excludes the nav, 375px chips wrap on 3 rows at 375/375 with working tap; Console/Issues clean; read-only round, household untouched.
 
 **Caveats:** store-filter chip variant untested at runtime (standing household has no stores; same items pipeline feeds listBody); <3-categories hide threshold asserted from code only.
+
+## Round 97 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: two recorded runtime gaps remained — R94's normalize() clips on the URL-import path (title 200 / description 500 / servings 40) were code-read only, and R96's store-filtered Jump-to-aisle chips had never run against a household with stores.
+
+**Fixes shipped:**
+- No app code change. Added a controllable JSON-LD import fixture `test/fixtures/qa97-recipe.html` (Recipe with name 201 UTF-16 units / description 501 / recipeYield 41, each ending in 🍕 straddling the cap), servable via raw.githubusercontent.com — reusable for future import boundary tests.
+
+**Evidence:** live verification on disposable household D (`test-report-iter97.md` + recording): URL import of the fixture stored title exactly 199 a's / description 499 d's / servings 39 s's, no U+FFFD (normalize() clips runtime-proven); store-filter chips — with milk+bread on "QA97 Mart" and dish soap on "QA97 B", the QA97 Mart filter showed 3 to buy with exactly 3 chips (no Other), All stores restored 4 chips; cleanup: D GDPR-deleted, share token 404, standing household intact (35 to buy · 0 checked, milk staple, Fruit + yogurt note, Wed lasagne ×1).
+
+**Caveats:** store filter keeps unassigned items (`!i.store || i.store===storeFilter`), so a distinguishing test requires an item on a *different* store — the originally planned single-store fixture was strengthened mid-run.
