@@ -979,3 +979,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter89.md` + recording): edit→save→reload persistence, share page synced both ways (edited + restored), recipe row has scale select and no ✎, Esc/click-outside close, required guard blocks empty save, print preview shows text only, 375px with popup open clean, Console/Issues clean; household restored exactly (note original, lasagne ×1, 35 to buy · 0 checked).
 
 **Caveats:** whitespace-only server no-op, 121-char truncation, and cross-household POST not probed live — the route reuses the household-scoped pattern live-proven for /app/plan/scale in R86.
+
+## Round 90 — 2026-08-06
+
+**Findings (by driver):**
+- ① QA: R89 shipped the note editor with four unverified server branches — 120-char truncation, whitespace-only no-op, cross-household guard, and the `recipe_id IS NULL` guard against recipe-backed entries.
+
+**Fixes shipped:**
+- QA hardening round, no code change. Disposable-account production run (R86 pattern): 150-char POST stored exactly the first 120 chars; whitespace-only note was a pure no-op; foreign-household entry id ("HACKED") and the QA household's own recipe-backed lasagne id both silently no-op'd (state verified in the owning sessions after reload); disposable account GDPR-deleted, share token 404.
+
+**Evidence:** `test-report-iter90.md` + recording; standing QA household verified untouched (note "Fruit + yogurt", lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
+
+**Caveats:** multi-byte/emoji truncation across the 120 boundary (UTF-16 slice) not probed; adversarial POSTs were page-context fetch calls, guard proof = unchanged state in the owning session.
