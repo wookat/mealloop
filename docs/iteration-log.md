@@ -1160,3 +1160,30 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Fixes shipped:**
 - `src/index.js`: new `GET /app/export.json` (behind requireHousehold, household-scoped) — all recipes as schema.org `Recipe` objects (name, recipeIngredient, HowToStep instructions, description/url/image/recipeYield/prepTime/cookTime ISO-8601 durations, keywords=tags, comment=notes, dateCreated) wrapped in `{exportedAt, household, recipeCount, recipes}`, served with `Content-Disposition: attachment; filename="mealloop-recipes.json"`.
 - `/app/share`: new "Your data" card with a Download recipes (JSON) link, placed above the Account card.
+
+## Round 106 — 2026-08-05 (competitor sprint P2: grocery item photos)
+
+**Findings (by driver):**
+- ④ Competitor (P2 backlog from docs/competitor-scan-2026-08.md): AnyList/OurGroceries attach photos to grocery items ("which brand exactly" problem for the person doing the shopping). We had item notes but no visual.
+
+**Fixes shipped:**
+- Migration 0013: `shopping_items.photo_url` (applied remotely).
+- `/app/list/note` route also saves `photo` via `sanitizeImageUrl` (http/https only, else NULL — same guard as recipe photos).
+- ✎ Edit-item popup: Photo URL field; list rows render a 32px rounded thumbnail between checkbox and label (App + share page via shared listBody, `print:hidden`).
+
+## Round 107 — 2026-08-05 (competitor sprint P2: month-view planning)
+
+**Findings (by driver):**
+- ④ Competitor (P2): Paprika/MealBoard offer month-view planning; our planner was week-only with no zoomed-out view.
+
+**Fixes shipped:**
+- New `GET /app/month` (`?month=YYYY-MM` validated, defaults to current): Mon–Sun calendar grid over the weeks spanning the month; per-day up to 3 entry chips (recipe title ×scale or note) + "+N more"; today ringed emerald, other-month days dimmed (hidden on mobile when empty); every day links to `/app?week=<that week>`; Prev/This month/Next nav; mobile stacks with weekday labels.
+- Planner header gains a "Month" button next to week nav.
+
+## Round 108 — 2026-08-05 (competitor sprint P2: guide topic hub)
+
+**Findings (by driver):**
+- ④ Competitor (P2): SideChef's topic-hub navigation organizes large content sets; our /guides was a flat 26-item list (weak internal linking and scanning).
+
+**Fixes shipped:**
+- `/guides` now groups guides into 4 themed sections (Meal planning basics 10 / Grocery lists & shopping 5 / Recipes & cooking 6 / Family, sharing & tools 5) with anchor chip nav (`#topic-N`, scroll-mt); ItemList JSON-LD reordered to match visible order (26 items); card headings h2→h3 under section h2s; leftover-guard appends any future unmapped guide to the last section so new guides can't drop out of the hub.

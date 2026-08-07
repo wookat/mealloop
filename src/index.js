@@ -245,11 +245,23 @@ function legalBody(title, inner) {
 }
 
 // ---------- pSEO guides ----------
+// Topic hub: /guides grouped into themed sections (SideChef-style topic navigation).
+const GUIDE_TOPICS = [
+  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
+  ['Grocery lists & shopping', ['grocery-list-by-aisle', 'organize-grocery-list-by-store-aisle', 'weekly-grocery-list-with-staples', 'household-staples-list', 'shared-grocery-list-without-an-app']],
+  ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock']],
+  ['Family, sharing & tools', ['meal-planning-as-a-team', 'meal-plan-in-your-family-calendar', 'meal-planning-apps-vs-shared-notes', 'plan-to-eat-alternatives', 'samsung-food-review-for-families']],
+];
+
 app.get('/guides', async (c) => {
+  const grouped = GUIDE_TOPICS.map(([topic, slugs]) => [topic, slugs.map((s) => GUIDES.find((g) => g.slug === s)).filter(Boolean)]);
+  const leftover = GUIDES.filter((g) => !GUIDE_TOPICS.some(([, slugs]) => slugs.includes(g.slug)));
+  if (leftover.length) grouped[grouped.length - 1][1].push(...leftover);
+  const flat = grouped.flatMap(([, gs]) => gs);
   const body = `<script type="application/ld+json">${JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'ItemList',
-    itemListElement: GUIDES.map((g, i) => ({
+    itemListElement: flat.map((g, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: g.title,
@@ -258,9 +270,15 @@ app.get('/guides', async (c) => {
   })}</script><div class="py-8 max-w-2xl mx-auto">
 <h1 class="text-3xl font-bold">Meal planning guides</h1>
 <p class="mt-2 text-stone-600">Practical guides for planning family meals without the chaos.</p>
-<ul class="mt-6 space-y-3">
-${GUIDES.map((g) => `<li class="rounded-xl bg-white border border-stone-200 p-4 hover:border-emerald-400"><a href="/guides/${g.slug}"><h2 class="font-semibold text-emerald-700">${esc(g.title)}</h2><p class="text-sm text-stone-600 mt-1">${esc(g.excerpt)}</p></a></li>`).join('')}
-</ul></div>`;
+<nav aria-label="Guide topics" class="mt-4 flex flex-wrap gap-2">
+${grouped.map(([topic, gs], ti) => `<a href="#topic-${ti}" class="rounded-full border border-stone-300 bg-white px-3 py-1 text-sm hover:border-emerald-400">${esc(topic)} <span class="text-stone-400">${gs.length}</span></a>`).join('')}
+</nav>
+${grouped.map(([topic, gs], ti) => `
+<h2 id="topic-${ti}" class="mt-8 text-xl font-bold scroll-mt-4">${esc(topic)}</h2>
+<ul class="mt-3 space-y-3">
+${gs.map((g) => `<li class="rounded-xl bg-white border border-stone-200 p-4 hover:border-emerald-400"><a href="/guides/${g.slug}"><h3 class="font-semibold text-emerald-700">${esc(g.title)}</h3><p class="text-sm text-stone-600 mt-1">${esc(g.excerpt)}</p></a></li>`).join('')}
+</ul>`).join('')}
+</div>`;
   return c.html(page({ title: 'Meal planning guides', description: 'Practical guides for planning family meals: weekly planning, grocery lists, recipe import and more.', body, path: '/guides', user: await getUser(c) }));
 });
 
@@ -420,6 +438,7 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     <a href="/app?week=${prevWeek}" data-swipe-prev class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app#today" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
     <a href="/app?week=${nextWeek}" data-swipe-next class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
+    <a href="/app/month?month=${days[0].slice(0, 7)}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Month</a>
     <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
 </div>
@@ -900,6 +919,66 @@ function dayLabel(d) {
   const dt = new Date(d + 'T00:00:00Z');
   return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 }
+
+// ---------- month view ----------
+app.get('/app/month', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const qm = String(c.req.query('month') || '');
+  const base = /^\d{4}-(0[1-9]|1[0-2])$/.test(qm) ? qm : today().slice(0, 7);
+  const [y, m] = base.split('-').map(Number);
+  const firstDay = `${base}-01`;
+  const lastDay = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+  const gridStart = weekDates(firstDay)[0];
+  const gridEnd = weekDates(lastDay)[6];
+  const entries = await c.env.DB.prepare(
+    `SELECT p.date, p.meal, p.note, p.scale, r.title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id
+     WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date, p.meal`
+  ).bind(h.id, gridStart, gridEnd).all();
+  const byDate = new Map();
+  for (const e of entries.results) {
+    const label = e.title ? `${e.title}${e.scale && e.scale !== 1 ? ` \u00d7${e.scale}` : ''}` : (e.note || '');
+    if (!label) continue;
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(label);
+  }
+  const days = [];
+  for (let d = gridStart; d <= gridEnd; d = shiftDays(d, 1)) days.push(d);
+  const monthName = new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  const prevM = new Date(Date.UTC(y, m - 2, 1)).toISOString().slice(0, 7);
+  const nextM = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
+  const t = today();
+  const body = `
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+  <h1 class="text-2xl font-bold">${monthName}</h1>
+  <div class="flex items-center gap-2 text-sm print:hidden">
+    <a href="/app/month?month=${prevM}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
+    <a href="/app/month" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">This month</a>
+    <a href="/app/month?month=${nextM}" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Next →</a>
+    <a href="/app" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 hover:bg-emerald-50">Week view</a>
+  </div>
+</div>
+<div class="hidden sm:grid grid-cols-7 gap-1 text-center text-xs font-semibold text-stone-500 mb-1">
+  ${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => `<div>${d}</div>`).join('')}
+</div>
+<div class="grid sm:grid-cols-7 gap-1">
+  ${days.map((d) => {
+    const inMonth = d.slice(0, 7) === base;
+    const labels = byDate.get(d) || [];
+    const shown = labels.slice(0, 3);
+    return `
+  <a href="/app?week=${weekDates(d)[0]}" class="block min-h-20 rounded-lg border p-1.5 text-left hover:border-emerald-400 ${d === t ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-stone-200'} ${inMonth ? 'bg-white' : 'bg-stone-50 opacity-60'} ${!inMonth && !labels.length ? 'hidden sm:block' : ''}">
+    <span class="text-xs font-semibold ${d === t ? 'text-emerald-700' : 'text-stone-500'}"><span class="sm:hidden">${dayLabel(d)}</span><span class="hidden sm:inline">${Number(d.slice(8))}</span></span>
+    <span class="mt-0.5 block space-y-0.5">
+      ${shown.map((l) => `<span class="block truncate rounded bg-emerald-50 px-1 py-0.5 text-[11px] leading-4 text-emerald-900">${esc(l)}</span>`).join('')}
+      ${labels.length > 3 ? `<span class="block px-1 text-[11px] text-stone-500">+${labels.length - 3} more</span>` : ''}
+    </span>
+  </a>`;
+  }).join('')}
+</div>
+<p class="mt-4 text-sm text-stone-500">Tap any day to open that week in the planner.</p>`;
+  return c.html(page({ title: `Month — ${monthName}`, body, user, path: '/app', noindex: true }));
+});
 
 // ---------- recipes ----------
 app.get('/app/recipes', async (c) => {
@@ -1383,11 +1462,12 @@ app.post('/app/list/note', async (c) => {
   const f = await c.req.parseBody();
   const note = clip(String(f.note || '').trim(), 140);
   const label = clip(String(f.label || '').trim(), 200);
+  const photo = sanitizeImageUrl(String(f.photo || '').trim());
   if (label) {
-    await c.env.DB.prepare('UPDATE shopping_items SET label = ?, note = ? WHERE id = ? AND household_id = ?')
-      .bind(label, note, String(f.id || ''), h.id).run();
-  } else await c.env.DB.prepare('UPDATE shopping_items SET note = ? WHERE id = ? AND household_id = ?')
-    .bind(note, String(f.id || ''), h.id).run();
+    await c.env.DB.prepare('UPDATE shopping_items SET label = ?, note = ?, photo_url = ? WHERE id = ? AND household_id = ?')
+      .bind(label, note, photo, String(f.id || ''), h.id).run();
+  } else await c.env.DB.prepare('UPDATE shopping_items SET note = ?, photo_url = ? WHERE id = ? AND household_id = ?')
+    .bind(note, photo, String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   const back = String(f.back || '');
   return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
@@ -1488,6 +1568,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
           <input type="hidden" name="back" value="${back}">
           <button class="w-full min-w-0 flex items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-stone-50 ${i.checked ? 'text-stone-500' : ''}">
             <span class="shrink-0 w-5 h-5 rounded-md border ${i.checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-stone-300 bg-white'} flex items-center justify-center text-xs">${i.checked ? '✓' : ''}</span>
+            ${i.photo_url ? `<img src="${esc(i.photo_url)}" alt="" loading="lazy" class="shrink-0 h-8 w-8 rounded-md object-cover print:hidden">` : ''}
             <span class="min-w-0 [overflow-wrap:anywhere] ${i.checked ? 'line-through' : ''}">${esc(convertUnits(i.label, h.units))}${i.sources ? `<span class="block text-xs text-stone-500">for ${esc(i.sources)}</span>` : ''}${i.note ? `<span class="block text-xs text-amber-700">✎ ${esc(i.note)}</span>` : ''}</span>
           </button>
         </form>
@@ -1507,8 +1588,9 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
               <input type="hidden" name="id" value="${i.id}">
               <input type="hidden" name="back" value="${back}">
               <input name="label" required value="${esc(i.label)}" maxlength="200" aria-label="Item name" autocomplete="off" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
+              <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="w-full rounded border border-stone-300 px-2 py-1 text-xs">
               <div class="flex gap-1">
-                <input name="note" value="${esc(i.note || '')}" maxlength="140" aria-label="Item note" autocomplete="off" placeholder="Note (e.g. the big pack)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
+                <input name="photo" type="url" value="${esc(i.photo_url || '')}" maxlength="500" aria-label="Photo URL" autocomplete="off" placeholder="Photo URL (https://…)" class="min-w-0 flex-1 rounded border border-stone-300 px-2 py-1 text-xs">
                 <button class="rounded bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Save</button>
               </div>
             </form>
