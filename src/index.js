@@ -106,7 +106,7 @@ app.get('/', async (c) => {
       <p class="text-xs font-semibold text-stone-500 uppercase tracking-wide">Produce</p>
       <ul class="mt-1 space-y-1">
         ${[['2 onions', false], ['3 bell peppers', false], ['1 bag spinach', true]].map(([label, done], i) => `
-        <li><label class="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-stone-50 cursor-pointer"><input type="checkbox"${done ? ' checked' : ''} class="h-4.5 w-4.5 accent-emerald-600 peer" aria-label="${label} (demo)"><span class="text-sm peer-checked:line-through peer-checked:text-stone-400">${label}</span></label></li>`).join('')}
+        <li><label class="flex items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-stone-50 cursor-pointer"><input type="checkbox" id="demo-item-${i}"${done ? ' checked' : ''} class="h-4.5 w-4.5 accent-emerald-600 peer" aria-label="${label} (demo)"><span class="text-sm peer-checked:line-through peer-checked:text-stone-400">${label}</span></label></li>`).join('')}
       </ul>
       <p class="mt-3 text-sm text-stone-600">Try checking items off — in the real app it syncs to everyone's phone in seconds, grouped by store aisle.</p>
     </div>
