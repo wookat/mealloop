@@ -988,7 +988,10 @@ app.get('/app/recipes/:id', async (c) => {
   const stats = await c.env.DB.prepare(
     "SELECT COUNT(*) AS n, MAX(date) AS last FROM plan_entries WHERE household_id = ? AND recipe_id = ? AND date <= date('now')"
   ).bind(h.id, r.id).first();
-  const body = recipeBody(r, true, h.units, stats);
+  const wk = weekDates(today());
+  const plannedThisWeek = await c.env.DB.prepare('SELECT 1 FROM plan_entries WHERE household_id = ? AND recipe_id = ? AND date BETWEEN ? AND ? LIMIT 1')
+    .bind(h.id, r.id, wk[0], wk[6]).first();
+  const body = recipeBody(r, true, h.units, stats, !!plannedThisWeek);
   return c.html(page({ title: r.title, body, user, path: `/app/recipes/${r.id}`, noindex: true }));
 });
 
@@ -1118,7 +1121,7 @@ function planStatsLine(stats) {
   return `<p class="text-xs text-stone-400 mt-1 print:hidden">Planned ${stats.n === 1 ? 'once' : `${stats.n} times`} · last on ${last}</p>`;
 }
 
-function recipeBody(r, canEdit, units = '', stats = null) {
+function recipeBody(r, canEdit, units = '', stats = null, plannedThisWeek = false) {
   const ingredients = JSON.parse(r.ingredients_json || '[]');
   const steps = JSON.parse(r.steps_json || '[]');
   return `<article class="max-w-2xl mx-auto">
@@ -1146,7 +1149,10 @@ ${r.notes ? `<div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 px-
   </section>
 </div>
 ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3 print:hidden">
-  <a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>
+  ${plannedThisWeek
+    ? `<a href="/app" class="inline-block rounded-lg bg-stone-100 px-4 py-2 text-sm font-semibold text-stone-600 hover:bg-stone-200" aria-label="${esc(r.title)} is on this week's plan">✓ On this week's plan</a>
+  <a href="/app?recipe=${r.id}" class="text-sm text-emerald-700 underline">Plan again</a>`
+    : `<a href="/app?recipe=${r.id}" class="inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add to your week plan</a>`}
   <form method="post" action="/app/recipes/${r.id}/favorite"><button class="rounded-lg border px-4 py-2 text-sm font-semibold ${r.favorite ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-stone-300 hover:bg-stone-100'}">${r.favorite ? '★ Favourited' : '☆ Favourite'}</button></form>
   ${ingredients.length ? `<form method="post" action="/app/recipes/${r.id}/to-list"><button class="rounded-lg border border-stone-300 px-4 py-2 text-sm font-semibold hover:bg-stone-100">Add ingredients to list</button></form>` : ''}
 </div>

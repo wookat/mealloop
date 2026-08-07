@@ -1089,3 +1089,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** live verification (`test-report-iter98.md` + recording): render (breadcrumb/h1/3×h2/3 bullets/logged-in CTA), last of 26 cards, ItemList 26 items position 26, single @graph [Article, BreadcrumbList], metadata identities all hold, sitemap 30 locs, More-guides wrap = first 3 titles, 375px 375/375 + Console/Issues clean.
 
 **Caveats:** More-guides verified by titles (mechanism click-proven R84); logged-out CTA covered R73; read-only round.
+
+## Round 99 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX: R95 added plan-status to recipe-box cards, but the recipe DETAIL page still showed an unconditional emerald "Add to your week plan" — inconsistent signal and the same double-plan risk on the page users read before cooking.
+
+**Fixes shipped:**
+- /app/recipes/:id now computes plannedThisWeek (recipe-backed plan_entries in the current weekDates(today()) window) and the action row shows a stone "✓ On this week's plan" link → /app plus a small underlined "Plan again" link → /app?recipe=<id> when planned (preserving intentional re-planning), else the unchanged emerald button. Share recipe page (canEdit=false) unchanged.
+
+**Evidence:** live verification (`test-report-iter99.md` + recording): lasagne detail shows ✓ + Plan again (Plan again lands on the planner preselect banner, nothing added), Test Soup detail unchanged, Favourite/Add-ingredients unaffected, share recipe page has no action row, print hides the row, 375px wraps at 375/375, Console/Issues clean on fresh load; household untouched (35 to buy · 0 checked).
+
+**Caveats:** print preview with an external hero image triggers harmless third-party CORB warnings in the Issues panel (pre-existing, print-only); "Plan again" verified to the preselect banner only.
