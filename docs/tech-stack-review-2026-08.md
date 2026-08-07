@@ -33,3 +33,7 @@ Question: is the current stack the best/most modern/most suitable for this domai
 ## Conclusion
 
 Stack is modern, mainstream and platform-appropriate; no migration has a clear benefit today. Flagged future triggers: Durable Objects when real-user concurrency arrives; a client framework only if a drag-drop/offline surface is prioritized.
+
+## Addendum (R118, visual sprint)
+
+Component-library/animation-stack question re-evaluated for the visual upgrade: shadcn/ui, Radix, Motion and GSAP all assume a React (or at least bundler+JS-runtime) client. Under our strict CSP, zero-framework SSR architecture the equivalent wins are achieved with: Tailwind v4 `@theme` design tokens (shadcn-style token system), CSS-native spring easings (`cubic-bezier(0.34,1.56,0.64,1)`) for micro-interactions, and a self-hosted variable font (Nunito, OFL). No JS animation runtime adopted — no clear benefit, real bundle/CSP cost. Tailwind remains on the latest major (v4).

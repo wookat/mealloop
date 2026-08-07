@@ -1228,3 +1228,29 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 
 **Fixes shipped:**
 - Recipe pages (App + share) now show an emerald "▶ Start cooking" primary button; exits back to the same label. Data check: search_terms still only {test 2, stew 2, onion 1, lasagne 1} — no new organic terms to feed pSEO this week (guide cadence satisfied by R110).
+
+## Round 114 — 2026-08-07 (visual sprint: competitor visual research)
+
+**Findings:** Studied 10 sites (Mealime, Crouton, Mela, Plan to Eat, SideChef, AnyList, Paprika, Umami, RecipeSage, NYT Cooking) via screenshots + public source capture: fonts, palettes, framework markers. Full analysis + replication decisions in docs/visual-research-2026-08.md. Key takeaways: warm cream canvas (NYT/Crouton), rounded display type (Crouton's Nunito / Mealime's serif), warm produce accent colors (Mealime), micro-delight on completion, confident brand mark (Mela/Plan to Eat).
+
+## Round 115 — 2026-08-07 (visual sprint: warm brand language)
+
+**Fixes shipped:**
+- Self-hosted Nunito variable font (SIL OFL, 39 KB woff2, `font-display: swap`) for headings/brand — rounded and homely for the family-cooking audience; body stays on system sans for speed.
+- Warm kitchen palette: the neutral `stone` scale re-tokened toward cream/oat via Tailwind v4 `@theme` (lightness per step preserved → WCAG contrast ratios hold). Whole site warms with zero markup churn.
+
+## Round 116 — 2026-08-07 (visual sprint: joyful micro-interactions)
+
+**Fixes shipped:**
+- Checkbox check-pop (spring cubic-bezier), button/tab press-scale, landing hero fade-up, and a "all done 🎉" celebrate bounce on the grocery list — all CSS-only, all inside `@media (prefers-reduced-motion: no-preference)` so reduced-motion users get an unanimated site. No JS animation runtime added (CSP + perf budget intact).
+
+## Round 117 — 2026-08-07 (visual sprint: brand assets)
+
+**Fixes shipped:**
+- New brand mark: plate + loop-arrow (emerald tile, cream plate, amber food dot) — favicon.svg redrawn, icon-192/512 re-rendered from it, header logo SVG updated to match.
+- OG card (1200×630) redesigned in brand: cream canvas, mark, Nunito wordmark, produce accents. Self-drawn SVG → PNG; no third-party assets.
+- Empty states for recipe box and grocery list get warm inline SVG illustrations (steaming plate / grocery bag).
+
+## Round 118 — 2026-08-07 (visual sprint: stack/component-library review)
+
+**Findings & decision:** shadcn/ui and Motion/GSAP are React-runtime tools; MealLoop is CSP-strict server-rendered Hono + vanilla JS. Adopted the shadcn-style *token* architecture (design tokens in Tailwind v4 `@theme`) and CSS-native spring animations instead — same visual outcome, zero bundle/CSP cost. Tailwind already at v4 (latest). Recorded in docs/visual-research-2026-08.md + tech-stack-review addendum.

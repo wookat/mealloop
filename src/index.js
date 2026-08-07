@@ -49,7 +49,7 @@ const LANDING_FAQ = [
 app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
-<section class="py-10 sm:py-16 text-center">
+<section class="py-10 sm:py-16 text-center fade-up">
   <p class="inline-block mb-4 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold tracking-wide">OPEN BETA · ALL FEATURES FREE DURING BETA · NO ADS</p>
   <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-stone-900 max-w-2xl mx-auto">What's for dinner? <span class="text-emerald-600">Decide once, together.</span></h1>
   <p class="mt-4 text-lg text-stone-600 max-w-xl mx-auto">Import recipes from any site, plan your week, and share one live grocery list with your whole family — with a single link. No accounts needed for them.</p>
@@ -1088,7 +1088,10 @@ ${recipes.results.map((r) => `
     </div>
   </div>`).join('')}
 </div>
-${recipes.results.length === 0 ? (q || tag || fav ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || (tag ? `#${tag}` : '★ Favourites'))}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<p class="text-stone-500 text-sm">No recipes yet — paste a URL above to import your first one.</p>`) : ''}
+${recipes.results.length === 0 ? (q || tag || fav ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || (tag ? `#${tag}` : '★ Favourites'))}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<div class="py-10 text-center">
+  <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><circle cx="44" cy="50" r="30" fill="#f5efe5"/><circle cx="44" cy="50" r="18" fill="none" stroke="#f59e0b" stroke-width="3"/><path d="M36 26 q-3 -6 2 -10 M44 24 q-3 -6 2 -10 M52 26 q-3 -6 2 -10" fill="none" stroke="#aaa090" stroke-width="2.5" stroke-linecap="round"/></svg>
+  <p class="mt-3 text-stone-500 text-sm">Your recipe box is empty — paste a URL above to import your first recipe.</p>
+</div>`) : ''}
 <details class="mt-8"${c.req.query('paste') !== undefined ? ' open' : ''}>
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or paste a whole recipe</summary>
   <form method="post" action="/app/recipes/paste" class="mt-3 max-w-lg space-y-2">
@@ -1719,7 +1722,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : 'all done 🎉'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
+  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
@@ -1776,7 +1779,10 @@ ${(() => { const openCats = sortCategories([...new Set(open.map((i) => i.categor
   ${openCats.map((cat, idx) => `<a href="#cat-${idx}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-stone-100 text-stone-600 hover:bg-stone-200">${esc(cat)} <span class="text-stone-400">${open.filter((i) => i.category === cat).length}</span></a>`).join('')}
 </nav>` : ''; })()}
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
-${items.length === 0 ? `<p class="text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>` : ''}
+${items.length === 0 ? `<div class="py-10 text-center">
+  <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><path d="M22 34 h44 l-6 34 a6 6 0 0 1 -6 6 h-20 a6 6 0 0 1 -6 -6 z" fill="#f5efe5" stroke="#aaa090" stroke-width="2.5"/><path d="M32 34 q0 -14 12 -14 q12 0 12 14" fill="none" stroke="#aaa090" stroke-width="2.5"/><circle cx="37" cy="52" r="5" fill="#f59e0b"/><circle cx="51" cy="56" r="5" fill="#84cc16"/></svg>
+  <p class="mt-3 text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>
+</div>` : ''}
 ${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat, idx) => `
   <section id="cat-${idx}" class="scroll-mt-4">
     <h2 class="text-xs uppercase tracking-wide font-semibold text-stone-500 mb-1.5">${esc(cat)}</h2>

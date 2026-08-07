@@ -1,5 +1,68 @@
 @import "tailwindcss";
 
+/* Brand type: Nunito (SIL OFL, self-hosted) for display/headings — rounded, homely. */
+@font-face {
+  font-family: 'Nunito';
+  font-style: normal;
+  font-weight: 400 800;
+  font-display: swap;
+  src: url('/fonts/nunito-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Warm kitchen palette: shift the neutral stone scale toward cream/oat while keeping
+   each step's lightness (WCAG contrast preserved). */
+@theme {
+  --font-display: 'Nunito', ui-rounded, system-ui, sans-serif;
+  --color-stone-50: #fbf8f3;
+  --color-stone-100: #f5efe5;
+  --color-stone-200: #eae2d3;
+  --color-stone-300: #d9d0c0;
+  --color-stone-400: #aaa090;
+  --color-stone-500: #78705f;
+  --color-stone-600: #57503f;
+  --color-stone-700: #453f31;
+  --color-stone-800: #2b2620;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+}
+
+/* Joyful micro-interactions — all gated behind reduced-motion preference. */
+@media (prefers-reduced-motion: no-preference) {
+  button, [role='tab'], a.rounded-lg, a.rounded-full {
+    transition: transform 0.12s ease, background-color 0.15s ease;
+  }
+  button:active, [role='tab']:active {
+    transform: scale(0.96);
+  }
+  input[type='checkbox']:checked {
+    animation: check-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes check-pop {
+    0% { transform: scale(0.7); }
+    55% { transform: scale(1.25); }
+    100% { transform: scale(1); }
+  }
+  .fade-up {
+    animation: fade-up 0.5s ease-out both;
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .celebrate {
+    animation: celebrate 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes celebrate {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.15) rotate(-2deg); }
+    70% { transform: scale(0.97); }
+    100% { transform: scale(1); }
+  }
+}
+
 /* Cook mode: large hands-free steps with tap-to-mark-done. */
 .cook-mode .steps-list li {
   font-size: 1.25rem;
