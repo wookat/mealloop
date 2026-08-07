@@ -1258,6 +1258,16 @@ app.post('/app/stores/delete', async (c) => {
   return c.redirect('/app/list');
 });
 
+app.post('/app/list/remove', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  await c.env.DB.prepare('DELETE FROM shopping_items WHERE id = ? AND household_id = ?')
+    .bind(String(f.id || ''), h.id).run();
+  await bumpVersion(c.env, h.id);
+  const back = String(f.back || '');
+  return c.redirect(back.startsWith('/app/list') ? back : '/app/list');
+});
+
 app.post('/app/list/note', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -1373,6 +1383,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
               <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↑ Move up</button></form>
               <form method="post" action="/app/list/move" class="flex-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100">↓ Move down</button></form>
             </div>
+            <form method="post" action="/app/list/remove" data-confirm="Remove “${esc(i.label)}” from the list?" class="border-t border-stone-100 pt-1"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="back" value="${back}"><button class="w-full rounded border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50">Delete item</button></form>
           </div>
         </details>
         <form method="post" action="/app/list/category" class="pr-1 print:hidden">

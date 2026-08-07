@@ -943,3 +943,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Evidence:** `test-report-iter86.md` + recording; standing QA household verified untouched (Wed lasagne ×1, 35 to buy · 0 checked); Console/Issues clean (expected 404 on deleted share link aside).
 
 **Caveats:** adversarial POSTs were page-context fetch calls from the disposable session (route redirects unconditionally, so guard proof = unchanged state in owning session); 375px out of scope this round.
+
+## Round 87 — 2026-08-06
+
+**Findings (by driver):**
+- ② UX + ④ Competitor: removing a single grocery item required check + "Clear checked" (destructive to other checked items' state); Plan to Eat and every mainstream list app offer per-item delete.
+
+**Fixes shipped:**
+- Red "Delete item" action in the grocery ✎ Edit-item popup (App view only), with a data-confirm prompt naming the item; new household-scoped `POST /app/list/remove` (DELETE + bumpVersion, back validated to /app/list prefix so store-filtered views are preserved).
+
+**Evidence:** live verification (`test-report-iter87.md` + recording): accept path (36→35 to buy), cancel path keeps item, delete under an active ?store= filter stays on the filtered URL, share-page rows remain checkbox-only, 375px popup fits, Console/Issues clean; restored to 35 to buy · 0 checked with no QA87/store residue.
+
+**Caveats:** the back-rejection branch (non-/app/list back) not adversarially probed live — same prefix-validation pattern as the R27 routes; share-page sync covered implicitly (zero residue) rather than a dedicated add+reload cycle.
