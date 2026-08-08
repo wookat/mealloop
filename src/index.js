@@ -69,7 +69,7 @@ app.get('/', async (c) => {
     ['Share with a link', 'Your family sees the week and the list with one link — no app install, no sign-up, no subscription.'],
   ].map(([t, d]) => `
   <div class="rounded-2xl bg-white border border-stone-200 p-5">
-    <h3 class="font-semibold text-stone-900">${t}</h3>
+    <h2 class="font-semibold text-stone-900">${t}</h2>
     <p class="mt-1.5 text-sm text-stone-600">${d}</p>
   </div>`).join('')}
 </section>
@@ -666,7 +666,7 @@ ${setupLeft > 0 ? `
 <div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
   <div${d === today() ? ' id="today"' : ''} class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200 scroll-mt-20' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
-    <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
+    <h2 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h2>
     ${mealsFor(h).map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
       return `<div class="mt-2">
@@ -923,7 +923,7 @@ ${days.map((d, i) => {
     const title = isNew ? p.new.title : (titles.get(p.recipe_id) || 'Unknown recipe');
     return `
   <div class="rounded-xl bg-white border ${occupied.has(d) ? 'border-stone-200 opacity-60' : 'border-emerald-200'} p-3">
-    <h3 class="text-sm font-semibold text-stone-700">${dayLabel(d)}</h3>
+    <h2 class="text-sm font-semibold text-stone-700">${dayLabel(d)}</h2>
     ${occupied.has(d) ? `<p class="mt-2 text-xs text-stone-500">Already planned — kept as-is.</p>` : `
     <p class="mt-2 text-sm ${isNew ? '' : 'text-emerald-800'}">${esc(title)}</p>
     ${isNew ? `<span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">New recipe — will be added to your box</span>
@@ -2440,7 +2440,7 @@ app.get('/s/:token', async (c) => {
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);
     return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
-      <h3 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h3>
+      <h2 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h2>
       ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}

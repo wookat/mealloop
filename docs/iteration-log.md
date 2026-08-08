@@ -1370,3 +1370,7 @@ New-user regression flagged the planner at 422px scrollWidth on a 375px viewport
 **R144 device adaptation:** main container widens to max-w-6xl at ≥1280px (planner 7-col grid gets real room; header/footer unchanged at 5xl for reading width). 375/768/1024/1440 walkthrough delegated to regression.
 **R145 effects:** hero ambient radial backdrop (emerald+amber, zero JS/CLS), staggered card entrances (`.stagger`, 70ms steps) on landing features/how-it-works and pricing cards, card hover lift, `details` popover pop-in — all inside the existing `prefers-reduced-motion: no-preference` gate.
 **R146 plain language:** visible planner microcopy explaining what the AI button does and pantry skipping ("drafts from your own recipe box — nothing saved until you apply"), title tooltips on servings-scale (×2 doubles grocery amounts, recipe unchanged) and units selector (display-only, reversible). Pantry page and skip notices already carried plain-language copy.
+
+### 146b — heading-order a11y fix (regression finding, pre-existing)
+
+Regression axe flagged moderate `heading-order` (h1→h3) on landing and /app — pre-existing markup. Landing feature cards and planner/month/share day labels promoted h3→h2 (visual classes unchanged). /pricing and /app/list were already clean.
