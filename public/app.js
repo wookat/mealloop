@@ -64,6 +64,30 @@
     });
   });
 
+  // One-time dismissible boxes (e.g. planner setup guide): server renders them
+  // hidden; shown only until the user dismisses, remembered in localStorage.
+  document.querySelectorAll('[data-dismiss-box]').forEach(function (box) {
+    var key = 'ml-hide-' + box.dataset.dismissBox;
+    try { if (localStorage.getItem(key)) return; } catch (e) {}
+    box.hidden = false;
+    var btn = box.querySelector('[data-dismiss]');
+    btn && btn.addEventListener('click', function () {
+      box.hidden = true;
+      try { localStorage.setItem(key, '1'); } catch (e) {}
+    });
+  });
+
+  // "New" feature badges: shown until the feature is first used.
+  document.querySelectorAll('[data-new]').forEach(function (badge) {
+    var key = 'ml-new-' + badge.dataset.new;
+    try { if (localStorage.getItem(key)) return; } catch (e) {}
+    badge.hidden = false;
+    var host = badge.closest('a, button');
+    host && host.addEventListener('click', function () {
+      try { localStorage.setItem(key, '1'); } catch (e) {}
+    });
+  });
+
   document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
     sel.addEventListener('change', function () {
       if (sel.value === '__custom') {

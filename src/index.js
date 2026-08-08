@@ -530,7 +530,17 @@ app.get('/app', async (c) => {
   ]);
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
-  const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
+  const [menus, anyPlan, anyItem] = await Promise.all([
+    c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all(),
+    c.env.DB.prepare('SELECT 1 AS x FROM plan_entries WHERE household_id = ? LIMIT 1').bind(h.id).first(),
+    c.env.DB.prepare('SELECT 1 AS x FROM shopping_items WHERE household_id = ? LIMIT 1').bind(h.id).first(),
+  ]);
+  const setupSteps = [
+    { done: recipes.results.length > 0, label: 'Add a recipe', hint: 'paste any recipe URL, or type one in', href: '/app/recipes' },
+    { done: !!anyPlan, label: 'Plan a dinner', hint: 'open “+ add” on any day below', href: null },
+    { done: !!anyItem, label: 'Get your grocery list', hint: 'one click gathers every ingredient', href: '/app/list' },
+  ];
+  const setupLeft = setupSteps.filter((s) => !s.done).length;
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const aiErr = c.req.query('ai') === 'err';
   const body = `
@@ -547,11 +557,18 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
 </div>
-${recipes.results.length === 0 ? `
-<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden">
-  <h2 class="font-semibold text-emerald-900">Start with one recipe</h2>
-  <p class="mt-1 text-sm text-emerald-800">Import a recipe by pasting its URL — then you can drop it into any day below and its ingredients flow into your grocery list.</p>
-  <a href="/app/recipes" class="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add your first recipe</a>
+${setupLeft > 0 ? `
+<div data-dismiss-box="setup" class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden" hidden>
+  <div class="flex items-start justify-between gap-2">
+    <h2 class="font-semibold text-emerald-900">Get set up in ${setupLeft} step${setupLeft === 1 ? '' : 's'}</h2>
+    <button type="button" data-dismiss="setup" aria-label="Hide setup guide" class="text-emerald-700 hover:text-emerald-900 -mt-1 px-1">✕</button>
+  </div>
+  <ol class="mt-2 space-y-1.5 text-sm text-emerald-800">
+    ${setupSteps.map((s) => `<li class="flex items-baseline gap-2">
+      <span aria-hidden="true" class="${s.done ? 'text-emerald-600' : 'text-emerald-400'}">${s.done ? '✓' : '○'}</span>
+      <span>${s.done ? `<s class="text-emerald-600">${s.label}</s>` : s.href ? `<a class="font-medium underline" href="${s.href}">${s.label}</a>` : `<span class="font-medium">${s.label}</span>`}${s.done ? '' : ` <span class="text-emerald-700/80">— ${s.hint}</span>`}</span>
+    </li>`).join('')}
+  </ol>
 </div>` : ''}
 <div class="mb-4 flex flex-wrap gap-2 print:hidden">
   <form method="post" action="/app/plan/to-list" class="inline">
@@ -565,7 +582,7 @@ ${recipes.results.length === 0 ? `
   </form>
   ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/ai/generate" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
-    <button data-busy-label="Drafting your week…" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI</button>
+    <button data-busy-label="Drafting your week…" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
   </form>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
@@ -1957,7 +1974,7 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<form method="post" action="/app/list/staples"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">+ Add staples</button></form>
     <a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
-    <a href="/app/pantry" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Pantry</a>
+    <a href="/app/pantry" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Pantry<span data-new="pantry" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
     ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
@@ -2012,6 +2029,10 @@ ${(() => { const openCats = sortCategories([...new Set(open.map((i) => i.categor
 ${items.length === 0 ? `<div class="py-10 text-center">
   <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><path d="M22 34 h44 l-6 34 a6 6 0 0 1 -6 6 h-20 a6 6 0 0 1 -6 -6 z" fill="#f5efe5" stroke="#aaa090" stroke-width="2.5"/><path d="M32 34 q0 -14 12 -14 q12 0 12 14" fill="none" stroke="#aaa090" stroke-width="2.5"/><circle cx="37" cy="52" r="5" fill="#f59e0b"/><circle cx="51" cy="56" r="5" fill="#84cc16"/></svg>
   <p class="mt-3 text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>
+  ${editable ? `<div class="mt-4 flex flex-wrap justify-center gap-2 print:hidden">
+    <a href="/app" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Open the planner</a>
+    <a href="/app/staples" class="rounded-lg border border-stone-300 px-4 py-2 text-sm hover:bg-stone-100">Set up staples</a>
+  </div>` : ''}
 </div>` : ''}
 ${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat, idx) => `
   <section id="cat-${idx}" class="scroll-mt-4">

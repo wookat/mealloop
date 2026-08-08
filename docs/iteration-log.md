@@ -1336,3 +1336,12 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ### 133b — pantry stocked-skip unit-mismatch fix (QA regression finding)
 
 Testing found the common case failing: pantry "basmati rice" (Stocked) did not skip "300g basmati rice" because `ingredientKey` embeds the unit (`basmati rice|` ≠ `basmati rice|g`). Added `pantryKey` (name-only, quantity/unit-agnostic) and switched all pantry matching to it: weekly to-list skip, staples skip, and pantry→list dedupe (no more near-duplicate rows). Unit tests added (25 total).
+
+## Round 134–136 — 2026-08-12 (onboarding / user guidance)
+
+**Directive:** boss asked for restrained user guidance. Competitor patterns (from the August scan + Samsung Food deep-dive): long forced onboarding quizzes (Samsung Food, 6 steps) hurt more than help; the effective pattern is Plan to Eat/Mealime-style lightweight setup checklists and contextual empty-state CTAs. We follow the latter.
+**R134–135 shipped:**
+- Planner "Get set up in N steps" checklist card (replaces the old single "Start with one recipe" card): ① Add a recipe ② Plan a dinner ③ Get your grocery list, each with done-state (✓/strikethrough) computed server-side from household data; dismissible ✕ remembered in localStorage (`ml-hide-setup`); rendered `hidden` and revealed client-side so dismissed users never see a flash; disappears entirely once all 3 steps done; print-hidden.
+- Empty-state CTA: grocery list empty state now offers "Open the planner" + "Set up staples" buttons (editable views only — share page unchanged).
+- New-feature discovery: one-time amber "New" badges on "✨ Plan my week with AI" (planner) and "Pantry" (grocery-list toolbar) via generic `data-new` helper — hidden after first click, localStorage-remembered, no animation (nothing to reduce for reduced-motion).
+**R136:** the setup checklist doubles as the first-run coach — deliberately no overlay coach marks (strict CSP, restraint principle: nothing blocks the UI, everything skippable, zero requests).
