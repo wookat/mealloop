@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { page } from './layout.js';
 import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, pantryKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
 import { generateWeekDraft } from './ai.js';
 
@@ -1120,10 +1120,11 @@ app.post('/app/plan/to-list', async (c) => {
   ]);
   const stapleCats = new Map(staples.results.map((s) => [ingredientKey(s.label), s.category]));
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
-  const stockedKeys = new Set(pantry.results.map((p) => ingredientKey(p.label)));
+  const stockedKeys = new Set(pantry.results.map((p) => pantryKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
+  const existingNames = new Set(existing.results.map((r) => pantryKey(r.label)));
   const stmts = [];
   let added = 0;
   let skipped = 0;
@@ -1132,7 +1133,7 @@ app.post('/app/plan/to-list', async (c) => {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
-    if (stockedKeys.has(key) && !byKey.get(key)) {
+    if (stockedKeys.has(pantryKey(label)) && !existingNames.has(pantryKey(label))) {
       skipped++;
       continue;
     }
@@ -1843,14 +1844,14 @@ app.post('/app/list/staples', async (c) => {
     c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all(),
     c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level = 'stocked'").bind(h.id).all(),
   ]);
-  const stockedKeys = new Set(pantry.results.map((p) => ingredientKey(p.label)));
+  const stockedKeys = new Set(pantry.results.map((p) => pantryKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   let added = 0;
   let skipped = 0;
   for (const s of staples.results) {
     const key = ingredientKey(s.label);
     const hit = existing.results.find((r) => ingredientKey(r.label) === key);
-    if (!hit && stockedKeys.has(key)) {
+    if (!hit && stockedKeys.has(pantryKey(s.label))) {
       skipped++;
       continue;
     }
@@ -2181,8 +2182,8 @@ app.post('/app/pantry/to-list', async (c) => {
   const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   let added = 0;
   for (const p of needed.results) {
-    const key = ingredientKey(p.label);
-    const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+    const key = pantryKey(p.label);
+    const hit = existing.results.find((r) => pantryKey(r.label) === key);
     if (hit) {
       if (hit.checked) {
         await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();

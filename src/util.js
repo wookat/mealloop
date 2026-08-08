@@ -219,6 +219,11 @@ export function ingredientKey(label) {
   return `${nameKey(parsed.name)}|${parsed.unit || ''}`;
 }
 
+// Unit-agnostic match key for pantry lookups ("basmati rice" matches "300g basmati rice").
+export function pantryKey(label) {
+  return nameKey(parseIngredient(label).name);
+}
+
 // Sums quantities of the same ingredient+unit; keeps unparsed labels as-is.
 export function mergeIngredients(labels) {
   const out = [];

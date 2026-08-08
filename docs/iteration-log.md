@@ -1332,3 +1332,7 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 133 — 2026-08-12 (flagship: pantry ↔ grocery list linkage)
 
 **Shipped:** /app/pantry — household-level "what we have at home" with stocked/low/out levels. Stocked items are skipped by "Add week's ingredients" and "+ Add staples" (notice shows how many were skipped); "Used up" one-tap after cooking; one button sends all low/out items to the grocery list (dedupe/buy-again aware). Pantry rows deleted with household on GDPR erase. Migration 0015 applied in production via new key-gated POST /ops/migrate (idempotent DDL only — D1 HTTP API outage workaround, same gate as /ops/stats).
+
+### 133b — pantry stocked-skip unit-mismatch fix (QA regression finding)
+
+Testing found the common case failing: pantry "basmati rice" (Stocked) did not skip "300g basmati rice" because `ingredientKey` embeds the unit (`basmati rice|` ≠ `basmati rice|g`). Added `pantryKey` (name-only, quantity/unit-agnostic) and switched all pantry matching to it: weekly to-list skip, staples skip, and pantry→list dedupe (no more near-duplicate rows). Unit tests added (25 total).
