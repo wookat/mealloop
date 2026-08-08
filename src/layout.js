@@ -48,7 +48,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
     </nav>
   </div>
 </header>
-<main id="main" class="flex-1 w-full max-w-5xl mx-auto px-4 py-6">${body}</main>
+<main id="main" class="flex-1 w-full max-w-5xl xl:max-w-6xl mx-auto px-4 py-6">${body}</main>
 <footer class="border-t border-stone-200 bg-white mt-10 print:hidden">
   <div class="max-w-5xl mx-auto px-4 py-8 text-sm text-stone-500 space-y-3">
     <div class="flex flex-wrap gap-x-5 gap-y-2">

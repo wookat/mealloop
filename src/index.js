@@ -53,7 +53,7 @@ const LANDING_FAQ = [
 app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
-<section class="py-10 sm:py-16 text-center fade-up">
+<section class="py-10 sm:py-16 text-center fade-up hero-ambient -mx-4 px-4">
   <p class="inline-block mb-4 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold tracking-wide">OPEN BETA · ALL FEATURES FREE DURING BETA · NO ADS</p>
   <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-stone-900 max-w-2xl mx-auto">What's for dinner? <span class="text-emerald-600">Decide once, together.</span></h1>
   <p class="mt-4 text-lg text-stone-600 max-w-xl mx-auto">Import recipes from any site, plan your week, and share one live grocery list with your whole family — with a single link. No accounts needed for them.</p>
@@ -62,7 +62,7 @@ app.get('/', async (c) => {
     <a href="/guides" class="px-6 py-3 rounded-xl border border-stone-300 font-semibold text-lg hover:bg-stone-100">How it works</a>
   </div>
 </section>
-<section class="grid sm:grid-cols-3 gap-4 py-8">
+<section class="grid sm:grid-cols-3 gap-4 py-8 stagger">
   ${[
     ['Import from any recipe site', 'Paste a URL — we pull the title, photo, ingredients and steps automatically. Steps stay readable right here.'],
     ['One live grocery list', 'Ingredients from your weekly plan are grouped by store aisle. Checking an item syncs for everyone in seconds.'],
@@ -75,7 +75,7 @@ app.get('/', async (c) => {
 </section>
 <section class="py-8">
   <h2 class="text-2xl font-bold text-center">How it works</h2>
-  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+  <div class="mt-6 grid sm:grid-cols-3 gap-4 stagger">
     ${[
       ['1', 'Plan', 'Pick dinners for the week from your recipe box — import from any site, paste text, or type your own. Ten minutes on Sunday.'],
       ['2', 'Shop', 'One tap turns the week into an aisle-sorted grocery list. Quantities merge, staples auto-add, and everyone sees the same live list.'],
@@ -273,13 +273,13 @@ app.get('/pricing', async (c) => {
     <p class="text-sm text-amber-800 mt-1">Every plan below is <strong>free for everyone during the beta</strong> — all features unlocked, no card required. Billing starts only at launch, and beta users will be notified well in advance.</p>
   </div>
 </section>
-<section class="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto items-stretch">
+<section class="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto items-stretch stagger">
   ${PRICING_PLANS.map((p) => `
   <div class="rounded-2xl bg-white border ${p.highlight ? 'border-emerald-500 ring-1 ring-emerald-500 relative' : 'border-stone-200'} p-6 flex flex-col">
     ${p.highlight ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-0.5">Most popular</span>' : ''}
     <h2 class="font-bold text-lg text-stone-900">${p.name}</h2>
     <p class="mt-1 text-sm text-stone-600">${p.blurb}</p>
-    <p class="mt-4"><span class="text-3xl font-extrabold text-stone-900">${p.price}</span> <span class="text-sm text-stone-500">${p.per}</span></p>
+    <p class="mt-4 tnum"><span class="text-3xl font-extrabold text-stone-900">${p.price}</span> <span class="text-sm text-stone-500">${p.per}</span></p>
     <ul class="mt-4 space-y-2 text-sm text-stone-700 flex-1">
       ${p.features.map((f) => `<li class="flex gap-2"><span aria-hidden="true" class="text-emerald-600 font-bold">✓</span>${f}</li>`).join('')}
     </ul>
@@ -629,7 +629,7 @@ ${setupLeft > 0 ? `
   </form>
   ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/ai/generate" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
-    <button data-busy-label="Drafting your week…" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
+    <button data-busy-label="Drafting your week…" title="Drafts dinners from your own recipe box — you review the draft first; nothing is saved until you apply it." class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
   </form>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
@@ -639,6 +639,7 @@ ${setupLeft > 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-500 hover:text-red-600 hover:bg-stone-100">Clear week</button>
   </form>` : ''}
+  ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<p class="w-full text-xs text-stone-500">✨ The AI drafts dinners from your own recipe box — you review the draft and nothing is saved until you apply it. Stocked pantry items are skipped when the grocery list is built.</p>` : ''}
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
@@ -676,7 +677,7 @@ ${days.map((d) => `
             <span class="flex shrink-0 items-center gap-1 print:hidden">
               ${e.recipe_id ? `<form method="post" action="/app/plan/scale">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
-                <select name="scale" data-autosubmit aria-label="Servings scale" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
+                <select name="scale" data-autosubmit aria-label="Servings scale" title="×2 doubles this recipe's ingredients on your grocery list — the recipe itself stays as written." class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs tnum ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
                   ${SCALES.map((s) => `<option value="${s}"${s === (e.scale || 1) ? ' selected' : ''}>×${s}</option>`).join('')}
                 </select>
               </form>` : `<details class="relative">
@@ -2015,7 +2016,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
+  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500 tnum">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
     <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
@@ -2039,7 +2040,7 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
     <form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
     <form method="post" action="/app/settings/units" class="flex items-center gap-1">
       <input type="hidden" name="back" value="/app/list">
-      <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
+      <select name="units" data-autosubmit aria-label="Units" title="Display only — converts amounts between metric and imperial; your recipes stay as written and you can switch back anytime." class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
         <option value=""${!h.units ? ' selected' : ''}>Units: as written</option>
         <option value="metric"${h.units === 'metric' ? ' selected' : ''}>Units: metric</option>
         <option value="imperial"${h.units === 'imperial' ? ' selected' : ''}>Units: imperial</option>
