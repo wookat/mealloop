@@ -1302,3 +1302,15 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Findings:** Cloudflare D1 HTTP API still returns 7403 for every account token (platform-side), blocking the data-analysis driver since R125 — while the Worker's D1 binding works fine.
 **Fixes shipped:** `GET /ops/stats?days=N` — requires `Authorization: Bearer <ADMIN_STATS_KEY>` (new Worker secret; wrong/missing key → plain 404). Returns only the first-party aggregate counters the app already stores (analytics_daily paths, search_terms, email_intents totals) — never user data.
 **Verified in production:** no-auth → 404; with key → JSON. 14-day readout: /s 814 · /app/list 621 · /app 375 · / 205 · /guides 72; guide detail views led by picky-eaters (18), batch-cooking (13), leftovers/budget (11 each); search terms still internal-QA only; email intents: 1 total (0 confirmed, 1 unsubscribed — QA rows).
+
+## Round 128 — 2026-08-12 (competitor revisit: title-first recipe search ranking)
+
+**Findings:** competitor revisit — Plan to Eat's 2026 updates: recipe search now ranks title matches above description/ingredient matches (v8.3.2), Concise Mode AI rewriting, form-variant list rows; Samsung Food doubling down on Vision AI calorie tracking ($59.99/yr Food+). AI/nutrition items remain out of v1 scope; the search-ranking pattern is directly adoptable — our recipe search ordered purely by `${order}` so an ingredient-only match could outrank an exact title match.
+**Fixes shipped:** recipe box search now orders by `(title LIKE '%q%') DESC` first, then the existing sort — title hits always surface above ingredient-only hits. Partial-word matching already worked (substring LIKE).
+**Verified in production:** deployed; unit suite 24/24 green.
+
+## Round 129 — 2026-08-12 (pSEO: freezer meals guide — data-driven topic)
+
+**Findings:** /ops/stats readout shows practical-cooking guides lead views (picky-eaters 18, batch-cooking 13, leftovers/budget 11) — freezer-meal intent is adjacent and uncovered.
+**Fixes shipped:** 28th guide `freezer-meals-for-family-weeknights` (plan-from-the-freezer angle tied to ×2 scaling + weekly plan), in "Meal planning basics" topic.
+**Verified in production:** guide 200 with Article/Breadcrumb JSON-LD, listed in /guides, sitemap 34 locs, IndexNow 200. TTFB spot-check: / 134 ms, /pricing 75 ms, new guide 81 ms.
