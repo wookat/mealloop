@@ -4,3 +4,4 @@ public/styles.css
 .dev.vars
 test-plan.md
 test-report.md
+test-plan-*.md

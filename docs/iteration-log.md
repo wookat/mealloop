@@ -1374,3 +1374,16 @@ New-user regression flagged the planner at 422px scrollWidth on a 375px viewport
 ### 146b — heading-order a11y fix (regression finding, pre-existing)
 
 Regression axe flagged moderate `heading-order` (h1→h3) on landing and /app — pre-existing markup. Landing feature cards and planner/month/share day labels promoted h3→h2 (visual classes unchanged). /pricing and /app/list were already clean.
+
+## Round 147–151 — 2026-08-05 (1:1 replication benchmark vs Plan to Eat)
+
+**Directive:** pick one flagship competitor, deep-walk every page/flow in a real account, build a replication scorecard, fix every sub-100% item as a defect, then list where we exceed.
+**R147 benchmark walkthrough:** Plan to Eat (web) chosen over Mealime (web-first, real trial). Walked Cook/Plan/Shop, recipe detail, cooking view, staples, drag-to-plan → auto list, 375px responsive mode. Compliance: patterns re-implemented from scratch; no code/assets/copy taken; no bot walls bypassed.
+**R148 scorecard:** docs/replication-benchmark.md — page-by-page IA/layout/interaction/state/copy comparison with 0–100% fidelity scores, P-ranked gaps, deliberate n/a list, superiority list (share link, AI drafts, pantry deduction, mobile web, privacy/CSP, export, SEO moat — PTE's own 375px web squeezes desktop layout and ships CSP violations).
+**R149 recipe Duplicate (parity fix):** POST /app/recipes/:id/duplicate copies title "(copy)", ingredients, steps, times, servings, photo, notes, tags; action added next to Edit/Delete.
+**R150 "Most planned" sort (parity fix):** third sort option on /app/recipes (PTE "Times Planned"), correlated count of past plan_entries; preserved across searches.
+**R151 list "From this week's plan" chips (parity fix):** /app/list shows linked chips for each recipe planned this week (PTE Planned Recipes panel equivalent), print-hidden.
+
+### 151b — recipe-card heading-order fix (regression finding, pre-existing)
+
+Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pre-existing recipe-card markup. Card titles promoted h3→h2 (visual classes unchanged).
