@@ -2169,6 +2169,23 @@ app.get('/s/:token/version', async (c) => {
   return c.json({ version: h.version });
 });
 
+// ---------- Ops: aggregate stats readout (secret-gated; used because the D1 HTTP API
+// is not always reachable from ops tooling — exposes only the same first-party
+// aggregate counters the app already stores, never user data) ----------
+app.get('/ops/stats', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const key = c.env.ADMIN_STATS_KEY;
+  if (!key || auth !== `Bearer ${key}`) return c.notFound();
+  const days = Math.min(90, Math.max(1, parseInt(c.req.query('days') || '7', 10) || 7));
+  const since = `-${days} days`;
+  const [paths, terms, intents] = await Promise.all([
+    c.env.DB.prepare("SELECT path, SUM(views) views FROM analytics_daily WHERE day >= date('now', ?) GROUP BY path ORDER BY views DESC LIMIT 40").bind(since).all(),
+    c.env.DB.prepare("SELECT term, SUM(count) count FROM search_terms WHERE day >= date('now', ?) GROUP BY term ORDER BY count DESC LIMIT 40").bind(since).all(),
+    c.env.DB.prepare('SELECT COUNT(*) total, SUM(confirmed) confirmed, SUM(unsubscribed_at IS NOT NULL) unsubscribed FROM email_intents').first(),
+  ]);
+  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents });
+});
+
 // ---------- SEO ----------
 app.get('/robots.txt', (c) =>
   c.text(`User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /s/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`)

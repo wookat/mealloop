@@ -1296,3 +1296,9 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 126 — 2026-08-08 (clean-sweep round 2: no findings → low-intensity mode)
 
 **Scan:** all 33 sitemap URLs return 200 with unique titles and meta descriptions (no duplicates, no thin pages); TTFB ~79 ms. D1 HTTP API still 7403 (platform-side; data driver still blocked, app unaffected). Second consecutive round with no actionable improvement — per protocol, converting to low-intensity operations (weekly pSEO + IndexNow, traffic weekly, security/retention watch).
+
+## Round 127 — 2026-08-12 (ops: secret-gated aggregate stats endpoint; data driver unblocked)
+
+**Findings:** Cloudflare D1 HTTP API still returns 7403 for every account token (platform-side), blocking the data-analysis driver since R125 — while the Worker's D1 binding works fine.
+**Fixes shipped:** `GET /ops/stats?days=N` — requires `Authorization: Bearer <ADMIN_STATS_KEY>` (new Worker secret; wrong/missing key → plain 404). Returns only the first-party aggregate counters the app already stores (analytics_daily paths, search_terms, email_intents totals) — never user data.
+**Verified in production:** no-auth → 404; with key → JSON. 14-day readout: /s 814 · /app/list 621 · /app 375 · / 205 · /guides 72; guide detail views led by picky-eaters (18), batch-cooking (13), leftovers/budget (11 each); search terms still internal-QA only; email intents: 1 total (0 confirmed, 1 unsubscribed — QA rows).
