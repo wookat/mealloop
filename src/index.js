@@ -331,7 +331,7 @@ function legalBody(title, inner) {
 // ---------- pSEO guides ----------
 // Topic hub: /guides grouped into themed sections (SideChef-style topic navigation).
 const GUIDE_TOPICS = [
-  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
+  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'back-to-school-meal-planning', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
   ['Grocery lists & shopping', ['grocery-list-by-aisle', 'organize-grocery-list-by-store-aisle', 'weekly-grocery-list-with-staples', 'household-staples-list', 'shared-grocery-list-without-an-app']],
   ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock', 'move-recipes-from-another-app']],
   ['Family, sharing & tools', ['meal-planning-as-a-team', 'meal-plan-in-your-family-calendar', 'meal-planning-apps-vs-shared-notes', 'plan-to-eat-alternatives', 'samsung-food-review-for-families']],
