@@ -1383,3 +1383,7 @@ Regression axe flagged moderate `heading-order` (h1→h3) on landing and /app �
 **R149 recipe Duplicate (parity fix):** POST /app/recipes/:id/duplicate copies title "(copy)", ingredients, steps, times, servings, photo, notes, tags; action added next to Edit/Delete.
 **R150 "Most planned" sort (parity fix):** third sort option on /app/recipes (PTE "Times Planned"), correlated count of past plan_entries; preserved across searches.
 **R151 list "From this week's plan" chips (parity fix):** /app/list shows linked chips for each recipe planned this week (PTE Planned Recipes panel equivalent), print-hidden.
+
+### 151b — recipe-card heading-order fix (regression finding, pre-existing)
+
+Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pre-existing recipe-card markup. Card titles promoted h3→h2 (visual classes unchanged).

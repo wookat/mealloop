@@ -1362,7 +1362,7 @@ ${recipes.results.map((r) => `
     <a href="/app/recipes/${r.id}" class="block">
       ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="h-36 w-full object-cover" loading="lazy">` : `<div class="h-36 w-full bg-stone-100 flex items-center justify-center text-stone-300 text-4xl">🍽</div>`}
       <div class="p-3 pb-2">
-        <h3 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h3>
+        <h2 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h2>
         <p class="text-xs text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes}m`, r.cook_minutes && `Cook ${r.cook_minutes}m`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
         ${r.tags ? `<p class="mt-1.5 flex flex-wrap gap-1">${r.tags.split(',').filter(Boolean).map((t) => `<span class="px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-800">#${esc(t)}</span>`).join('')}</p>` : ''}
       </div>
