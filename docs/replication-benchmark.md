@@ -146,7 +146,7 @@ Black-box observation only (headers, DevTools, view-source, Lighthouse); no scra
 | Image pipeline | www: webp + srcset (12×); app: user images via S3, no srcset | Recipe images lazy-loaded; brand art is inline SVG; no raster hero images to srcset | ✅ meets (n/a surface: we ship almost no raster images) |
 | CDN/cache | Cloudflare, APO on www; HTML DYNAMIC | Cloudflare Workers edge; HTML SSR at edge (TTFB 70–140 ms vs their 160–180 ms www / 60 ms app US-only origin) | ✅ meets |
 | Structured data | www: 2 JSON-LD blocks (WebSite/Organization) | Recipe, ItemList, SoftwareApplication+Offer, FAQPage (new), Article on guides | ✅ exceeds |
-| SEO tech | sitemap_index + robots content-signals; app robots disallow | sitemap.xml (35 locs incl. /faq), robots, IndexNow, canonicals, OG on every page | ✅ meets/exceeds |
+| SEO tech | sitemap_index + robots content-signals; app robots disallow | sitemap.xml (37 locs incl. /faq), robots, IndexNow, canonicals, OG on every page | ✅ meets/exceeds |
 | Security headers | HSTS preload, XFO, XCTO, referrer-policy; **CSP report-only** with `unsafe-inline` styles | Enforced CSP (no unsafe-inline), HSTS, XFO DENY, XCTO, referrer-policy, Permissions-Policy, COOP/CORP | ✅ exceeds (our CSP is enforced; theirs report-only) |
 | Perf baseline (Lighthouse desktop, same box, same run) | www home: perf 0.98, LCP 1.1 s, CLS 0.003, 2,466 KiB transferred | home: perf 1.00, LCP 0.3 s, CLS 0, 70 KiB transferred | ✅ exceeds |
 | A11y level | Unlabeled icon buttons + heading jumps observed in app | axe clean on audited pages (0 violations after R151b) | ✅ exceeds |
