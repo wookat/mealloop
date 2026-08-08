@@ -1314,3 +1314,8 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Findings:** /ops/stats readout shows practical-cooking guides lead views (picky-eaters 18, batch-cooking 13, leftovers/budget 11) — freezer-meal intent is adjacent and uncovered.
 **Fixes shipped:** 28th guide `freezer-meals-for-family-weeknights` (plan-from-the-freezer angle tied to ×2 scaling + weekly plan), in "Meal planning basics" topic.
 **Verified in production:** guide 200 with Article/Breadcrumb JSON-LD, listed in /guides, sitemap 34 locs, IndexNow 200. TTFB spot-check: / 134 ms, /pricing 75 ms, new guide 81 ms.
+
+## Round 130 — 2026-08-12 (CWV re-test + backlog re-eval)
+
+**CWV (Lighthouse, mobile emulation, headless):** `/` LCP 1.1 s / CLS 0 (perf 1.00); guide page LCP 1.1 s / CLS 0 (perf 1.00) — no flags.
+**Backlog re-eval:** pantry min-stock stays deferred (niche, no user signal); real-device touch validation still not possible from this environment; AI features (Concise Mode-style rewrites, nutrition/Vision AI) remain out of scope pending AI budget per boss directive.
