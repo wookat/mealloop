@@ -1282,3 +1282,9 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Findings:** security-header sweep found `Permissions-Policy`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` missing (HSTS/XFO/nosniff/Referrer-Policy/CSP already in place). Data driver skipped this round: Cloudflare D1 HTTP API returning 7403 for all tokens (app itself unaffected — Worker binding works).
 **Fixes shipped:** global middleware now also sets `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`, `COOP: same-origin`, `CORP: same-origin`.
 **Verified in production:** all three headers present on `/`; home 200, bad share token still 404; external recipe/item photos unaffected (CORP governs our resources, not embedded third-party images).
+
+## Round 124 — 2026-08-08 (SEO: SoftwareApplication + Offer structured data on /pricing)
+
+**Findings:** landing has FAQPage JSON-LD and guides have Article/ItemList, but `/pricing` exposed no structured data — competitor pattern (app-store style rich results) is SoftwareApplication with Offer entries.
+**Fixes shipped:** `/pricing` now emits `SoftwareApplication` JSON-LD (LifestyleApplication, Web) with three `Offer`s (Free $0 / Household $3 / Supporter $29 USD) matching the visible plan cards.
+**Verified in production:** JSON-LD parses, type/offers match the page; error-path sweep this round also confirmed 404 page friendly, invalid share token 404, bad month redirects, robots.txt correct.

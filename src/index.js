@@ -247,7 +247,22 @@ const PRICING_PLANS = [
 
 app.get('/pricing', async (c) => {
   const user = await getUser(c);
+  const site = c.env.SITE_URL || 'https://mealloop.zalize.com';
   const body = `
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'MealLoop',
+    applicationCategory: 'LifestyleApplication',
+    operatingSystem: 'Web',
+    url: site,
+    description: 'Family meal planning with real-time sync: import recipes, plan your week, share one grocery list.',
+    offers: [
+      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+      { '@type': 'Offer', name: 'Household', price: '3', priceCurrency: 'USD', description: '$3/month or $24/year' },
+      { '@type': 'Offer', name: 'Supporter', price: '29', priceCurrency: 'USD', description: '$29/year' },
+    ],
+  })}</script>
 <section class="py-8 sm:py-12 text-center">
   <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900">Simple pricing, built for households</h1>
   <p class="mt-3 text-lg text-stone-600 max-w-xl mx-auto">One subscription covers the whole family — people you share your link with never need an account or a plan.</p>
