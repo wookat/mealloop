@@ -1323,3 +1323,12 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 131 — 2026-08-12 (clean-sweep round: no findings)
 
 **Five-driver scan:** landing "From the guides" picks (picky-eaters / batch-cooking / budget) exactly match the top-3 most-viewed guides in the 90-day /ops/stats readout — already data-aligned, no change needed. Search terms still internal-QA only; no new referrers. Competitor deltas beyond R128's adopted search-ranking pattern are all AI-dependent (out of scope pending budget). Perf/a11y/security re-checked green in R130. No actionable item found — one more no-find round converts to low-intensity operations.
+
+## Round 132 — 2026-08-12 (flagship: AI week-menu generation)
+
+**Directive:** boss greenlit AI channel (api.aicdks.com, glm-5.2) — closes the AI gap vs Plan to Eat/Samsung Food without their subscription pricing.
+**Shipped:** "✨ Plan my week with AI" on the planner → server-side call drafts 7 dinners from the household's recipe box (+ tags/favourites, avoiding the last 2 weeks); box too small → the model proposes full new recipes (ingredients+steps) that get saved into the box on apply. Draft lives in KV (1h TTL): per-day ↻ Swap from alternates, days already planned are kept as-is, Apply inserts plan entries (new recipes tagged `ai-suggested`), Discard deletes the draft. Failure/timeout degrades to a notice pointing at the existing "Fill empty dinners" path. Key is a Worker secret (AICDKS_API_KEY), never sent to the client; prompts contain recipe titles only — no emails/tokens.
+
+## Round 133 — 2026-08-12 (flagship: pantry ↔ grocery list linkage)
+
+**Shipped:** /app/pantry — household-level "what we have at home" with stocked/low/out levels. Stocked items are skipped by "Add week's ingredients" and "+ Add staples" (notice shows how many were skipped); "Used up" one-tap after cooking; one button sends all low/out items to the grocery list (dedupe/buy-again aware). Pantry rows deleted with household on GDPR erase. Migration 0015 applied in production via new key-gated POST /ops/migrate (idempotent DDL only — D1 HTTP API outage workaround, same gate as /ops/stats).

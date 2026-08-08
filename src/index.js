@@ -4,6 +4,7 @@ import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessi
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
+import { generateWeekDraft } from './ai.js';
 
 const app = new Hono();
 
@@ -531,7 +532,9 @@ app.get('/app', async (c) => {
   const nextWeek = shiftDays(days[0], 7);
   const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
+  const aiErr = c.req.query('ai') === 'err';
   const body = `
+${aiErr ? `<p role="status" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 print:hidden">The AI couldn't draft a week just now — try again in a moment, or use “Fill empty dinners from recipe box” below.</p>` : ''}
 ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
@@ -560,6 +563,10 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
   </form>
+  ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/ai/generate" class="inline">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button data-busy-label="Drafting your week…" class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI</button>
+  </form>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
@@ -795,6 +802,139 @@ app.post('/app/plan/fill-week', async (c) => {
   return c.redirect(`/app?week=${days[0]}`);
 });
 
+// ---------- AI week drafting ----------
+const draftKey = (hid) => `aidraft:${hid}`;
+
+app.post('/app/ai/generate', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const days = weekDates(String(f.week || ''));
+  try {
+    const [recipes, recent] = await Promise.all([
+      c.env.DB.prepare('SELECT id, title, tags, favorite FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
+      c.env.DB.prepare('SELECT DISTINCT r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ?')
+        .bind(h.id, shiftDays(days[0], -14), shiftDays(days[0], -1)).all(),
+    ]);
+    const draft = await generateWeekDraft(c.env, {
+      recipes: recipes.results,
+      avoidTitles: recent.results.map((r) => r.title).slice(0, 30),
+      dayLabels: days.map(dayLabel),
+    });
+    draft.week_start = days[0];
+    await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
+    return c.redirect('/app/ai');
+  } catch {
+    return c.redirect(`/app?week=${days[0]}&ai=err`);
+  }
+});
+
+async function loadDraft(c, h) {
+  const raw = await c.env.KV.get(draftKey(h.id));
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+app.get('/app/ai', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const draft = await loadDraft(c, h);
+  if (!draft) return c.redirect('/app');
+  const days = weekDates(draft.week_start);
+  const ids = [...new Set(draft.week.concat(draft.alternates || []).map((p) => p.recipe_id).filter(Boolean))];
+  const titles = new Map();
+  if (ids.length) {
+    const rows = await c.env.DB.prepare(`SELECT id, title FROM recipes WHERE household_id = ? AND id IN (${ids.map(() => '?').join(',')})`).bind(h.id, ...ids).all();
+    for (const r of rows.results) titles.set(r.id, r.title);
+  }
+  const existing = await c.env.DB.prepare("SELECT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?").bind(h.id, days[0], days[6]).all();
+  const occupied = new Set(existing.results.map((r) => r.date));
+  const body = `
+<h1 class="text-2xl font-bold mb-1">Your AI week draft</h1>
+<p class="text-sm text-stone-500 mb-5">Dinners for the week of ${dayLabel(days[0])}. Swap any day, then apply — days that already have a dinner planned are kept as-is. Nothing is saved until you apply.</p>
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 mb-6">
+${days.map((d, i) => {
+    const p = draft.week[i];
+    const isNew = !!p.new;
+    const title = isNew ? p.new.title : (titles.get(p.recipe_id) || 'Unknown recipe');
+    return `
+  <div class="rounded-xl bg-white border ${occupied.has(d) ? 'border-stone-200 opacity-60' : 'border-emerald-200'} p-3">
+    <h3 class="text-sm font-semibold text-stone-700">${dayLabel(d)}</h3>
+    ${occupied.has(d) ? `<p class="mt-2 text-xs text-stone-500">Already planned — kept as-is.</p>` : `
+    <p class="mt-2 text-sm ${isNew ? '' : 'text-emerald-800'}">${esc(title)}</p>
+    ${isNew ? `<span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">New recipe — will be added to your box</span>
+    <details class="mt-1"><summary class="cursor-pointer text-xs text-stone-500 hover:text-emerald-700">Ingredients (${p.new.ingredients.length})</summary>
+      <ul class="mt-1 space-y-0.5 text-xs text-stone-600">${p.new.ingredients.slice(0, 12).map((x) => `<li>• ${esc(x)}</li>`).join('')}</ul>
+    </details>` : `<span class="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">From your recipe box</span>`}
+    ${(draft.alternates || []).length ? `<form method="post" action="/app/ai/swap" class="mt-2">
+      <input type="hidden" name="day" value="${i}">
+      <button class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs hover:bg-stone-100">↻ Swap</button>
+    </form>` : ''}`}
+  </div>`;
+  }).join('')}
+</div>
+<div class="flex flex-wrap gap-2">
+  <form method="post" action="/app/ai/apply"><button class="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Apply to my week</button></form>
+  <form method="post" action="/app/ai/discard"><button class="rounded-lg border border-stone-300 px-5 py-2.5 text-sm text-stone-600 hover:bg-stone-100">Discard draft</button></form>
+</div>`;
+  return c.html(page({ title: 'AI week draft', body, user, path: '/app', noindex: true }));
+});
+
+app.post('/app/ai/swap', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const i = Number(f.day);
+  const draft = await loadDraft(c, h);
+  if (draft && Number.isInteger(i) && i >= 0 && i < 7 && (draft.alternates || []).length) {
+    const next = draft.alternates.shift();
+    draft.alternates.push(draft.week[i]);
+    draft.week[i] = next;
+    await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
+  }
+  return c.redirect('/app/ai');
+});
+
+app.post('/app/ai/discard', async (c) => {
+  const h = c.get('household');
+  await c.env.KV.delete(draftKey(h.id));
+  return c.redirect('/app');
+});
+
+app.post('/app/ai/apply', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const draft = await loadDraft(c, h);
+  if (!draft) return c.redirect('/app');
+  const days = weekDates(draft.week_start);
+  const existing = await c.env.DB.prepare("SELECT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?").bind(h.id, days[0], days[6]).all();
+  const occupied = new Set(existing.results.map((r) => r.date));
+  const owned = await c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ?').bind(h.id).all();
+  const ownedIds = new Set(owned.results.map((r) => r.id));
+  const stmts = [];
+  for (let i = 0; i < 7; i++) {
+    const d = days[i];
+    if (occupied.has(d)) continue;
+    const p = draft.week[i];
+    let recipeId = null;
+    if (p.new) {
+      recipeId = uid();
+      stmts.push(c.env.DB.prepare('INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by, tags) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(recipeId, h.id, clip(p.new.title, 200), JSON.stringify(p.new.ingredients), JSON.stringify(p.new.steps), user.id, 'ai-suggested'));
+    } else if (ownedIds.has(p.recipe_id)) {
+      recipeId = p.recipe_id;
+    } else {
+      continue;
+    }
+    stmts.push(c.env.DB.prepare("INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, 'dinner', ?, '', 1)")
+      .bind(uid(), h.id, d, recipeId));
+  }
+  if (stmts.length) {
+    await c.env.DB.batch(stmts);
+    await bumpVersion(c.env, h.id);
+  }
+  await c.env.KV.delete(draftKey(h.id));
+  return c.redirect(`/app?week=${days[0]}`);
+});
+
 app.post('/app/menus', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -974,19 +1114,28 @@ app.post('/app/plan/to-list', async (c) => {
     }
   }
   const merged = mergeIngredients(labels);
-  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const [staples, pantry] = await Promise.all([
+    c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level = 'stocked'").bind(h.id).all(),
+  ]);
   const stapleCats = new Map(staples.results.map((s) => [ingredientKey(s.label), s.category]));
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
+  const stockedKeys = new Set(pantry.results.map((p) => ingredientKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
   const stmts = [];
   let added = 0;
+  let skipped = 0;
   const seen = new Set();
   for (const label of merged) {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
+    if (stockedKeys.has(key) && !byKey.get(key)) {
+      skipped++;
+      continue;
+    }
     const sources = [...(sourcesByKey.get(key) || [])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
     const hit = byKey.get(key);
     if (hit) {
@@ -1008,7 +1157,7 @@ app.post('/app/plan/to-list', async (c) => {
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
-  return c.redirect(`/app/list?added=${added}`);
+  return c.redirect(`/app/list?added=${added}${skipped ? `&pantry=${skipped}` : ''}`);
 });
 
 function shiftDays(dateStr, n) {
@@ -1512,9 +1661,10 @@ app.get('/app/list', async (c) => {
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
   const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : c.req.query('src') === 'staples' ? 'your staples' : "this week's plan";
-  const notice = added === undefined ? '' : Number(added) > 0
+  const pantrySkipped = Number(c.req.query('pantry')) || 0;
+  const notice = added === undefined ? '' : (Number(added) > 0
     ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from ${srcLabel}.`
-    : `Everything from ${srcLabel} is already on the list.`;
+    : `Everything from ${srcLabel} is already on the list.`) + (pantrySkipped ? ` Skipped ${pantrySkipped} item${pantrySkipped === 1 ? '' : 's'} you already have in the pantry.` : '');
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
@@ -1689,12 +1839,21 @@ app.post('/app/list/aisles', async (c) => {
 
 app.post('/app/list/staples', async (c) => {
   const h = c.get('household');
-  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const [staples, pantry] = await Promise.all([
+    c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level = 'stocked'").bind(h.id).all(),
+  ]);
+  const stockedKeys = new Set(pantry.results.map((p) => ingredientKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   let added = 0;
+  let skipped = 0;
   for (const s of staples.results) {
     const key = ingredientKey(s.label);
     const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+    if (!hit && stockedKeys.has(key)) {
+      skipped++;
+      continue;
+    }
     if (hit) {
       if (hit.checked) {
         await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();
@@ -1707,7 +1866,7 @@ app.post('/app/list/staples', async (c) => {
     }
   }
   if (added) await bumpVersion(c.env, h.id);
-  return c.redirect(`/app/list?added=${added}&src=staples`);
+  return c.redirect(`/app/list?added=${added}&src=staples${skipped ? `&pantry=${skipped}` : ''}`);
 });
 
 app.post('/app/list/uncheck', async (c) => {
@@ -1797,6 +1956,7 @@ ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<form method="post" action="/app/list/staples"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">+ Add staples</button></form>
     <a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
+    <a href="/app/pantry" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Pantry</a>
     <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
     ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
       <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
@@ -1938,6 +2098,106 @@ app.post('/app/staples/delete', async (c) => {
   return c.redirect('/app/staples');
 });
 
+// ---------- pantry (what you already have at home) ----------
+const PANTRY_LEVELS = ['stocked', 'low', 'out'];
+const PANTRY_LEVEL_LABELS = { stocked: 'Stocked', low: 'Running low', out: 'Out' };
+
+app.get('/app/pantry', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const items = await c.env.DB.prepare('SELECT * FROM pantry_items WHERE household_id = ? ORDER BY label COLLATE NOCASE').bind(h.id).all();
+  const needed = items.results.filter((i) => i.level !== 'stocked');
+  const added = c.req.query('added');
+  const notice = added === undefined ? '' : Number(added) > 0
+    ? `Added ${Number(added)} item${Number(added) === 1 ? '' : 's'} to the grocery list.`
+    : 'Everything low or out is already on the list.';
+  const body = `
+${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
+<h1 class="text-2xl font-bold mb-1">Pantry</h1>
+<p class="text-sm text-stone-500 mb-5 max-w-2xl">What you already have at home. <strong>Stocked</strong> items are skipped when "Add week's ingredients" builds your grocery list; mark them <strong>low</strong> or <strong>out</strong> after cooking and send them to the list in one tap.</p>
+<div class="flex flex-wrap gap-2 mb-5">
+  <form method="post" action="/app/pantry/add" class="flex gap-2 max-w-md">
+    <input name="label" required maxlength="200" aria-label="Add pantry item" autocomplete="off" placeholder="Add what you have (e.g. rice, olive oil)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
+  </form>
+  ${needed.length ? `<form method="post" action="/app/pantry/to-list"><button class="rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold px-4 py-2 hover:bg-emerald-50">Add ${needed.length} low/out item${needed.length === 1 ? '' : 's'} to grocery list</button></form>` : ''}
+  <a href="/app/list" class="rounded-lg border border-stone-300 text-sm px-4 py-2 hover:bg-stone-100">Grocery list</a>
+</div>
+${items.results.length === 0 ? `<p class="text-stone-500 text-sm">Nothing tracked yet — add the basics you always keep at home (rice, pasta, oil, spices…).</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100 max-w-2xl">
+${items.results.map((i) => `<li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm">
+  <span class="min-w-0 break-words ${i.level === 'out' ? 'text-stone-400 line-through' : ''}">${esc(i.label)}</span>
+  <span class="flex shrink-0 items-center gap-1.5">
+    <form method="post" action="/app/pantry/level">
+      <input type="hidden" name="id" value="${i.id}">
+      <select name="level" data-autosubmit aria-label="Stock level for ${esc(i.label)}" class="rounded border ${i.level === 'stocked' ? 'border-emerald-300 text-emerald-700' : i.level === 'low' ? 'border-amber-300 text-amber-700' : 'border-red-200 text-red-600'} bg-transparent text-xs px-1 py-0.5">
+        ${PANTRY_LEVELS.map((l) => `<option value="${l}"${l === i.level ? ' selected' : ''}>${PANTRY_LEVEL_LABELS[l]}</option>`).join('')}
+      </select>
+    </form>
+    ${i.level === 'stocked' ? `<form method="post" action="/app/pantry/level"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="level" value="out"><button class="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:bg-stone-100">Used up</button></form>` : ''}
+    <form method="post" action="/app/pantry/delete"><input type="hidden" name="id" value="${i.id}"><button aria-label="Remove ${esc(i.label)}" class="text-stone-500 hover:text-red-600">✕</button></form>
+  </span>
+</li>`).join('')}
+</ul>`}`;
+  return c.html(page({ title: 'Pantry', body, user, path: '/app/pantry', noindex: true }));
+});
+
+app.post('/app/pantry/add', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  for (const raw of splitListInput(clip(String(f.label || ''), 500))) {
+    const label = clip(raw.trim(), 200);
+    if (!label) continue;
+    const existing = await c.env.DB.prepare('SELECT id FROM pantry_items WHERE household_id = ? AND lower(label) = lower(?)').bind(h.id, label).first();
+    if (existing) {
+      await c.env.DB.prepare("UPDATE pantry_items SET level = 'stocked', updated_at = datetime('now') WHERE id = ?").bind(existing.id).run();
+    } else {
+      await c.env.DB.prepare('INSERT INTO pantry_items (id, household_id, label) VALUES (?, ?, ?)').bind(uid(), h.id, label).run();
+    }
+  }
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/level', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const level = String(f.level || '');
+  if (PANTRY_LEVELS.includes(level)) {
+    await c.env.DB.prepare("UPDATE pantry_items SET level = ?, updated_at = datetime('now') WHERE id = ? AND household_id = ?")
+      .bind(level, String(f.id || ''), h.id).run();
+  }
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  await c.env.DB.prepare('DELETE FROM pantry_items WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/to-list', async (c) => {
+  const h = c.get('household');
+  const needed = await c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level != 'stocked'").bind(h.id).all();
+  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  let added = 0;
+  for (const p of needed.results) {
+    const key = ingredientKey(p.label);
+    const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+    if (hit) {
+      if (hit.checked) {
+        await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();
+        added++;
+      }
+    } else {
+      await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, p.label, categorize(p.label)).run();
+      added++;
+    }
+  }
+  if (added) await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/pantry?added=${added}`);
+});
+
 app.get('/app/list/version', async (c) => {
   const h = c.get('household');
   const row = await c.env.DB.prepare('SELECT version FROM households WHERE id = ?').bind(h.id).first();
@@ -2062,6 +2322,7 @@ app.post('/app/account/delete', async (c) => {
       c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id IN (SELECT id FROM menus WHERE household_id = ?)').bind(h.id),
       c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM pantry_items WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(h.id),
@@ -2184,6 +2445,17 @@ app.get('/ops/stats', async (c) => {
     c.env.DB.prepare('SELECT COUNT(*) total, SUM(confirmed) confirmed, SUM(unsubscribed_at IS NOT NULL) unsubscribed FROM email_intents').first(),
   ]);
   return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents });
+});
+
+// Applies pending schema migrations via the Worker's D1 binding (same D1 HTTP
+// API outage workaround as /ops/stats). Idempotent DDL only, same key gate.
+app.post('/ops/migrate', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const key = c.env.ADMIN_STATS_KEY;
+  if (!key || auth !== `Bearer ${key}`) return c.notFound();
+  await c.env.DB.exec("CREATE TABLE IF NOT EXISTS pantry_items (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), label TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'stocked', updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_pantry_household ON pantry_items(household_id)');
+  return c.json({ ok: true });
 });
 
 // ---------- SEO ----------

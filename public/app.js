@@ -56,6 +56,14 @@
     });
   });
 
+  document.querySelectorAll('button[data-busy-label]').forEach(function (btn) {
+    btn.form && btn.form.addEventListener('submit', function () {
+      btn.textContent = btn.dataset.busyLabel;
+      btn.setAttribute('aria-busy', 'true');
+      setTimeout(function () { btn.disabled = true; }, 0);
+    });
+  });
+
   document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
     sel.addEventListener('change', function () {
       if (sel.value === '__custom') {
