@@ -303,6 +303,41 @@ app.get('/pricing', async (c) => {
   return c.html(page({ title: 'Pricing', description: 'MealLoop pricing: Free, Household and Supporter plans. All features free for everyone during the open beta — no card required.', body, user, path: '/pricing' }));
 });
 
+const FAQS = [
+  ['What is MealLoop?', 'MealLoop is a family meal planner: keep your recipes in one box, plan the week (or month) of dinners, and everyone in the household shops from one always-in-sync grocery list.'],
+  ['How do I get my recipes in?', 'Paste a link to any public recipe page and MealLoop imports it, paste recipe text by hand, type it in yourself, or upload a JSON backup from another app. Everything you add stays exportable.'],
+  ['Does my family need accounts?', 'Only the person who runs the plan needs one. Everyone else can use your household share link to see the week and check items off the grocery list — no signup, no app install.'],
+  ['Does it work on my phone?', 'Yes. MealLoop is a fast website that adapts to any screen, so there is nothing to install and it is always up to date at the store.'],
+  ['How does the grocery list stay in sync?', 'When you add planned meals to the list, ingredients merge automatically by aisle. Anyone viewing the list — on the app or the share link — sees checks appear within seconds.'],
+  ['What does the AI week planner do?', 'It drafts a week of dinners from your own recipe box and recent history. Nothing is saved until you press Apply, and pantry items you already have are skipped on the list.'],
+  ['Can I scale recipes or switch units?', 'Yes — scale servings up or down on any recipe, and switch the whole household between metric and imperial display units.'],
+  ['Is my data locked in?', 'No. You can export every recipe as standard schema.org JSON at any time, and delete your account (and all data) yourself from settings.'],
+  ['How much does it cost?', 'During the open beta everything is free for everyone — no card required. Planned prices are on the pricing page and beta users will be notified well before billing starts.'],
+];
+
+app.get('/faq', async (c) => {
+  const user = await getUser(c);
+  const body = `
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  })}</script>
+<section class="max-w-2xl mx-auto py-8 sm:py-12">
+  <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 text-center">Frequently asked questions</h1>
+  <p class="mt-3 text-lg text-stone-600 text-center">Everything busy families ask before their first week with MealLoop.</p>
+  <div class="mt-7 space-y-3">
+    ${FAQS.map(([q, a]) => `
+    <details class="rounded-xl bg-white border border-stone-200 p-4">
+      <summary class="font-semibold cursor-pointer text-stone-900">${q}</summary>
+      <p class="mt-2 text-sm text-stone-600">${a}</p>
+    </details>`).join('')}
+  </div>
+  <p class="mt-8 text-center text-sm text-stone-600">Still curious? <a class="text-emerald-700 underline" href="/pricing">See pricing</a> or <a class="text-emerald-700 underline" href="${user ? '/app' : '/login'}">${user ? 'open your planner' : 'start planning free'}</a>.</p>
+</section>`;
+  return c.html(page({ title: 'FAQ', description: 'Answers to common questions about MealLoop: recipe import, household share links, the synced grocery list, AI week drafts, data export and beta pricing.', body, user, path: '/faq' }));
+});
+
 app.get('/privacy', async (c) =>
   c.html(page({ title: 'Privacy', path: '/privacy', user: await getUser(c), body: legalBody('Privacy Policy', `
 <p>MealLoop is designed to be privacy-first. Controller: MealLoop (Zalize), contact <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>.</p>
@@ -2554,7 +2589,7 @@ app.get('/robots.txt', (c) =>
 );
 
 app.get('/sitemap.xml', (c) => {
-  const urls = ['/', '/pricing', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+  const urls = ['/', '/pricing', '/faq', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join('\n')}

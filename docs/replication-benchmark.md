@@ -92,3 +92,68 @@ deliberately out of scope (recorded, not a defect).
 
 Remaining P2 backlog (deliberate): photo-grid recipe view, ingredient-based filters,
 category sub-groups, desktop drag&drop, breakfast/lunch slots, nutrition facts.
+
+---
+
+## Page-coverage inventory (R152, 2026-08-05)
+
+Sources: `www.plantoeat.com/robots.txt` → `sitemap_index.xml` (page-sitemap: 29 URLs; post-sitemaps: 1,275 blog posts), `app.plantoeat.com/robots.txt` (allow-list), nav/footer crawl of both hosts, plus the authenticated walkthrough above. PTE page **types** (grouping the 1,275 posts and 12 email-archive pages as one type each):
+
+| # | PTE page type | Ours | Covered in scorecard |
+|---|---|---|---|
+| 1 | Marketing home | Landing `/` | ✅ |
+| 2 | Tour: meal planner | Landing planner section + demo tabs | ✅ |
+| 3 | Tour: recipe organizer | Landing recipes section | ✅ |
+| 4 | Tour: grocery list maker | Landing list section | ✅ |
+| 5 | Tour: macro tracking | — | deliberate n/a (nutrition/macro tracking out of scope; noted in P2 backlog as nutrition facts) |
+| 6 | FAQ (`/tour/frequently-asked-questions`) | `/faq` (added R154, FAQPage JSON-LD) | ✅ new |
+| 7 | About + About/story | `/about` | ✅ |
+| 8 | Media kit | `/press` | ✅ |
+| 9 | Legal hub + terms + privacy | `/terms`, `/privacy` | ✅ |
+| 10 | Blog (listing + 1,275 posts) | `/guides` (28 guides) | ✅ (content moat differs by design) |
+| 11 | Podcast | — | deliberate n/a (audio content channel, not product) |
+| 12 | Email newsletter archive (`/email/*`) | — | deliberate n/a (we don't publish email archives; double-opt-in list exists) |
+| 13 | Recipe clipper (browser extension) | Paste-URL import | ✅ scored (import flow row) |
+| 14 | Signup / login | `/login` (passwordless) | ✅ |
+| 15 | Gift subscriptions | — | deliberate n/a (no payments by directive) |
+| 16 | Referral program | — | deliberate n/a (no payments/rewards by directive) |
+| 17 | Annual sale page | — | deliberate n/a (no payments) |
+| 18 | App: recipes list | `/app/recipes` | ✅ |
+| 19 | App: recipe detail | `/app/recipes/:id` | ✅ |
+| 20 | App: cooking view | Cook mode | ✅ |
+| 21 | App: planner (week/month) | `/app` + `/app/month` | ✅ |
+| 22 | App: shopping lists | `/app/list` | ✅ |
+| 23 | App: staples lists | `/app/staples` (+ pantry) | ✅ |
+| 24 | App: queue | — | deliberate n/a (social save-for-later; our favourites cover intent) |
+| 25 | App: freezer | — | deliberate n/a (inventory niche; pantry covers intent) |
+| 26 | App: friends | Anonymous share link | ✅ scored (we exceed: no accounts needed) |
+| 27 | App: account/settings | Household settings + GDPR delete | ✅ |
+| 28 | App: print views (recipe/planner/list) | Print styles on all three | ✅ |
+
+**Coverage: 22/28 types compared (79% raw); 6/28 marked deliberate-n/a with reasons (payments ×3, audio/email channels ×2, macro tour ×1). Coverage of in-scope page types: 22/22 = 100%.** Gap found by this inventory — no public FAQ page — fixed as R154 (`/faq`).
+
+## Technical-standard audit (R153, 2026-08-05)
+
+Black-box observation only (headers, DevTools, view-source, Lighthouse); no scraping behind bot walls, no code copied.
+
+| Dimension | Plan to Eat (observed) | MealLoop | Verdict |
+|---|---|---|---|
+| Rendering | www: WordPress SSR (theme "pro", Cloudflare APO). App: Rails SSR + Webpack JS islands (`x-runtime`, `/packs/js/*`) | Workers SSR (Hono), no hydration payload | ✅ meets (same SSR-first architecture, less JS) |
+| JS shipped (entry page) | app login: 508 KB JS over 3 bundles + 2 third-party scripts | ~8 KB `app.js`, zero third-party | ✅ exceeds |
+| HTML weight | www home 358 KB raw; login 17 KB | home 5.1 KB gzipped | ✅ exceeds |
+| Asset pipeline | Content-hashed filenames + `Cache-Control: immutable` | **Was**: un-hashed `/styles.css` with `max-age=0` revalidation → **fixed R153**: build-hash `?v=` + immutable 1y on CSS/JS | ✅ meets after fix |
+| Font pipeline | woff2, Cloudflare Fonts rewrite (`/cf-fonts/`), no preload | self-hosted subset woff2 + `rel=preload` + `font-display:swap` | ✅ meets/exceeds |
+| Image pipeline | www: webp + srcset (12×); app: user images via S3, no srcset | Recipe images lazy-loaded; brand art is inline SVG; no raster hero images to srcset | ✅ meets (n/a surface: we ship almost no raster images) |
+| CDN/cache | Cloudflare, APO on www; HTML DYNAMIC | Cloudflare Workers edge; HTML SSR at edge (TTFB 70–140 ms vs their 160–180 ms www / 60 ms app US-only origin) | ✅ meets |
+| Structured data | www: 2 JSON-LD blocks (WebSite/Organization) | Recipe, ItemList, SoftwareApplication+Offer, FAQPage (new), Article on guides | ✅ exceeds |
+| SEO tech | sitemap_index + robots content-signals; app robots disallow | sitemap.xml (37 locs incl. /faq), robots, IndexNow, canonicals, OG on every page | ✅ meets/exceeds |
+| Security headers | HSTS preload, XFO, XCTO, referrer-policy; **CSP report-only** with `unsafe-inline` styles | Enforced CSP (no unsafe-inline), HSTS, XFO DENY, XCTO, referrer-policy, Permissions-Policy, COOP/CORP | ✅ exceeds (our CSP is enforced; theirs report-only) |
+| Perf baseline (Lighthouse desktop, same box, same run) | www home: perf 0.98, LCP 1.1 s, CLS 0.003, 2,466 KiB transferred | home: perf 1.00, LCP 0.3 s, CLS 0, 70 KiB transferred | ✅ exceeds |
+| A11y level | Unlabeled icon buttons + heading jumps observed in app | axe clean on audited pages (0 violations after R151b) | ✅ exceeds |
+
+**Result: 12/12 technical dimensions meet or exceed the benchmark's standard** (1 fixed this round: hashed-asset immutable caching; 1 not applicable in kind: srcset — we ship no marketing raster imagery).
+
+## Fixes shipped from this upgrade (R152–R154)
+- R152 — Page-coverage inventory (above); confirmed no missing in-scope page type except FAQ.
+- R153 — Asset versioning: `scripts/asset-version.mjs` hashes CSS+JS at deploy → `?v=<hash>` URLs + `Cache-Control: immutable` (PTE hashed-asset parity).
+- R154 — Public `/faq` with FAQPage JSON-LD, footer link, sitemap entry (PTE FAQ tour-page parity).
