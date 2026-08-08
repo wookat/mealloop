@@ -548,7 +548,7 @@ ${aiErr ? `<p role="status" class="mb-4 rounded-lg border border-amber-200 bg-am
 ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
-  <div class="flex items-center gap-2 text-sm print:hidden">
+  <div class="flex flex-wrap items-center gap-2 text-sm print:hidden">
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
     <a href="/app?week=${prevWeek}" data-swipe-prev class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app#today" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>

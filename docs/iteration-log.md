@@ -1345,3 +1345,9 @@ Testing found the common case failing: pantry "basmati rice" (Stocked) did not s
 - Empty-state CTA: grocery list empty state now offers "Open the planner" + "Set up staples" buttons (editable views only — share page unchanged).
 - New-feature discovery: one-time amber "New" badges on "✨ Plan my week with AI" (planner) and "Pantry" (grocery-list toolbar) via generic `data-new` helper — hidden after first click, localStorage-remembered, no animation (nothing to reduce for reduced-motion).
 **R136:** the setup checklist doubles as the first-run coach — deliberately no overlay coach marks (strict CSP, restraint principle: nothing blocks the UI, everything skippable, zero requests).
+
+### 136b — 375px planner toolbar overflow fix (regression finding, pre-existing)
+
+New-user regression flagged the planner at 422px scrollWidth on a 375px viewport. Isolation showed the setup card fits fine — the culprit was the week-nav toolbar (Print/Prev/Today/Next/Month/+ Snacks) missing `flex-wrap`, dating back to R106–108 when the Month link was added. Added `flex-wrap`; re-verified 375/375 in production.
+
+**Regression evidence (testing agent, disposable household, GDPR-deleted after):** full new-user walkthrough recorded — 3→2→1-step progression with ✓/strikethrough, dismiss persists via localStorage and card restores when key cleared, card gone after all steps, empty-list CTAs present, Pantry badge one-time behaviour proven (`ml-new-pantry`), axe 0 violations, standing household untouched (35 to buy · 0 checked, no setup card as expected). Untested: AI badge post-click hiding (avoided a paid generation; mechanism shared with pantry badge), share-page empty-list CTA absence (low priority).
