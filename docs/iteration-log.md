@@ -1276,3 +1276,9 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 122 — 2026-08-08 (pSEO: back-to-school guide, seasonal)
 
 **Fixes shipped:** 27th guide `back-to-school-meal-planning` (seasonal August/September topic: school-night dinners + lunchbox batching + one-shop weeks). Sitemap 32 locs, IndexNow ping 200.
+
+## Round 123 — 2026-08-08 (security hardening: response headers)
+
+**Findings:** security-header sweep found `Permissions-Policy`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` missing (HSTS/XFO/nosniff/Referrer-Policy/CSP already in place). Data driver skipped this round: Cloudflare D1 HTTP API returning 7403 for all tokens (app itself unaffected — Worker binding works).
+**Fixes shipped:** global middleware now also sets `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`, `COOP: same-origin`, `CORP: same-origin`.
+**Verified in production:** all three headers present on `/`; home 200, bad share token still 404; external recipe/item photos unaffected (CORP governs our resources, not embedded third-party images).

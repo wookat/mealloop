@@ -16,6 +16,9 @@ app.use('*', async (c, next) => {
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    c.res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    c.res.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
     c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
   } catch {}
   try {
