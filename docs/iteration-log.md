@@ -1351,3 +1351,13 @@ Testing found the common case failing: pantry "basmati rice" (Stocked) did not s
 New-user regression flagged the planner at 422px scrollWidth on a 375px viewport. Isolation showed the setup card fits fine — the culprit was the week-nav toolbar (Print/Prev/Today/Next/Month/+ Snacks) missing `flex-wrap`, dating back to R106–108 when the Month link was added. Added `flex-wrap`; re-verified 375/375 in production.
 
 **Regression evidence (testing agent, disposable household, GDPR-deleted after):** full new-user walkthrough recorded — 3→2→1-step progression with ✓/strikethrough, dismiss persists via localStorage and card restores when key cleared, card gone after all steps, empty-list CTAs present, Pantry badge one-time behaviour proven (`ml-new-pantry`), axe 0 violations, standing household untouched (35 to buy · 0 checked, no setup card as expected). Untested: AI badge post-click hiding (avoided a paid generation; mechanism shared with pantry badge), share-page empty-list CTA absence (low priority).
+
+## Round 137–141 — 2026-08-12 (brand system + full-activity marketing)
+
+**Directive:** boss asked for comprehensive branding + all product activities beyond development.
+**R137 brand system (docs/brand/):** brand-story.md (positioning one-liner, story, pillars, differentiation, proof points), naming-and-voice.md (canonical product/feature names, tone-of-voice rules, banned words, microcopy patterns), visual-guide.md (logo usage, color, type, spacing, motion, asset inventory — consolidates R114–118).
+**R138 on-site brand consistency:** audited name casing (no violations), titles/OG/footer/email signatures consistent; footer gains About + Press links.
+**R139 About + Press pages:** /about (story + beliefs, brand-guide copy) and /press (short/long boilerplate, facts, downloadable logo/icon/OG assets, naming/color rules); both in sitemap (34→36 locs).
+**R140 email lifecycle:** new `sendWelcome` (src/auth.js) — one-time welcome email on first subscription confirmation (quickstart + unsubscribe + List-Unsubscribe headers, only to just-double-opted-in addresses; re-confirms don't resend). Announcement + re-engagement templates and confirmed-only sending procedure in docs/marketing/email-lifecycle.md.
+**R141 marketing pack (docs/marketing/):** directory-submissions.md (10-site checklist with canonical copy — all require real accounts, so all are boss-to-execute 👤), product-hunt-kit.md (tagline, gallery plan, maker comment, FAQ, runbook), social-calendar-14d.md (14 days of copy-paste X/Reddit/HN posts, value-first Reddit rules), content-plan.md (internal-link rules + next 8 guide topics).
+**Red lines kept:** no fake accounts registered, no reviews fabricated, welcome email only post-double-opt-in, no anti-bot bypass.

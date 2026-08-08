@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
-import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
+import { getUser, sendMagicCode, sendSubscribeConfirm, sendWelcome, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, pantryKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
@@ -198,9 +198,10 @@ app.get('/subscribe/confirm', async (c) => {
   const t = String(c.req.query('t') || '');
   let ok = false;
   if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
-    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
+    const row = await c.env.DB.prepare('SELECT id, email, unsub_token, confirmed FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
     if (row) {
       await c.env.DB.prepare("UPDATE email_intents SET confirmed = 1, confirmed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      if (!row.confirmed) c.executionCtx.waitUntil(sendWelcome(c.env, row.email, row.unsub_token));
       ok = true;
     }
   }
@@ -341,6 +342,52 @@ app.get('/terms', async (c) =>
 <li>Do not use MealLoop for unlawful content or to abuse the import service.</li>
 <li>We may update these terms; continued use constitutes acceptance.</li>
 </ul>`) }))
+);
+
+app.get('/about', async (c) =>
+  c.html(page({ title: 'About', path: '/about', user: await getUser(c), description: 'MealLoop is the calm way for busy families to answer "what\'s for dinner?" — plan the week in minutes, and everyone shops from one always-in-sync list.', body: `
+<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4">
+<h1 class="text-2xl font-bold">About MealLoop</h1>
+<p class="text-lg text-stone-600">MealLoop is the calm way for busy families to answer "what's for dinner?" — plan the week in minutes, and everyone shops from one always-in-sync list.</p>
+<p>Every family has the same 6pm problem: someone standing in front of the fridge, tired, deciding dinner from scratch — again. Recipes live in ten browser tabs, the shopping list is a text thread, and whoever's at the store buys the wrong things twice.</p>
+<p>MealLoop closes the loop. Save recipes once — paste any recipe URL, type them in, or import a backup — drag them onto a week, and the grocery list writes itself: merged quantities, sorted by aisle, minus what's already in your pantry. Your household shares one link; anyone can check things off at the store and everyone else sees it instantly. When the week's done, you loop: reuse a saved menu or let AI draft the next week from your own recipe box.</p>
+<h2 class="font-semibold text-lg pt-2">What we believe</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li><strong>Calm over clever.</strong> No forced onboarding quizzes, no gamification, no notification spam.</li>
+<li><strong>The family is the unit.</strong> Shared lists and anonymous share links — no one needs an account to check off milk.</li>
+<li><strong>Your food, your data.</strong> Recipes export in an open format, accounts self-delete, analytics are cookie-free aggregates. No ads, ever.</li>
+<li><strong>Warmth, not sterility.</strong> Food software should feel like a kitchen, not a spreadsheet.</li>
+</ul>
+<p>MealLoop is built by <a class="text-emerald-700 underline" href="https://zalize.com" rel="noopener">Zalize</a> and is currently in open beta — every feature is free during the beta. Questions? <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>. Press &amp; media: see the <a class="text-emerald-700 underline" href="/press">press kit</a>.</p>
+</article>` }))
+);
+
+app.get('/press', async (c) =>
+  c.html(page({ title: 'Press kit', path: '/press', user: await getUser(c), description: 'MealLoop press & media kit: boilerplate, brand assets, screenshots and facts for journalists and creators.', body: `
+<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4">
+<h1 class="text-2xl font-bold">MealLoop press kit</h1>
+<p class="text-stone-600">Everything you need to write about MealLoop. Questions or interview requests: <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>.</p>
+<h2 class="font-semibold text-lg pt-2">Boilerplate</h2>
+<p><strong>Short:</strong> MealLoop is a family meal planner and shared grocery list: import recipes from any site, plan your week in minutes, and shop from one always-in-sync list — no app install needed for the family.</p>
+<p><strong>Long:</strong> MealLoop (mealloop.zalize.com) helps busy families answer "what's for dinner?" without the nightly decision fatigue. Households save recipes once — from any recipe website, by typing them in, or by importing a backup — plan their week on a simple planner, and get an automatic grocery list with merged quantities sorted by supermarket aisle, minus what's already in the pantry. One private share link keeps the whole household in sync at the store, with no account or app required. MealLoop also drafts weekly menus with AI grounded in the family's own recipe box, exports recipes in an open format, and is privacy-first: no ads, no cookies before login, and cookie-free aggregate analytics. Built by Zalize, MealLoop is in open beta with all features free during the beta.</p>
+<h2 class="font-semibold text-lg pt-2">Facts</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li>Product: family meal planning + shared grocery list, web-based (works on any phone/desktop browser).</li>
+<li>Pricing: open beta — all features free; published plans are Free, Household ($3/mo or $24/yr) and Supporter ($29/yr) at general availability.</li>
+<li>Privacy: no ads, no third-party trackers, no cookies before login, GDPR self-serve account deletion.</li>
+<li>Platform: Cloudflare Workers edge deployment, server-rendered, strict Content Security Policy.</li>
+<li>Maker: Zalize. Contact: mealloop@zalize.com.</li>
+</ul>
+<h2 class="font-semibold text-lg pt-2">Brand assets</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li><a class="text-emerald-700 underline" href="/favicon.svg" download>Logo mark (SVG)</a> — the "plate + loop"; don't recolor or restyle.</li>
+<li><a class="text-emerald-700 underline" href="/icon-512.png" download>App icon 512×512 (PNG)</a></li>
+<li><a class="text-emerald-700 underline" href="/og-card.png" download>Social / cover card 1200×630 (PNG)</a></li>
+</ul>
+<p>Name is always written <strong>MealLoop</strong> (one word, capital M and L). Primary color emerald <code>#059669</code> on warm cream <code>#fbf8f3</code>; display font Nunito.</p>
+<h2 class="font-semibold text-lg pt-2">Screenshots</h2>
+<p>Screenshot anything on the live site, or try the interactive demo on the <a class="text-emerald-700 underline" href="/">home page</a> — we're happy to provide specific shots on request.</p>
+</article>` }))
 );
 
 function legalBody(title, inner) {
@@ -2486,7 +2533,7 @@ app.get('/robots.txt', (c) =>
 );
 
 app.get('/sitemap.xml', (c) => {
-  const urls = ['/', '/pricing', '/guides', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+  const urls = ['/', '/pricing', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join('\n')}

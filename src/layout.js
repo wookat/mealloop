@@ -54,6 +54,8 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
     <div class="flex flex-wrap gap-x-5 gap-y-2">
       <a class="hover:text-stone-700" href="/pricing">Pricing</a>
       <a class="hover:text-stone-700" href="/guides">Guides</a>
+      <a class="hover:text-stone-700" href="/about">About</a>
+      <a class="hover:text-stone-700" href="/press">Press</a>
       <a class="hover:text-stone-700" href="/privacy">Privacy</a>
       <a class="hover:text-stone-700" href="/terms">Terms</a>
     </div>

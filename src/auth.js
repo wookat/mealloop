@@ -42,6 +42,25 @@ export async function sendSubscribeConfirm(env, email, confirmToken, unsubToken)
   return res.ok;
 }
 
+export async function sendWelcome(env, email, unsubToken) {
+  const site = env.SITE_URL || 'https://mealloop.zalize.com';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from: 'MealLoop <mealloop@zalize.com>',
+      to: [email],
+      subject: 'Welcome to MealLoop — plan your first week in a minute',
+      text: `Thanks for confirming — you're on the MealLoop updates list.\n\nIf you haven't tried the app yet, here's the one-minute version:\n1. Add a recipe — paste any recipe URL, or type one in: ${site}/app/recipes\n2. Plan a dinner on your week.\n3. Click "Add week's ingredients" — your grocery list writes itself, sorted by aisle.\n\nShare your list with the household from the Share page; anyone can check things off at the store, no account needed.\n\nEverything is free during the open beta: ${site}\n\n— MealLoop (Zalize)\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
+      headers: {
+        'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }),
+  });
+  return res.ok;
+}
+
 export async function verifyCode(env, email, code) {
   const key = `code:${email.toLowerCase()}`;
   const attemptsKey = `attempts:${email.toLowerCase()}`;
