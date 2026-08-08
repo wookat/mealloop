@@ -1288,3 +1288,7 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 **Findings:** landing has FAQPage JSON-LD and guides have Article/ItemList, but `/pricing` exposed no structured data — competitor pattern (app-store style rich results) is SoftwareApplication with Offer entries.
 **Fixes shipped:** `/pricing` now emits `SoftwareApplication` JSON-LD (LifestyleApplication, Web) with three `Offer`s (Free $0 / Household $3 / Supporter $29 USD) matching the visible plan cards.
 **Verified in production:** JSON-LD parses, type/offers match the page; error-path sweep this round also confirmed 404 page friendly, invalid share token 404, bad month redirects, robots.txt correct.
+
+## Round 125 — 2026-08-08 (clean-sweep round: no P0/P1/P2 found)
+
+**Five-driver scan:** a11y (skip link, heading order, autocomplete/inputmode/one-time-code on login) — clean; error paths (404, bad share token, bad month, invalid guide) — clean; perf budget (compressed: / 5.4 KB, styles.css 7.5 KB, app.js 3 KB; TTFB ~75 ms) — well under budget; security headers — completed in R123; competitor re-dig — no new material since R101–118 scans. **Data driver blocked:** Cloudflare D1 HTTP API returning 7403 for all account tokens (platform-side; the app itself is unaffected since it uses the Worker binding). No improvement item found this round — per protocol, one more no-find round converts to low-intensity operations.
