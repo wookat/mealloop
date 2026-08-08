@@ -1305,8 +1305,10 @@ app.get('/app/recipes', async (c) => {
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
   const fav = c.req.query('fav') === '1';
-  const sort = c.req.query('sort') === 'title' ? 'title' : 'newest';
-  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC' : 'favorite DESC, created_at DESC';
+  const sort = ['title', 'planned'].includes(c.req.query('sort')) ? c.req.query('sort') : 'newest';
+  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC'
+    : sort === 'planned' ? "favorite DESC, (SELECT COUNT(*) FROM plan_entries p WHERE p.recipe_id = recipes.id AND p.date <= date('now')) DESC, created_at DESC"
+    : 'favorite DESC, created_at DESC';
   if (q) {
     // Aggregate search terms (no user/household attribution) to learn what people look for.
     const term = q.toLowerCase().slice(0, 60);
@@ -1336,11 +1338,11 @@ app.get('/app/recipes', async (c) => {
   <h1 class="text-2xl font-bold">Recipes</h1>
   <div class="flex flex-wrap items-center gap-2">
     <form method="get" action="/app/recipes" class="flex gap-2">
-      ${sort === 'title' ? '<input type="hidden" name="sort" value="title">' : ''}
+      ${sort !== 'newest' ? `<input type="hidden" name="sort" value="${sort}">` : ''}
       <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
       <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
     </form>
-    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'title' ? 'sort=title' : ''}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}</span>`; })()}
+    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'newest' ? '' : `sort=${s}`}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}${link('planned', 'Most planned')}</span>`; })()}
   </div>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
@@ -1653,6 +1655,20 @@ app.post('/app/recipes/:id/to-list', async (c) => {
   return c.redirect(`/app/list?added=${added}&src=recipe`);
 });
 
+app.post('/app/recipes/:id/duplicate', async (c) => {
+  const h = c.get('household');
+  const user = c.get('user');
+  const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
+  if (!r) return c.notFound();
+  const id = uid();
+  const title = clip(`${r.title} (copy)`, 200);
+  await c.env.DB.prepare(
+    'INSERT INTO recipes (id, household_id, title, source_url, image_url, description, prep_minutes, cook_minutes, servings, ingredients_json, steps_json, notes, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, h.id, title, r.source_url, r.image_url, r.description, r.prep_minutes, r.cook_minutes, r.servings, r.ingredients_json, r.steps_json, r.notes, r.tags || '', user.id).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/recipes/${id}`);
+});
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -1711,6 +1727,7 @@ ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3 print:hidden">
 </form>` : ''}
 ${canEdit ? `<div class="mt-4 flex items-center gap-4 print:hidden">
   <a href="/app/recipes/${r.id}/edit" class="text-sm text-emerald-700 hover:underline">Edit recipe</a>
+  <form method="post" action="/app/recipes/${r.id}/duplicate"><button class="text-sm text-stone-600 hover:underline">Duplicate</button></form>
   <form method="post" action="/app/recipes/${r.id}/delete" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>
 </div>` : ''}
 </article>`;
@@ -1720,9 +1737,11 @@ ${canEdit ? `<div class="mt-4 flex items-center gap-4 print:hidden">
 app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
-  const [items, staples] = await Promise.all([
+  const wk = weekDates(today());
+  const [items, staples, weekRecipes] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
     c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare('SELECT DISTINCT r.id, r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY r.title COLLATE NOCASE').bind(h.id, wk[0], wk[6]).all(),
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
@@ -1734,7 +1753,7 @@ app.get('/app/list', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1' });
+  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1', weekRecipes: weekRecipes.results });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -1951,7 +1970,7 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false, weekRecipes = [] }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = sortCategories([...new Set([...STANDARD_CATEGORIES, ...cats])], h.category_order);
   const qs = (store, aisles) => {
@@ -2015,6 +2034,7 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
       </li>`;
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
+${weekRecipes.length ? `<div class="mb-4 flex flex-wrap items-center gap-1.5 print:hidden"><span class="text-xs text-stone-500">From this week's plan:</span>${weekRecipes.map((r) => `<a href="/app/recipes/${r.id}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100">${esc(r.title)}</a>`).join('')}</div>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500 tnum">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
