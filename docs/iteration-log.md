@@ -1387,3 +1387,10 @@ Regression axe flagged moderate `heading-order` (h1→h3) on landing and /app �
 ### 151b — recipe-card heading-order fix (regression finding, pre-existing)
 
 Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pre-existing recipe-card markup. Card titles promoted h3→h2 (visual classes unchanged).
+
+## Round 152–154 — 2026-08-05 (replication upgrade: full page coverage + technical-standard audit)
+
+**Directive:** confirm every benchmark page is covered, and match the benchmark's technical standards.
+**R152 page-coverage inventory:** crawled PTE sitemap_index (29 pages + 1,275 posts), both robots.txt, nav/footer — 28 page types; 22/22 in-scope types covered (100%), 6 deliberate-n/a (payments ×3, podcast/email archive, macro tour). One real gap found: no public FAQ.
+**R153 technical audit + fix:** black-box DevTools/headers/Lighthouse comparison across 12 dimensions (rendering, JS weight, assets, fonts, images, CDN, structured data, SEO, security headers, perf, a11y) — 12/12 meet or exceed after fixing the one gap: un-hashed CSS/JS with max-age=0 → build-hash `?v=` URLs + immutable 1y (scripts/asset-version.mjs, wired into `npm run deploy`).
+**R154 /faq:** public FAQ page (9 Q&As, FAQPage JSON-LD, footer link, sitemap 35 locs) — PTE tour/frequently-asked-questions parity.

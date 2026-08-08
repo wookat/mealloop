@@ -1,4 +1,5 @@
 import { esc } from './util.js';
+import { ASSET_V } from './assetv.js';
 
 export function page({ title, description, body, user, path = '/', noindex = false, ogType = 'website' }) {
   const desc = description || 'Family meal planning with real-time sync. Import recipes, plan your week, share one grocery list. All features free during the open beta.';
@@ -21,12 +22,12 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
 <meta name="twitter:card" content="summary_large_image">
 <link rel="canonical" href="https://mealloop.zalize.com${esc(path)}">
 <link rel="preload" href="/fonts/nunito-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="/styles.css">
+<link rel="stylesheet" href="/styles.css?v=${ASSET_V}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="theme-color" content="#059669">
-<script src="/app.js" defer></script>
+<script src="/app.js?v=${ASSET_V}" defer></script>
 </head>
 <body class="min-h-screen bg-stone-50 text-stone-800 antialiased flex flex-col">
 <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-emerald-600 focus:px-3 focus:py-2 focus:text-white">Skip to content</a>
@@ -54,6 +55,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : ''}
     <div class="flex flex-wrap gap-x-5 gap-y-2">
       <a class="hover:text-stone-700" href="/pricing">Pricing</a>
       <a class="hover:text-stone-700" href="/guides">Guides</a>
+      <a class="hover:text-stone-700" href="/faq">FAQ</a>
       <a class="hover:text-stone-700" href="/about">About</a>
       <a class="hover:text-stone-700" href="/press">Press</a>
       <a class="hover:text-stone-700" href="/privacy">Privacy</a>
