@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
-import { getUser, sendMagicCode, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
+import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
@@ -16,6 +16,9 @@ app.use('*', async (c, next) => {
     c.res.headers.set('X-Frame-Options', 'DENY');
     c.res.headers.set('X-Content-Type-Options', 'nosniff');
     c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+    c.res.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    c.res.headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+    c.res.headers.set('Cross-Origin-Resource-Policy', 'same-origin');
     c.res.headers.set('Content-Security-Policy', "default-src 'self'; img-src * data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'");
   } catch {}
   try {
@@ -167,11 +170,62 @@ app.post('/subscribe', async (c) => {
   const form = await c.req.parseBody();
   const email = String(form.email || '').trim().toLowerCase();
   if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    const seen = await c.env.DB.prepare('SELECT id FROM email_intents WHERE email = ?').bind(email).first();
-    if (!seen) await c.env.DB.prepare('INSERT INTO email_intents (id, email, source) VALUES (?, ?, ?)').bind(uid(), email, 'landing').run();
+    const seen = await c.env.DB.prepare('SELECT id, confirmed, confirm_token, unsub_token FROM email_intents WHERE email = ? AND unsubscribed_at IS NULL').bind(email).first();
+    if (seen && seen.confirmed) {
+      // already confirmed — say nothing different (no enumeration), send no email
+    } else {
+      const rlKey = `subconfirm:${email}`;
+      const sent = parseInt((await c.env.KV.get(rlKey)) || '0', 10);
+      if (sent < 2) {
+        await c.env.KV.put(rlKey, String(sent + 1), { expirationTtl: 3600 });
+        let confirmToken = seen && seen.confirm_token;
+        let unsubToken = seen && seen.unsub_token;
+        if (!confirmToken || !unsubToken) {
+          confirmToken = token(24);
+          unsubToken = token(24);
+          if (seen) await c.env.DB.prepare('UPDATE email_intents SET confirm_token = ?, unsub_token = ? WHERE id = ?').bind(confirmToken, unsubToken, seen.id).run();
+          else await c.env.DB.prepare('INSERT INTO email_intents (id, email, source, confirm_token, unsub_token) VALUES (?, ?, ?, ?, ?)').bind(uid(), email, 'landing', confirmToken, unsubToken).run();
+        }
+        await sendSubscribeConfirm(c.env, email, confirmToken, unsubToken);
+      }
+    }
   }
-  return c.html(page({ title: 'Thanks', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">We'll email you when new features ship.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
+  return c.html(page({ title: 'Check your inbox', body: `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Check your inbox 📬</h1><p class="mt-2 text-stone-600">If that address is valid, we've sent a confirmation link. Click it to finish subscribing — you won't get updates until you do.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`, path: '/subscribe', noindex: true }));
 });
+
+app.get('/subscribe/confirm', async (c) => {
+  const t = String(c.req.query('t') || '');
+  let ok = false;
+  if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
+    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
+    if (row) {
+      await c.env.DB.prepare("UPDATE email_intents SET confirmed = 1, confirmed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      ok = true;
+    }
+  }
+  const body = ok
+    ? `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're on the list 🎉</h1><p class="mt-2 text-stone-600">Subscription confirmed. We'll email you when new features ship — unsubscribe any time from the link in each email.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`
+    : `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Link not valid</h1><p class="mt-2 text-stone-600">This confirmation link is invalid or was already used after unsubscribing. You can subscribe again from the home page.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`;
+  return c.html(page({ title: ok ? 'Subscribed' : 'Link not valid', body, path: '/subscribe/confirm', noindex: true }));
+});
+
+const handleUnsubscribe = async (c) => {
+  const t = String(c.req.query('t') || '');
+  let ok = false;
+  if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
+    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE unsub_token = ?').bind(t).first();
+    if (row) {
+      await c.env.DB.prepare("UPDATE email_intents SET confirmed = 0, unsubscribed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      ok = true;
+    }
+  }
+  const body = ok
+    ? `<div class="py-20 text-center"><h1 class="text-2xl font-bold">You're unsubscribed</h1><p class="mt-2 text-stone-600">You won't receive any more product updates from MealLoop.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`
+    : `<div class="py-20 text-center"><h1 class="text-2xl font-bold">Nothing to unsubscribe</h1><p class="mt-2 text-stone-600">This unsubscribe link is invalid or already used. If you keep getting emails, contact mealloop@zalize.com.</p><a class="mt-6 inline-block text-emerald-700 underline" href="/">Back home</a></div>`;
+  return c.html(page({ title: 'Unsubscribe', body, path: '/unsubscribe', noindex: true }));
+};
+app.get('/unsubscribe', handleUnsubscribe);
+app.post('/unsubscribe', handleUnsubscribe);
 
 const PRICING_PLANS = [
   {
@@ -193,7 +247,22 @@ const PRICING_PLANS = [
 
 app.get('/pricing', async (c) => {
   const user = await getUser(c);
+  const site = c.env.SITE_URL || 'https://mealloop.zalize.com';
   const body = `
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: 'MealLoop',
+    applicationCategory: 'LifestyleApplication',
+    operatingSystem: 'Web',
+    url: site,
+    description: 'Family meal planning with real-time sync: import recipes, plan your week, share one grocery list.',
+    offers: [
+      { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+      { '@type': 'Offer', name: 'Household', price: '3', priceCurrency: 'USD', description: '$3/month or $24/year' },
+      { '@type': 'Offer', name: 'Supporter', price: '29', priceCurrency: 'USD', description: '$29/year' },
+    ],
+  })}</script>
 <section class="py-8 sm:py-12 text-center">
   <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900">Simple pricing, built for households</h1>
   <p class="mt-3 text-lg text-stone-600 max-w-xl mx-auto">One subscription covers the whole family — people you share your link with never need an account or a plan.</p>
@@ -280,7 +349,7 @@ function legalBody(title, inner) {
 // ---------- pSEO guides ----------
 // Topic hub: /guides grouped into themed sections (SideChef-style topic navigation).
 const GUIDE_TOPICS = [
-  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
+  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'back-to-school-meal-planning', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
   ['Grocery lists & shopping', ['grocery-list-by-aisle', 'organize-grocery-list-by-store-aisle', 'weekly-grocery-list-with-staples', 'household-staples-list', 'shared-grocery-list-without-an-app']],
   ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock', 'move-recipes-from-another-app']],
   ['Family, sharing & tools', ['meal-planning-as-a-team', 'meal-plan-in-your-family-calendar', 'meal-planning-apps-vs-shared-notes', 'plan-to-eat-alternatives', 'samsung-food-review-for-families']],
@@ -2049,7 +2118,12 @@ app.get('/s/:token', async (c) => {
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' });
+  const ctaHtml = `
+<aside class="mt-10 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center print:hidden">
+  <p class="text-sm text-emerald-900">This live plan &amp; grocery list is made with <strong>MealLoop</strong> — plan your own family's week in minutes.</p>
+  <a href="/" class="mt-2 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Start yours — free during beta</a>
+</aside>`;
+  const body = planHtml + listBody(h, shown, { editable: false, canAdd: true, base: `/s/${h.share_token}`, shareLink: false, suggestions: COMMON_ITEMS, stores, storeFilter, extraQuery: week ? `week=${week}` : '' }) + ctaHtml;
   return c.html(page({ title: `${h.name} — meal plan`, body, path: `/s/${h.share_token}`, noindex: true }));
 });
 

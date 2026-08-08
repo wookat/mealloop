@@ -1254,3 +1254,45 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 118 — 2026-08-07 (visual sprint: stack/component-library review)
 
 **Findings & decision:** shadcn/ui and Motion/GSAP are React-runtime tools; MealLoop is CSP-strict server-rendered Hono + vanilla JS. Adopted the shadcn-style *token* architecture (design tokens in Tailwind v4 `@theme`) and CSS-native spring animations instead — same visual outcome, zero bundle/CSP cost. Tailwind already at v4 (latest). Recorded in docs/visual-research-2026-08.md + tech-stack-review addendum.
+
+## Round 119 — 2026-08-08 (performance: asset caching + font preload)
+
+**Findings:** All static assets served `max-age=0, must-revalidate` — the 39 KB brand font and icons re-validated on every view; font also discovered late (CSS-chained).
+**Fixes shipped:** `public/_headers` — `/fonts/*` → `max-age=31536000, immutable`; favicon/icons/og-card → `max-age=86400`. `<link rel=preload as=font>` for nunito-latin.woff2 in the shared head.
+**Verified in production:** font now `cache-control: public, max-age=31536000, immutable`, og-card 86400, preload tag present on landing. TTFB spot-check: / 131 ms, /pricing 74 ms, /login 108 ms.
+
+## Round 120 — 2026-08-08 (Resend integration: double opt-in product-updates subscription)
+
+**Context:** Boss provisioned org RESEND_API_KEY (send-only). DNS verified: DKIM `resend._domainkey.zalize.com`, SPF on `send.zalize.com`, DMARC `p=quarantine` — deliverability test to a Mail.tm inbox landed in ~5 s.
+**Findings:** the landing `/subscribe` form stored raw email intents with **no** confirmation — sending product email to that list would violate the double-opt-in red line.
+**Fixes shipped:** migration 0014 (confirmed/confirm_token/unsub_token/confirmed_at/unsubscribed_at on email_intents); `/subscribe` now sends a confirmation email (Resend) with `List-Unsubscribe` + `List-Unsubscribe-Post: One-Click` headers and neutral "check your inbox" response (no address enumeration, 2 sends/hour rate limit); `GET /subscribe/confirm?t=` marks confirmed; `GET|POST /unsubscribe?t=` (one-click capable) marks unsubscribed and invalidates the confirm token. Product email may only ever target `confirmed = 1 AND unsubscribed_at IS NULL`; legacy unconfirmed intents get no email.
+**Verified in production:** full loop — subscribe → confirmation email received (headers verified in raw source) → confirm page → unsubscribe (GET and POST) → confirm token invalid after unsubscribe → bad token safe. Login magic-code emails unchanged (worker secret already present).
+
+## Round 121 — 2026-08-08 (data-driven: share-page conversion CTA)
+
+**Findings:** `/s` share pages are the single highest-traffic path (810 views last 7 days) but had zero conversion surface — anonymous family viewers had no route into the product.
+**Fixes shipped:** warm footer CTA on `/s/:token` ("made with MealLoop — Start yours, free during beta" → /), print-hidden, read-only page behavior unchanged.
+
+## Round 122 — 2026-08-08 (pSEO: back-to-school guide, seasonal)
+
+**Fixes shipped:** 27th guide `back-to-school-meal-planning` (seasonal August/September topic: school-night dinners + lunchbox batching + one-shop weeks). Sitemap 32 locs, IndexNow ping 200.
+
+## Round 123 — 2026-08-08 (security hardening: response headers)
+
+**Findings:** security-header sweep found `Permissions-Policy`, `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` missing (HSTS/XFO/nosniff/Referrer-Policy/CSP already in place). Data driver skipped this round: Cloudflare D1 HTTP API returning 7403 for all tokens (app itself unaffected — Worker binding works).
+**Fixes shipped:** global middleware now also sets `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`, `COOP: same-origin`, `CORP: same-origin`.
+**Verified in production:** all three headers present on `/`; home 200, bad share token still 404; external recipe/item photos unaffected (CORP governs our resources, not embedded third-party images).
+
+## Round 124 — 2026-08-08 (SEO: SoftwareApplication + Offer structured data on /pricing)
+
+**Findings:** landing has FAQPage JSON-LD and guides have Article/ItemList, but `/pricing` exposed no structured data — competitor pattern (app-store style rich results) is SoftwareApplication with Offer entries.
+**Fixes shipped:** `/pricing` now emits `SoftwareApplication` JSON-LD (LifestyleApplication, Web) with three `Offer`s (Free $0 / Household $3 / Supporter $29 USD) matching the visible plan cards.
+**Verified in production:** JSON-LD parses, type/offers match the page; error-path sweep this round also confirmed 404 page friendly, invalid share token 404, bad month redirects, robots.txt correct.
+
+## Round 125 — 2026-08-08 (clean-sweep round: no P0/P1/P2 found)
+
+**Five-driver scan:** a11y (skip link, heading order, autocomplete/inputmode/one-time-code on login) — clean; error paths (404, bad share token, bad month, invalid guide) — clean; perf budget (compressed: / 5.4 KB, styles.css 7.5 KB, app.js 3 KB; TTFB ~75 ms) — well under budget; security headers — completed in R123; competitor re-dig — no new material since R101–118 scans. **Data driver blocked:** Cloudflare D1 HTTP API returning 7403 for all account tokens (platform-side; the app itself is unaffected since it uses the Worker binding). No improvement item found this round — per protocol, one more no-find round converts to low-intensity operations.
+
+## Round 126 — 2026-08-08 (clean-sweep round 2: no findings → low-intensity mode)
+
+**Scan:** all 33 sitemap URLs return 200 with unique titles and meta descriptions (no duplicates, no thin pages); TTFB ~79 ms. D1 HTTP API still 7403 (platform-side; data driver still blocked, app unaffected). Second consecutive round with no actionable improvement — per protocol, converting to low-intensity operations (weekly pSEO + IndexNow, traffic weekly, security/retention watch).

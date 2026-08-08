@@ -23,6 +23,25 @@ export async function sendMagicCode(env, email) {
   return res.ok;
 }
 
+export async function sendSubscribeConfirm(env, email, confirmToken, unsubToken) {
+  const site = env.SITE_URL || 'https://mealloop.zalize.com';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
+    body: JSON.stringify({
+      from: 'MealLoop <mealloop@zalize.com>',
+      to: [email],
+      subject: 'Confirm your MealLoop updates subscription',
+      text: `You (or someone using this address) asked to get MealLoop product updates.\n\nConfirm your subscription:\n${site}/subscribe/confirm?t=${confirmToken}\n\nIf you didn't request this, ignore this email — you won't be subscribed.\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
+      headers: {
+        'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
+        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+      },
+    }),
+  });
+  return res.ok;
+}
+
 export async function verifyCode(env, email, code) {
   const key = `code:${email.toLowerCase()}`;
   const attemptsKey = `attempts:${email.toLowerCase()}`;
