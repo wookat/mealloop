@@ -36,12 +36,9 @@ function validPick(p, ids) {
   return null;
 }
 
-// Returns {week:[7 picks], alternates:[...]} or throws.
-export async function generateWeekDraft(env, { recipes, avoidTitles, dayLabels }) {
-  const key = env.AICDKS_API_KEY;
-  if (!key) throw new Error('AI is not configured');
+async function completeOnce(key, prompt, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 60_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   let res;
   try {
     res = await fetch(`${AI_BASE}/chat/completions`, {
@@ -52,7 +49,7 @@ export async function generateWeekDraft(env, { recipes, avoidTitles, dayLabels }
         model: AI_MODEL,
         temperature: 0.7,
         max_tokens: 4000,
-        messages: [{ role: 'user', content: draftPrompt({ recipes, avoidTitles, dayLabels }) }],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
   } finally {
@@ -60,7 +57,21 @@ export async function generateWeekDraft(env, { recipes, avoidTitles, dayLabels }
   }
   if (!res.ok) throw new Error(`AI HTTP ${res.status}`);
   const data = await res.json();
-  const text = String(data.choices?.[0]?.message?.content || '');
+  return String(data.choices?.[0]?.message?.content || '');
+}
+
+// Returns {week:[7 picks], alternates:[...]} or throws. Bounded wall time: two
+// attempts of at most 20 s each, so the user never waits more than ~40 s.
+export async function generateWeekDraft(env, { recipes, avoidTitles, dayLabels }) {
+  const key = env.AICDKS_API_KEY;
+  if (!key) throw new Error('AI is not configured');
+  const prompt = draftPrompt({ recipes, avoidTitles, dayLabels });
+  let text;
+  try {
+    text = await completeOnce(key, prompt, 20_000);
+  } catch {
+    text = await completeOnce(key, prompt, 20_000);
+  }
   const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
   const start = jsonText.indexOf('{');
   const end = jsonText.lastIndexOf('}');

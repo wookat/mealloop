@@ -64,6 +64,29 @@
     });
   });
 
+  // AI drafting progress overlay: shown while the /app/ai/generate form is in
+  // flight so the wait is never silent; the stage line advances on a timer.
+  var aiOverlay = document.querySelector('[data-ai-overlay]');
+  if (aiOverlay) {
+    var stages = [
+      'Reading your recipe box…',
+      'Drafting seven dinners…',
+      'Balancing variety across the week…',
+      'Almost there — double-checking the draft…',
+      'Taking longer than usual — retrying once…'
+    ];
+    document.querySelectorAll('button[data-ai-start]').forEach(function (btn) {
+      btn.form && btn.form.addEventListener('submit', function () {
+        aiOverlay.hidden = false;
+        var line = aiOverlay.querySelector('[data-ai-stage]');
+        var i = 0;
+        setInterval(function () {
+          if (i < stages.length - 1) line.textContent = stages[++i];
+        }, 7000);
+      });
+    });
+  }
+
   // One-time dismissible boxes (e.g. planner setup guide): server renders them
   // hidden; shown only until the user dismisses, remembered in localStorage.
   document.querySelectorAll('[data-dismiss-box]').forEach(function (box) {
