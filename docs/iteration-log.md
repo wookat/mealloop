@@ -1416,3 +1416,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Diagnosis (wrangler tail with new error logging):** the relay intermittently returns `503 model_not_found — 分组 free 下模型 glm-5.2 无可用渠道（distributor）` — a relay-side channel/group outage, not an app bug (the Worker key was also re-synced to the boss-provided key to rule out a mismatch). App-side timeout/retry/fallback behaves as designed; success path remains unproven until the relay's glm-5.2 channel is stable.
 **Separate incident:** Resend `POST /emails` returning 429 `daily_quota_exceeded` — new sign-in codes cannot be emailed until the daily quota resets (login-code KV fallback exists for ops). Added error-detail logging to `sendMagicCode` and AI fetch failures so future tails show root causes immediately.
 **Escalated to boss:** aicdks channel/quota needs attention (stored admin password no longer logs in); Resend daily quota may need a plan bump if usage grows.
+
+## Round 158 — 2026-08-10 (weekly pSEO: guide #29)
+
+**Driver ⑤ data:** practical-cooking guides lead 14-day views (picky-eaters 18, batch-cooking 13, leftovers/budget 11). Shipped 29th guide `slow-cooker-meal-planning` (crunch-night matching, night-before prep, cheap cuts economics), grouped under Meal planning basics.
+**Verified in production:** guide 200, listed in /guides and sitemap, IndexNow ping 200. Full sitemap scan all 200, TTFB / 78 ms.
+**Driver ① note:** aicdks relay still unstable (503 model_not_found earlier, now 429 rate-limit on direct test) — success-path smoke still pending relay recovery; escalated in R157.
