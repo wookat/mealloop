@@ -1456,3 +1456,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 
 **Driver ① QA:** production regression of three less-trafficked paths with a disposable household (deleted after): `/s/:token/calendar.ics` → 200 `text/calendar`, 7 VEVENTs for a filled week; `/app/export.json` → 200 with `exportedAt`/`household`/`recipeCount` schema; live recipe-URL import (BBC Good Food classic lasagne) → parsed to a full recipe page. All green — no defects.
 **Driver ① note:** relay unchanged (503 on this round's earlier checks); Resend quota outage now surfaced honestly on /login (R163).
+
+## Round 165 — 2026-08-10 (marketing surfaces catch up with reactions)
+
+**Driver ⑤/②:** landing, FAQ and pricing still described the share link as view+check-off only — the new reactions (R160) were absent from every acquisition surface.
+**Fix:** landing "Share with a link" card, FAQ "Does my family need accounts?", and the Household plan feature list now mention 👍/👎 meal reactions from the link.
+**Verified in production:** all three surfaces render the new copy (cache propagation ~30 s). Tests 25/25, deploy clean. Relay re-check this round: still 503.

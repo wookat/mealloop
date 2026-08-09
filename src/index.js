@@ -68,7 +68,7 @@ app.get('/', async (c) => {
   ${[
     ['Import from any recipe site', 'Paste a URL — we pull the title, photo, ingredients and steps automatically. Steps stay readable right here.'],
     ['One live grocery list', 'Ingredients from your weekly plan are grouped by store aisle. Checking an item syncs for everyone in seconds.'],
-    ['Share with a link', 'Your family sees the week and the list with one link — no app install, no sign-up, no subscription.'],
+    ['Share with a link', 'Your family sees the week, checks off groceries, and 👍/👎 the meals with one link — no app install, no sign-up, no subscription.'],
   ].map(([t, d]) => `
   <div class="rounded-2xl bg-white border border-stone-200 p-5">
     <h2 class="font-semibold text-stone-900">${t}</h2>
@@ -240,7 +240,7 @@ const PRICING_PLANS = [
   {
     name: 'Household', price: '$3', per: '/month · or $24/year', cta: 'Start free beta trial', highlight: true,
     blurb: 'The full family loop — one plan for the whole house.',
-    features: ['Unlimited recipes', 'Family share link — no accounts for family', 'Live-syncing grocery list', 'Multiple stores & custom aisles', 'Staples, saved menus & leftovers planning', 'Calendar (iCal) subscription', 'Cook mode & recipe scaling'],
+    features: ['Unlimited recipes', 'Family share link — no accounts for family', 'Family meal reactions (👍/👎) from the link', 'Live-syncing grocery list', 'Multiple stores & custom aisles', 'Staples, saved menus & leftovers planning', 'Calendar (iCal) subscription', 'Cook mode & recipe scaling'],
   },
   {
     name: 'Supporter', price: '$29', per: '/year', cta: 'Start free beta trial',
@@ -308,7 +308,7 @@ app.get('/pricing', async (c) => {
 const FAQS = [
   ['What is MealLoop?', 'MealLoop is a family meal planner: keep your recipes in one box, plan the week (or month) of dinners, and everyone in the household shops from one always-in-sync grocery list.'],
   ['How do I get my recipes in?', 'Paste a link to any public recipe page and MealLoop imports it, paste recipe text by hand, type it in yourself, or upload a JSON backup from another app. Everything you add stays exportable.'],
-  ['Does my family need accounts?', 'Only the person who runs the plan needs one. Everyone else can use your household share link to see the week and check items off the grocery list — no signup, no app install.'],
+  ['Does my family need accounts?', 'Only the person who runs the plan needs one. Everyone else can use your household share link to see the week, check items off the grocery list, and vote 👍/👎 on planned meals — no signup, no app install.'],
   ['Does it work on my phone?', 'Yes. MealLoop is a fast website that adapts to any screen, so there is nothing to install and it is always up to date at the store.'],
   ['How does the grocery list stay in sync?', 'When you add planned meals to the list, ingredients merge automatically by aisle. Anyone viewing the list — on the app or the share link — sees checks appear within seconds.'],
   ['What does the AI week planner do?', 'It drafts a week of dinners from your own recipe box and recent history. Nothing is saved until you press Apply, and pantry items you already have are skipped on the list.'],
