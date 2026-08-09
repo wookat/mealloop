@@ -34,6 +34,20 @@ app.use('*', async (c, next) => {
           'INSERT INTO analytics_daily (day, path, views) VALUES (?, ?, 1) ON CONFLICT(day, path) DO UPDATE SET views = views + 1'
         ).bind(today(), path).run()
       );
+      // Aggregate external referrer hosts only (no paths, no query strings).
+      try {
+        const ref = c.req.header('referer');
+        if (ref) {
+          const host = new URL(ref).hostname;
+          if (host && host !== new URL(c.req.url).hostname) {
+            c.executionCtx.waitUntil(
+              c.env.DB.prepare(
+                'INSERT INTO referrers_daily (day, host, views) VALUES (?, ?, 1) ON CONFLICT(day, host) DO UPDATE SET views = views + 1'
+              ).bind(today(), host).run()
+            );
+          }
+        }
+      } catch {}
     }
   } catch {}
 });
@@ -2677,13 +2691,14 @@ app.get('/ops/stats', async (c) => {
   if (!key || auth !== `Bearer ${key}`) return c.notFound();
   const days = Math.min(90, Math.max(1, parseInt(c.req.query('days') || '7', 10) || 7));
   const since = `-${days} days`;
-  const [paths, terms, intents, reactions] = await Promise.all([
+  const [paths, terms, intents, reactions, referrers] = await Promise.all([
     c.env.DB.prepare("SELECT path, SUM(views) views FROM analytics_daily WHERE day >= date('now', ?) GROUP BY path ORDER BY views DESC LIMIT 40").bind(since).all(),
     c.env.DB.prepare("SELECT term, SUM(count) count FROM search_terms WHERE day >= date('now', ?) GROUP BY term ORDER BY count DESC LIMIT 40").bind(since).all(),
     c.env.DB.prepare('SELECT COUNT(*) total, SUM(confirmed) confirmed, SUM(unsubscribed_at IS NOT NULL) unsubscribed FROM email_intents').first(),
     c.env.DB.prepare("SELECT reaction, COUNT(*) n, COUNT(DISTINCT voter) voters FROM plan_reactions WHERE created_at >= datetime('now', ?) GROUP BY reaction").bind(since).all(),
+    c.env.DB.prepare("SELECT host, SUM(views) views FROM referrers_daily WHERE day >= date('now', ?) GROUP BY host ORDER BY views DESC LIMIT 40").bind(since).all(),
   ]);
-  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents, reactions: reactions.results });
+  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents, reactions: reactions.results, referrers: referrers.results });
 });
 
 // Applies pending schema migrations via the Worker's D1 binding (same D1 HTTP
@@ -2696,6 +2711,7 @@ app.post('/ops/migrate', async (c) => {
   await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_pantry_household ON pantry_items(household_id)');
   await c.env.DB.exec("CREATE TABLE IF NOT EXISTS plan_reactions (id TEXT PRIMARY KEY, plan_entry_id TEXT NOT NULL REFERENCES plan_entries(id), voter TEXT NOT NULL, reaction TEXT NOT NULL CHECK (reaction IN ('up','down')), created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(plan_entry_id, voter))");
   await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_plan_reactions_entry ON plan_reactions(plan_entry_id)');
+  await c.env.DB.exec('CREATE TABLE IF NOT EXISTS referrers_daily (day TEXT NOT NULL, host TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, host))');
   return c.json({ ok: true });
 });
 
