@@ -1468,3 +1468,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ⑤ data:** no way to see whether families actually use the new reactions without querying D1 by hand.
 **Fix:** /ops/stats now returns a `reactions` block (per-reaction count + distinct voters over the window).
 **Verified in production:** endpoint returns `reactions: []` (QA votes were cascade-deleted with their disposable accounts — correct). Tests 25/25, deploy clean. Relay re-check: still 503.
+
+## Round 167 — 2026-08-10 (net-negative reaction nudge on the planner)
+
+**Driver ② UX:** the owner's tally badge treated 👍3/👎0 and 👍0/👎3 identically — no signal that the family actively dislikes a planned meal.
+**Fix:** when downvotes outnumber upvotes, the planner badge turns amber with the tooltip "Family isn't keen on this one — consider swapping it".
+**Verified in production (disposable household, deleted after):** downvoted meal shows the amber badge + tooltip; baseline untouched (35 to buy). Tests 25/25.
