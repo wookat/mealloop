@@ -20,6 +20,10 @@ export async function sendMagicCode(env, email) {
       text: `Your MealLoop login code is ${code}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`,
     }),
   });
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => '')).slice(0, 200);
+    console.error(`Login-code email send failed (HTTP ${res.status}): ${detail}`);
+  }
   return res.ok;
 }
 

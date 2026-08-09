@@ -55,7 +55,10 @@ async function completeOnce(key, prompt, timeoutMs) {
   } finally {
     clearTimeout(timer);
   }
-  if (!res.ok) throw new Error(`AI HTTP ${res.status}`);
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => '')).slice(0, 300);
+    throw new Error(`AI HTTP ${res.status}: ${detail}`);
+  }
   const data = await res.json();
   return String(data.choices?.[0]?.message?.content || '');
 }
@@ -69,7 +72,8 @@ export async function generateWeekDraft(env, { recipes, avoidTitles, dayLabels }
   let text;
   try {
     text = await completeOnce(key, prompt, 20_000);
-  } catch {
+  } catch (err) {
+    console.error('AI attempt 1 failed:', err instanceof Error ? err.message : String(err));
     text = await completeOnce(key, prompt, 20_000);
   }
   const jsonText = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
