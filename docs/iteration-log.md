@@ -1440,3 +1440,8 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ② UX:** the new reactions (R160) were invisible until someone stumbled on the buttons. Owners inviting family had no idea the link now collects votes.
 **Fix:** /app/share copy now says the family can "👍/👎 planned meals"; share-page subtitle changed from "Shared read-only plan · check items below…" to "Shared family plan · tap 👍/👎 on meals, check items below to sync with everyone".
 **Verified in production:** both copy changes live (cache propagation ~30 s); baseline household untouched (35 to buy · 0 checked). Tests 25/25. AI relay re-checked this round: still 503 model_not_found — success-path smoke remains blocked externally.
+
+## Round 162 — 2026-08-10 (visual walkthrough of reactions, 375px + 1280px)
+
+**Driver ③ visual:** real-browser walkthrough of the share page with live votes at 375px and 1280px (disposable household, deleted after — share link 404s post-delete, GDPR cascade confirmed). No horizontal overflow at 375px (scrollWidth delta 0); reaction buttons wrap cleanly under each meal title; own-vote highlight (emerald pill + tally) reads clearly at both widths; coarse-pointer buttons inherit the existing ≥40px touch-target rule. No defects found this round.
+**Driver ① note:** relay still 503 on this round's check.
