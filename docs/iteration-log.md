@@ -1401,3 +1401,4 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **P1 fix:** full-screen progress overlay during drafting (spinner + staged status lines advancing every 7 s + "usually 10–25 s" expectation), aria-live, reduced-motion-safe static ring.
 **P2 fixes:** ① grocery-list toolbar condensed from 9 flat controls to 2 primary (+ Add staples, Share with family) + "⋯ More" menu (Copy/Print/Staples/Pantry/Aisle order/Clear checked/Units); aisle-order editor now an inline card when open; ② warm food illustration (in-house generated, no third-party rights) added to the landing hero + starter CTA on the empty recipe box.
 **Cross-report self-check:** login page now states what the email is used for (sign-in codes only, no default marketing); AI wait/failure UX covered above; nav ≤6 items at 375px — no overflow.
+**R155b:** overlay stage-timer bug fixed (single interval, one listener per form).

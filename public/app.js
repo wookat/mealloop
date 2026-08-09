@@ -75,15 +75,22 @@
       'Almost there — double-checking the draft…',
       'Taking longer than usual — retrying once…'
     ];
+    var aiTimer = null;
+    var startOverlay = function () {
+      aiOverlay.hidden = false;
+      var line = aiOverlay.querySelector('[data-ai-stage]');
+      line.textContent = stages[0];
+      var i = 0;
+      if (aiTimer) clearInterval(aiTimer);
+      aiTimer = setInterval(function () {
+        if (i < stages.length - 1) line.textContent = stages[++i];
+      }, 7000);
+    };
+    var seen = [];
     document.querySelectorAll('button[data-ai-start]').forEach(function (btn) {
-      btn.form && btn.form.addEventListener('submit', function () {
-        aiOverlay.hidden = false;
-        var line = aiOverlay.querySelector('[data-ai-stage]');
-        var i = 0;
-        setInterval(function () {
-          if (i < stages.length - 1) line.textContent = stages[++i];
-        }, 7000);
-      });
+      if (!btn.form || seen.indexOf(btn.form) !== -1) return;
+      seen.push(btn.form);
+      btn.form.addEventListener('submit', startOverlay);
     });
   }
 
