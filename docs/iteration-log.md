@@ -1486,3 +1486,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ⑤ data:** the loop calls for referrer analysis but we never collected referrers — external traffic sources were invisible.
 **Fix:** middleware now aggregates external referrer **hostnames only** (no paths/queries, same-host skipped) into `referrers_daily` (migration 0017 + /ops/migrate DDL); /ops/stats returns a `referrers` block.
 **Verified in production:** synthetic hits with google/bing Referer headers show up as `{host, views}`; migrate `{ok:true}`. Cookie-free/aggregate privacy stance unchanged (host-level only). Tests 25/25.
+
+## Round 170 — 2026-08-10 (privacy policy catches up with R160/R169)
+
+**Driver ① compliance sweep:** the privacy policy predated the reactions cookie and referrer aggregates — "cookie-free until you log in" was no longer accurate for share-link voters.
+**Fix:** /privacy now discloses the `ml_voter` functional cookie (random token, 12 months, no identity), 👍/👎 reaction data with its legal basis and cascade deletion, and referring-site hostname aggregates (never full URLs); landing FAQ privacy answer updated to match; policy date bumped.
+**Verified in production:** all three disclosures render on /privacy. Tests 25/25.
