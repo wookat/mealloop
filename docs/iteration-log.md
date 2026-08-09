@@ -1474,3 +1474,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ② UX:** the owner's tally badge treated 👍3/👎0 and 👍0/👎3 identically — no signal that the family actively dislikes a planned meal.
 **Fix:** when downvotes outnumber upvotes, the planner badge turns amber with the tooltip "Family isn't keen on this one — consider swapping it".
 **Verified in production (disposable household, deleted after):** downvoted meal shows the amber badge + tooltip; baseline untouched (35 to buy). Tests 25/25.
+
+## Round 168 — 2026-08-10 (visual regression 375px + guide #31 "let the family vote on dinner")
+
+**Driver ③:** post-R165 real-browser regression of landing/FAQ/pricing at 375px — zero horizontal overflow on all three, new copy renders cleanly.
+**Driver ⑤/pSEO:** weekly guide ships the story behind the new reactions feature: "Let the family vote on dinner" (guide #31, Family/sharing topic). Sitemap now 39 locs; IndexNow ping 200.
+**Verified in production:** guide page 200 with correct title; sitemap includes it. Tests 25/25. Relay: still 503 this round.
