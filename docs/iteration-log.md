@@ -1480,3 +1480,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ③:** post-R165 real-browser regression of landing/FAQ/pricing at 375px — zero horizontal overflow on all three, new copy renders cleanly.
 **Driver ⑤/pSEO:** weekly guide ships the story behind the new reactions feature: "Let the family vote on dinner" (guide #31, Family/sharing topic). Sitemap now 39 locs; IndexNow ping 200.
 **Verified in production:** guide page 200 with correct title; sitemap includes it. Tests 25/25. Relay: still 503 this round.
+
+## Round 169 — 2026-08-10 (privacy-safe referrer analytics)
+
+**Driver ⑤ data:** the loop calls for referrer analysis but we never collected referrers — external traffic sources were invisible.
+**Fix:** middleware now aggregates external referrer **hostnames only** (no paths/queries, same-host skipped) into `referrers_daily` (migration 0017 + /ops/migrate DDL); /ops/stats returns a `referrers` block.
+**Verified in production:** synthetic hits with google/bing Referer headers show up as `{host, views}`; migrate `{ok:true}`. Cookie-free/aggregate privacy stance unchanged (host-level only). Tests 25/25.
