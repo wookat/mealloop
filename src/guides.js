@@ -488,4 +488,22 @@ export const GUIDES = [
       p('Braises, curries, chilli, pulled meats, soups and stews come out better than the hob version; pasta, rice and anything crispy don\'t belong in the pot — cook those fresh in the last ten minutes. If the family can see "slow cooker chilli" on the shared plan by Sunday night, the 5pm "what\'s for dinner?" message answers itself all week.'),
     ].join(''),
   },
+  {
+    slug: 'let-the-family-vote-on-dinner',
+    title: 'Let the family vote on dinner (and stop cooking meals nobody wants)',
+    excerpt: 'The fastest way to end dinner complaints is a thumbs-up/thumbs-down on the plan before you shop — not a debate at the table.',
+    body: [
+      p('Every family cook knows the sting: an hour on a meal, and someone announces they "don\'t like this one" — information that existed on Sunday, delivered on Wednesday at 6pm. The fix isn\'t asking everyone what they want (that\'s seven negotiations); it\'s showing the plan and collecting cheap, early signal: thumbs up or thumbs down, before you shop.'),
+      h2('Why voting beats asking'),
+      ul([
+        '<strong>Asking is open-ended</strong> — you get "I don\'t know" or three conflicting requests. Voting on a drafted plan is a 10-second yes/no.',
+        '<strong>Early signal moves the fix to Sunday.</strong> A downvoted meal gets swapped before the shop, not scraped into the bin after.',
+        '<strong>Kids engage more when they had a say.</strong> A meal they upvoted is a meal they\'ve pre-committed to eating.',
+      ]),
+      h2('Make it effortless or it won\'t happen'),
+      p('Voting fails if it needs an app install, an account, or a family meeting. Put the week where everyone already looks — one shared link — and let each person tap 👍 or 👎 on any planned meal from their own phone. The cook sees the tallies on the planner, and a meal the family isn\'t keen on gets flagged before it\'s ever cooked.'),
+      h2('What to do with a downvote'),
+      p('A downvote isn\'t a veto — it\'s data. One 👎 among three 👍 means cook it anyway. A meal where thumbs-down outnumber thumbs-up is a genuine warning: swap it for a known winner from the recipe box, or keep it and pair it with a side the objector likes. Either way, the decision happens on Sunday for pennies, not on Wednesday over a cold plate.'),
+    ].join(''),
+  },
 ];
