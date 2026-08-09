@@ -470,4 +470,22 @@ export const GUIDES = [
       p('Saucy and braised dishes (bolognese, curries, pulled chicken, bean chilli) survive the freezer best; crispy and creamy things mostly don\'t. Freeze flat in bags where you can, thaw in the fridge the night before — the plan reminds you, because thawing is tomorrow\'s note on today\'s card.'),
     ].join(''),
   },
+  {
+    slug: 'slow-cooker-meal-planning',
+    title: 'Slow cooker meal planning: dinner that cooks itself on the busiest nights',
+    excerpt: 'A slow cooker only saves a weeknight if the plan says so. Match it to the crunch nights, prep the night before, and let the week run itself.',
+    body: [
+      p('A slow cooker is the closest thing to a weeknight cheat code — dinner cooks while everyone is at school and work — but only when it\'s planned. Owned-but-unplanned, it\'s a cupboard ornament. The trick is deciding on Sunday <em>which</em> nights are slow-cooker nights, not deciding at 7am with an empty fridge.'),
+      h2('Match the pot to the calendar'),
+      ul([
+        'Scan the week for the <strong>latest-home nights</strong> — practice runs, late meetings — and assign those the slow cooker, so the busiest evening is the one with dinner already done.',
+        '<strong>Prep the night before:</strong> load the insert, park it in the fridge, and the morning job shrinks to "switch it on". Mornings are for finding shoes, not browning onions.',
+        'Slow-cooker recipes usually <strong>scale ×1.5–2 for free</strong> — same effort, and the extra becomes tomorrow\'s lunch or a freezer meal with a slot on next week\'s plan.',
+      ]),
+      h2('Shop for it like any other dinner'),
+      p('The slow-cooker night belongs on the same weekly plan as everything else, so its ingredients land on the same aisle-grouped grocery list in one shop. Cheap cuts — shoulder, thighs, shin, beans — are exactly what slow cooking is best at, which is why a slow-cooker-heavy week is usually the cheapest week on the plan.'),
+      h2('What works (and what doesn\'t)'),
+      p('Braises, curries, chilli, pulled meats, soups and stews come out better than the hob version; pasta, rice and anything crispy don\'t belong in the pot — cook those fresh in the last ten minutes. If the family can see "slow cooker chilli" on the shared plan by Sunday night, the 5pm "what\'s for dinner?" message answers itself all week.'),
+    ].join(''),
+  },
 ];
