@@ -622,7 +622,8 @@ app.get('/app', async (c) => {
     const up = reactions.results.find((r) => r.plan_entry_id === entryId && r.reaction === 'up');
     const down = reactions.results.find((r) => r.plan_entry_id === entryId && r.reaction === 'down');
     if (!up && !down) return '';
-    return ` <span class="whitespace-nowrap text-xs text-stone-500 print:hidden" title="Family reactions from your share link">${up ? `\u{1F44D}${up.n}` : ''}${up && down ? ' ' : ''}${down ? `\u{1F44E}${down.n}` : ''}</span>`;
+    const negative = (down?.n || 0) > (up?.n || 0);
+    return ` <span class="whitespace-nowrap text-xs ${negative ? 'text-amber-700' : 'text-stone-500'} print:hidden" title="${negative ? "Family isn't keen on this one — consider swapping it" : 'Family reactions from your share link'}">${up ? `\u{1F44D}${up.n}` : ''}${up && down ? ' ' : ''}${down ? `\u{1F44E}${down.n}` : ''}</span>`;
   };
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
