@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
-import { getUser, sendMagicCode, sendSubscribeConfirm, sendWelcome, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
+import { getUser, sendMagicCode, sendSubscribeConfirm, sendWelcome, verifyCode, logout, sessionCookie, clearCookie, getVoter, voterCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
 import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, pantryKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
@@ -608,11 +608,19 @@ app.get('/app', async (c) => {
   const h = c.get('household');
   const start = c.req.query('week');
   const days = weekDates(start);
-  const [entries, recipes] = await Promise.all([
+  const [entries, recipes, reactions] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ?')
       .bind(h.id, days[0], days[6]).all(),
     c.env.DB.prepare('SELECT id, title, favorite FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 200').bind(h.id).all(),
+    c.env.DB.prepare('SELECT r.plan_entry_id, r.reaction, COUNT(*) n FROM plan_reactions r JOIN plan_entries p ON p.id = r.plan_entry_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.plan_entry_id, r.reaction')
+      .bind(h.id, days[0], days[6]).all(),
   ]);
+  const reactBadge = (entryId) => {
+    const up = reactions.results.find((r) => r.plan_entry_id === entryId && r.reaction === 'up');
+    const down = reactions.results.find((r) => r.plan_entry_id === entryId && r.reaction === 'down');
+    if (!up && !down) return '';
+    return ` <span class="whitespace-nowrap text-xs text-stone-500 print:hidden" title="Family reactions from your share link">${up ? `\u{1F44D}${up.n}` : ''}${up && down ? ' ' : ''}${down ? `\u{1F44E}${down.n}` : ''}</span>`;
+  };
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
   const [menus, anyPlan, anyItem] = await Promise.all([
@@ -731,7 +739,7 @@ ${days.map((d) => `
         <p class="text-[11px] uppercase tracking-wide text-stone-500">${meal}</p>
         ${es.map((e) => `
           <div class="mt-1 flex flex-wrap items-start justify-between gap-1 rounded-lg bg-stone-50 border border-stone-200 px-2 py-1.5 text-sm">
-            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500 print:inline hidden">×${e.scale}</span>` : ''}` : esc(e.note)}</span>
+            <span class="min-w-[4rem] break-words">${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/app/recipes/${e.recipe_id}">${esc(e.recipe_title)}</a>${e.scale && e.scale !== 1 ? ` <span class="text-xs text-stone-500 print:inline hidden">×${e.scale}</span>` : ''}` : esc(e.note)}${reactBadge(e.id)}</span>
             <span class="flex shrink-0 items-center gap-1 print:hidden">
               ${e.recipe_id ? `<form method="post" action="/app/plan/scale">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
@@ -806,6 +814,7 @@ app.post('/app/plan', async (c) => {
 app.post('/app/plan/delete', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
+  await c.env.DB.prepare('DELETE FROM plan_reactions WHERE plan_entry_id IN (SELECT id FROM plan_entries WHERE id = ? AND household_id = ?)').bind(String(f.id || ''), h.id).run();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   await bumpVersion(c.env, h.id);
   return c.redirect(`/app?week=${f.week || ''}`);
@@ -862,6 +871,8 @@ app.post('/app/plan/clear-week', async (c) => {
   const week = String(f.week || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(week)) return c.redirect('/app');
   const days = weekDates(week);
+  await c.env.DB.prepare('DELETE FROM plan_reactions WHERE plan_entry_id IN (SELECT id FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?)')
+    .bind(h.id, days[0], days[6]).run();
   await c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ? AND date BETWEEN ? AND ?')
     .bind(h.id, days[0], days[6]).run();
   await bumpVersion(c.env, h.id);
@@ -1756,6 +1767,7 @@ app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
   await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM plan_reactions WHERE plan_entry_id IN (SELECT id FROM plan_entries WHERE recipe_id = ? AND household_id = ?)').bind(id, h.id),
     c.env.DB.prepare('DELETE FROM plan_entries WHERE recipe_id = ? AND household_id = ?').bind(id, h.id),
     c.env.DB.prepare('DELETE FROM recipes WHERE id = ? AND household_id = ?').bind(id, h.id),
   ]);
@@ -2504,6 +2516,7 @@ app.post('/app/account/delete', async (c) => {
       c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM pantry_items WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM plan_reactions WHERE plan_entry_id IN (SELECT id FROM plan_entries WHERE household_id = ?)').bind(h.id),
       c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(h.id),
@@ -2534,10 +2547,23 @@ app.get('/s/:token', async (c) => {
   const week = /^\d{4}-\d{2}-\d{2}$/.test(weekParam) ? weekParam : undefined;
   const days = weekDates(week);
   const isCurrent = days[0] === weekDates()[0];
-  const [entries, items] = await Promise.all([
+  let voter = getVoter(c);
+  if (!voter || !/^[a-z0-9]{1,40}$/.test(voter)) {
+    voter = token();
+    c.header('Set-Cookie', voterCookie(voter));
+  }
+  const [entries, items, reactions] = await Promise.all([
     c.env.DB.prepare('SELECT p.*, r.title AS recipe_title FROM plan_entries p LEFT JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY p.date').bind(h.id, days[0], days[6]).all(),
     c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
+    c.env.DB.prepare('SELECT r.plan_entry_id, r.reaction, COUNT(*) n, MAX(r.voter = ?) mine FROM plan_reactions r JOIN plan_entries p ON p.id = r.plan_entry_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? GROUP BY r.plan_entry_id, r.reaction').bind(voter, h.id, days[0], days[6]).all(),
   ]);
+  const reactFor = (entryId, kind) => reactions.results.find((r) => r.plan_entry_id === entryId && r.reaction === kind);
+  const reactHtml = (e) => {
+    const up = reactFor(e.id, 'up');
+    const down = reactFor(e.id, 'down');
+    const btn = (kind, r, glyph) => `<form method="post" action="/s/${h.share_token}/react" class="inline"><input type="hidden" name="entry" value="${e.id}"><input type="hidden" name="reaction" value="${kind}">${week ? `<input type="hidden" name="week" value="${days[0]}">` : ''}<button aria-label="${kind === 'up' ? 'Looking forward to this' : 'Not a fan of this'}" aria-pressed="${r?.mine ? 'true' : 'false'}" class="rounded-md px-1.5 py-0.5 text-xs ${r?.mine ? 'bg-emerald-100 text-emerald-800' : 'text-stone-400 hover:bg-stone-100'}">${glyph}${r?.n ? ` ${r.n}` : ''}</button></form>`;
+    return `<span class="ml-1 inline-flex gap-0.5 align-middle print:hidden">${btn('up', up, '\u{1F44D}')}${btn('down', down, '\u{1F44E}')}</span>`;
+  };
   const planHtml = `
 <section class="mb-8">
   <h1 class="text-2xl font-bold mb-1">${esc(h.name)} — ${isCurrent ? 'this week' : `week of ${dayLabel(days[0])}`}</h1>
@@ -2552,7 +2578,7 @@ app.get('/s/:token', async (c) => {
     const es = entries.results.filter((e) => e.date === d);
     return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
       <h2 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h2>
-      ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
+      ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}${reactHtml(e)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}
   </div>
@@ -2576,6 +2602,33 @@ app.get('/s/:token/r/:id', async (c) => {
   if (!r) return c.notFound();
   const body = `<p class="mb-4 text-sm print:hidden" data-poll data-version="${h.version}" data-base="/s/${h.share_token}"><a class="text-emerald-700 underline" href="/s/${h.share_token}">← Back to ${esc(h.name)}'s week</a></p>` + recipeBody(r, false, h.units);
   return c.html(page({ title: r.title, body, path: `/s/${h.share_token}/r/${r.id}`, noindex: true }));
+});
+
+app.post('/s/:token/react', async (c) => {
+  const h = await shareHousehold(c);
+  if (!h) return c.notFound();
+  let voter = getVoter(c);
+  if (!voter || !/^[a-z0-9]{1,40}$/.test(voter)) {
+    voter = token();
+    c.header('Set-Cookie', voterCookie(voter));
+  }
+  const f = await c.req.parseBody();
+  const reaction = String(f.reaction || '');
+  const entryId = String(f.entry || '');
+  if (reaction !== 'up' && reaction !== 'down') return c.notFound();
+  const entry = await c.env.DB.prepare('SELECT id FROM plan_entries WHERE id = ? AND household_id = ?').bind(entryId, h.id).first();
+  if (!entry) return c.notFound();
+  const existing = await c.env.DB.prepare('SELECT id, reaction FROM plan_reactions WHERE plan_entry_id = ? AND voter = ?').bind(entryId, voter).first();
+  if (existing && existing.reaction === reaction) {
+    await c.env.DB.prepare('DELETE FROM plan_reactions WHERE id = ?').bind(existing.id).run();
+  } else if (existing) {
+    await c.env.DB.prepare('UPDATE plan_reactions SET reaction = ? WHERE id = ?').bind(reaction, existing.id).run();
+  } else {
+    await c.env.DB.prepare('INSERT INTO plan_reactions (id, plan_entry_id, voter, reaction) VALUES (?, ?, ?, ?)').bind(uid(), entryId, voter, reaction).run();
+  }
+  await bumpVersion(c.env, h.id);
+  const week = String(f.week || '');
+  return c.redirect(`/s/${h.share_token}${/^\d{4}-\d{2}-\d{2}$/.test(week) ? `?week=${week}` : ''}`);
 });
 
 app.post('/s/:token/toggle', async (c) => {
@@ -2636,6 +2689,8 @@ app.post('/ops/migrate', async (c) => {
   if (!key || auth !== `Bearer ${key}`) return c.notFound();
   await c.env.DB.exec("CREATE TABLE IF NOT EXISTS pantry_items (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), label TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'stocked', updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_pantry_household ON pantry_items(household_id)');
+  await c.env.DB.exec("CREATE TABLE IF NOT EXISTS plan_reactions (id TEXT PRIMARY KEY, plan_entry_id TEXT NOT NULL REFERENCES plan_entries(id), voter TEXT NOT NULL, reaction TEXT NOT NULL CHECK (reaction IN ('up','down')), created_at TEXT NOT NULL DEFAULT (datetime('now')), UNIQUE(plan_entry_id, voter))");
+  await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_plan_reactions_entry ON plan_reactions(plan_entry_id)');
   return c.json({ ok: true });
 });
 
@@ -2659,6 +2714,7 @@ app.post('/ops/cleanup-qa', async (c) => {
           c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(m.household_id),
           c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(m.household_id),
           c.env.DB.prepare('DELETE FROM pantry_items WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM plan_reactions WHERE plan_entry_id IN (SELECT id FROM plan_entries WHERE household_id = ?)').bind(m.household_id),
           c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(m.household_id),
           c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(m.household_id),
           c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(m.household_id),
