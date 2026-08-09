@@ -1462,3 +1462,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ⑤/②:** landing, FAQ and pricing still described the share link as view+check-off only — the new reactions (R160) were absent from every acquisition surface.
 **Fix:** landing "Share with a link" card, FAQ "Does my family need accounts?", and the Household plan feature list now mention 👍/👎 meal reactions from the link.
 **Verified in production:** all three surfaces render the new copy (cache propagation ~30 s). Tests 25/25, deploy clean. Relay re-check this round: still 503.
+
+## Round 166 — 2026-08-10 (reactions in first-party stats)
+
+**Driver ⑤ data:** no way to see whether families actually use the new reactions without querying D1 by hand.
+**Fix:** /ops/stats now returns a `reactions` block (per-reaction count + distinct voters over the window).
+**Verified in production:** endpoint returns `reactions: []` (QA votes were cascade-deleted with their disposable accounts — correct). Tests 25/25, deploy clean. Relay re-check: still 503.

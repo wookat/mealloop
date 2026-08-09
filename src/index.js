@@ -2676,12 +2676,13 @@ app.get('/ops/stats', async (c) => {
   if (!key || auth !== `Bearer ${key}`) return c.notFound();
   const days = Math.min(90, Math.max(1, parseInt(c.req.query('days') || '7', 10) || 7));
   const since = `-${days} days`;
-  const [paths, terms, intents] = await Promise.all([
+  const [paths, terms, intents, reactions] = await Promise.all([
     c.env.DB.prepare("SELECT path, SUM(views) views FROM analytics_daily WHERE day >= date('now', ?) GROUP BY path ORDER BY views DESC LIMIT 40").bind(since).all(),
     c.env.DB.prepare("SELECT term, SUM(count) count FROM search_terms WHERE day >= date('now', ?) GROUP BY term ORDER BY count DESC LIMIT 40").bind(since).all(),
     c.env.DB.prepare('SELECT COUNT(*) total, SUM(confirmed) confirmed, SUM(unsubscribed_at IS NOT NULL) unsubscribed FROM email_intents').first(),
+    c.env.DB.prepare("SELECT reaction, COUNT(*) n, COUNT(DISTINCT voter) voters FROM plan_reactions WHERE created_at >= datetime('now', ?) GROUP BY reaction").bind(since).all(),
   ]);
-  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents });
+  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents, reactions: reactions.results });
 });
 
 // Applies pending schema migrations via the Worker's D1 binding (same D1 HTTP
