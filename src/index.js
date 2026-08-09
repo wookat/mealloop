@@ -62,7 +62,7 @@ const LANDING_FAQ = [
   ['Can I import recipes from any website?', 'Almost — we read the standard recipe data most sites embed (BBC Good Food, Serious Eats, most food blogs). If a site blocks automated access, just paste the whole recipe text — we split it into title, ingredients and steps for you.'],
   ['Does the grocery list update for everyone in real time?', 'Yes. Checking an item on your phone shows up for everyone else viewing the list within a few seconds \u2014 handy when two people split the store.'],
   ['Can I switch between metric and imperial units?', 'Yes. One switch converts the whole grocery list and every recipe between grams/millilitres and ounces, pounds and fluid ounces \u2014 originals are kept, so you can switch back anytime.'],
-  ['What about my privacy?', 'MealLoop is cookie-free until you log in, uses no third-party trackers or ads, and only collects aggregate page counts. Your recipes and plans stay yours.'],
+  ['What about my privacy?', 'MealLoop sets no cookies on these pages, uses no third-party trackers or ads, and only collects aggregate counts. The only cookies are a session cookie when you log in and an anonymous token if you vote on a shared plan. Your recipes and plans stay yours.'],
 ];
 
 app.get('/', async (c) => {
@@ -362,10 +362,11 @@ app.get('/privacy', async (c) =>
 <li><strong>Email address</strong> — to send login codes and run your account. Legal basis: performance of a contract (Art. 6(1)(b) GDPR).</li>
 <li><strong>Your meal-planning content</strong> (recipes, plan entries, grocery items, household name) — to provide the service. Legal basis: contract.</li>
 <li><strong>Product-update emails</strong>, only if you submit the signup form. Legal basis: consent (Art. 6(1)(a)); withdraw anytime by emailing us.</li>
-<li><strong>Aggregate page counts and recipe-search terms</strong> (date + page path or search text only, cookie-free, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
+<li><strong>Aggregate page counts, recipe-search terms and referring-site hostnames</strong> (date + page path, search text, or the domain a visitor came from — never full referrer URLs, no IP, no device or user identifiers, no third-party trackers, no ads). Legal basis: legitimate interest in measuring usage (Art. 6(1)(f)).</li>
+<li><strong>Meal reactions from your share link</strong> (👍/👎 per planned meal, tied to a random device token — no name, no email, no account). Legal basis: legitimate interest in providing the voting feature (Art. 6(1)(f)); reactions are deleted with the meal, recipe, week or household they belong to.</li>
 </ul>
 <h2 class="font-semibold text-lg pt-2">Cookies</h2>
-<p>One strictly necessary cookie (<code>ml_session</code>, HttpOnly/Secure/SameSite=Lax, 30 days) is set only after you log in. No analytics or advertising cookies, so no consent banner is required.</p>
+<p>One strictly necessary cookie (<code>ml_session</code>, HttpOnly/Secure/SameSite=Lax, 30 days) is set only after you log in. Share-link visitors get one functional cookie (<code>ml_voter</code>, HttpOnly/Secure/SameSite=Lax, 12 months) holding a random token so your 👍/👎 votes stay yours — it identifies a device to the household you visited, nothing more. No analytics or advertising cookies, so no consent banner is required.</p>
 <h2 class="font-semibold text-lg pt-2">Processors and data location</h2>
 <ul class="list-disc pl-5 space-y-1">
 <li><strong>Cloudflare, Inc.</strong> — hosting, database (D1), key-value storage and headless rendering for recipe import.</li>
@@ -442,7 +443,7 @@ app.get('/press', async (c) =>
 );
 
 function legalBody(title, inner) {
-  return `<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4"><h1 class="text-2xl font-bold">${title}</h1>${inner}<p class="text-stone-500 text-sm">Last updated: 2026-08-05</p></article>`;
+  return `<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4"><h1 class="text-2xl font-bold">${title}</h1>${inner}<p class="text-stone-500 text-sm">Last updated: 2026-08-10</p></article>`;
 }
 
 // ---------- pSEO guides ----------
