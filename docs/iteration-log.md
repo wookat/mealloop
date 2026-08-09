@@ -1434,3 +1434,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ④ competitor scan:** Plan to Eat release notes reviewed (8.3.2–8.3.6: title-first search we already ship; Concise Mode AI rewrite — AI-dependent, backlog; form-variant list rows — our nameKey already keeps "smoked paprika" ≠ "paprika"). New-competitor sweep found FamilyPlate / Mealisto / DinnerTable all leading with **family voting on meals** — a fit for our anonymous share-link strength, no AI needed.
 **Shipped:** anonymous 👍/👎 reactions on planned meals, voted straight from the share link (no account): `plan_reactions` table (migration 0016 + /ops/migrate DDL), per-device `ml_voter` cookie, POST `/s/:token/react` (toggle/switch, entry ownership checked, bumps sync version), tallies + own-vote highlight on the share page, read-only tally badge on the owner's planner. Reactions cascade-delete with entry/recipe/week/household deletions.
 **Verified in production (disposable account + 2 anonymous voters, deleted after):** vote → 👍1 with aria-pressed; switch → 👎1; second voter independent; toggle-off removes; planner badge shows 👍1 👎1; bad entry/reaction → 404; baseline household untouched (35 to buy).
+
+## Round 161 — 2026-08-10 (surface reactions to owners & family)
+
+**Driver ② UX:** the new reactions (R160) were invisible until someone stumbled on the buttons. Owners inviting family had no idea the link now collects votes.
+**Fix:** /app/share copy now says the family can "👍/👎 planned meals"; share-page subtitle changed from "Shared read-only plan · check items below…" to "Shared family plan · tap 👍/👎 on meals, check items below to sync with everyone".
+**Verified in production:** both copy changes live (cache propagation ~30 s); baseline household untouched (35 to buy · 0 checked). Tests 25/25. AI relay re-checked this round: still 503 model_not_found — success-path smoke remains blocked externally.

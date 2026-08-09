@@ -2404,7 +2404,7 @@ app.get('/app/share', async (c) => {
   const link = `${c.env.SITE_URL}/s/${h.share_token}`;
   const body = `<div class="max-w-lg mx-auto py-10 text-center">
 <h1 class="text-2xl font-bold">Share with your family</h1>
-<p class="mt-2 text-stone-600">Anyone with this link can see this week's plan and check off grocery items — no account or app needed.</p>
+<p class="mt-2 text-stone-600">Anyone with this link can see this week's plan, check off grocery items, and 👍/👎 planned meals — no account or app needed.</p>
 <div class="mt-6 flex gap-2">
   <input readonly aria-label="Share link" value="${esc(link)}" id="share-url" class="flex-1 rounded-lg border border-stone-300 px-3 py-2.5 text-sm bg-white">
   <button type="button" data-copy="share-url" class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Copy</button>
@@ -2567,7 +2567,7 @@ app.get('/s/:token', async (c) => {
   const planHtml = `
 <section class="mb-8">
   <h1 class="text-2xl font-bold mb-1">${esc(h.name)} — ${isCurrent ? 'this week' : `week of ${dayLabel(days[0])}`}</h1>
-  <p class="text-sm text-stone-500 mb-2">Shared read-only plan · check items below to sync with everyone</p>
+  <p class="text-sm text-stone-500 mb-2">Shared family plan · tap 👍/👎 on meals, check items below to sync with everyone</p>
   <p class="mb-4 text-sm flex items-center gap-3">
     <a class="text-emerald-700 hover:underline" data-swipe-prev href="/s/${h.share_token}?week=${shiftDays(days[0], -7)}">← Previous week</a>
     ${isCurrent ? '' : `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}">This week</a>`}
