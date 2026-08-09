@@ -1402,3 +1402,10 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **P2 fixes:** ① grocery-list toolbar condensed from 9 flat controls to 2 primary (+ Add staples, Share with family) + "⋯ More" menu (Copy/Print/Staples/Pantry/Aisle order/Clear checked/Units); aisle-order editor now an inline card when open; ② warm food illustration (in-house generated, no third-party rights) added to the landing hero + starter CTA on the empty recipe box.
 **Cross-report self-check:** login page now states what the email is used for (sign-in codes only, no default marketing); AI wait/failure UX covered above; nav ≤6 items at 375px — no overflow.
 **R155b:** overlay stage-timer bug fixed (single interval, one listener per form).
+
+## Round 156 — 2026-08-09 (re-verification P2: retry state feedback + QA account cleanup)
+
+**Directive:** acceptance re-verification passed (68→84). Leftover P2: clicking "Try again" after an instant AI failure gave no state feedback.
+**Fix:** the ai=err "Try again" form now carries hidden retry=1; a repeat failure redirects to ?ai=err&retried=1 whose alert reads "We retried and the AI service is still unavailable…" with a "Try once more" button — so even sub-second failures produce a visible state change (plus the existing Retrying… busy state + progress overlay on submit).
+**Ops:** new key-gated POST /ops/cleanup-qa (same ADMIN_STATS_KEY gate, same cascade as self-serve deletion) removed the acceptance reviewer's QA accounts (delivered+qa1754730005 / delivered+qa1754820001 @resend.dev; no other qa-pattern accounts existed).
+**Regression (production, disposable account, GDPR-deleted after):** overlay + Retrying… on retry submits; first failure keeps old copy/Try again; second failure lands on retried=1 with new copy/Try once more; fallback intact; baseline household untouched (35 to buy · 0 checked). AI relay was down the whole run — success-path smoke deferred until it recovers.

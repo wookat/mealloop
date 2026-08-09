@@ -628,10 +628,11 @@ app.get('/app', async (c) => {
   const setupLeft = setupSteps.filter((s) => !s.done).length;
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const ai = c.req.query('ai');
+  const aiRetried = c.req.query('retried') === '1';
   const aiNotice = ai === 'err' ? `<div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 print:hidden">
-  <p><strong>The AI couldn't draft your week just now.</strong> This is usually a brief hiccup on the AI side — your plan is untouched.</p>
+  <p>${aiRetried ? `<strong>We retried and the AI service is still unavailable.</strong> It usually recovers within a few minutes — your plan is untouched. Keep trying, or fill the week without AI below.` : `<strong>The AI couldn't draft your week just now.</strong> This is usually a brief hiccup on the AI side — your plan is untouched.`}</p>
   <div class="mt-2 flex flex-wrap gap-2">
-    <form method="post" action="/app/ai/generate" class="inline"><input type="hidden" name="week" value="${days[0]}"><button data-ai-start data-busy-label="Retrying…" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Try again</button></form>
+    <form method="post" action="/app/ai/generate" class="inline"><input type="hidden" name="week" value="${days[0]}"><input type="hidden" name="retry" value="1"><button data-ai-start data-busy-label="Retrying…" aria-label="Try the AI draft again" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">${aiRetried ? 'Try once more' : 'Try again'}</button></form>
     ${recipes.results.length ? `<form method="post" action="/app/plan/fill-week" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100">Fill from recipe box instead (no AI)</button></form>` : ''}
   </div>
 </div>` : ai === 'fewbox' ? `<div role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 print:hidden">
@@ -963,7 +964,7 @@ app.post('/app/ai/generate', async (c) => {
     await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
     return c.redirect('/app/ai');
   } catch {
-    return c.redirect(`/app?week=${days[0]}&ai=err`);
+    return c.redirect(`/app?week=${days[0]}&ai=err${f.retry ? '&retried=1' : ''}`);
   }
 });
 
@@ -2629,6 +2630,46 @@ app.post('/ops/migrate', async (c) => {
   await c.env.DB.exec("CREATE TABLE IF NOT EXISTS pantry_items (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), label TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'stocked', updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
   await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_pantry_household ON pantry_items(household_id)');
   return c.json({ ok: true });
+});
+
+// Deletes disposable QA accounts (acceptance-review test accounts) with the
+// same cascade as self-serve account deletion. Only matches known QA email
+// patterns; same key gate as /ops/stats.
+app.post('/ops/cleanup-qa', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const key = c.env.ADMIN_STATS_KEY;
+  if (!key || auth !== `Bearer ${key}`) return c.notFound();
+  const users = await c.env.DB.prepare("SELECT id, email FROM users WHERE email LIKE 'delivered+qa%@resend.dev' OR email LIKE 'qa+%@example.com'").all();
+  const deleted = [];
+  for (const u of users.results) {
+    const memberships = await c.env.DB.prepare('SELECT household_id FROM household_members WHERE user_id = ?').bind(u.id).all();
+    const stmts = [];
+    for (const m of memberships.results) {
+      const members = await c.env.DB.prepare('SELECT COUNT(*) AS n FROM household_members WHERE household_id = ?').bind(m.household_id).first();
+      if (Number(members?.n || 1) <= 1) {
+        stmts.push(
+          c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id IN (SELECT id FROM menus WHERE household_id = ?)').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM pantry_items WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ?').bind(m.household_id),
+          c.env.DB.prepare('DELETE FROM households WHERE id = ?').bind(m.household_id)
+        );
+      } else {
+        stmts.push(c.env.DB.prepare('DELETE FROM household_members WHERE household_id = ? AND user_id = ?').bind(m.household_id, u.id));
+      }
+    }
+    stmts.push(
+      c.env.DB.prepare('DELETE FROM email_intents WHERE email = ?').bind(u.email),
+      c.env.DB.prepare('DELETE FROM users WHERE id = ?').bind(u.id)
+    );
+    await c.env.DB.batch(stmts);
+    deleted.push(u.email);
+  }
+  return c.json({ deleted });
 });
 
 // ---------- SEO ----------
