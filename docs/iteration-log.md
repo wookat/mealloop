@@ -1451,3 +1451,8 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ② UX:** Resend still returns 429 daily_quota_exceeded (re-verified via tail), so every new-user login attempt failed with "try again in a minute" — misleading when the outage lasts until the quota resets.
 **Fix:** `sendMagicCode` now returns `'ok' | 'quota' | 'fail'`; a 429 shows "Our email service is over capacity right now. Please try again later today — sorry about that." Other failures keep the try-again-in-a-minute copy.
 **Verified in production:** live /login POST renders the quota message; tests 25/25, deploy clean. Resend quota/plan escalation from R157 still stands.
+
+## Round 164 — 2026-08-10 (QA regression: calendar feed, export, URL import)
+
+**Driver ① QA:** production regression of three less-trafficked paths with a disposable household (deleted after): `/s/:token/calendar.ics` → 200 `text/calendar`, 7 VEVENTs for a filled week; `/app/export.json` → 200 with `exportedAt`/`household`/`recipeCount` schema; live recipe-URL import (BBC Good Food classic lasagne) → parsed to a full recipe page. All green — no defects.
+**Driver ① note:** relay unchanged (503 on this round's earlier checks); Resend quota outage now surfaced honestly on /login (R163).
