@@ -1492,3 +1492,8 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ① compliance sweep:** the privacy policy predated the reactions cookie and referrer aggregates — "cookie-free until you log in" was no longer accurate for share-link voters.
 **Fix:** /privacy now discloses the `ml_voter` functional cookie (random token, 12 months, no identity), 👍/👎 reaction data with its legal basis and cascade deletion, and referring-site hostname aggregates (never full URLs); landing FAQ privacy answer updated to match; policy date bumped.
 **Verified in production:** all three disclosures render on /privacy. Tests 25/25.
+
+## Round 171 — 2026-08-10 (QA regression: paste-text import + cook mode entry)
+
+**Driver ① QA:** disposable-household production regression of the manual paste path: multi-section recipe text (title/serves/ingredients/steps) → 302, recipe listed, ingredients and steps parsed correctly on the detail page; cook-mode entry button (`data-cook-mode`, client-side) present on the recipe. Account deleted after; baseline untouched (35 to buy). No defects.
+**Batch health note:** R157–171 = 15 rounds — 10 shipped improvements, 3 clean no-defect regressions, 2 external P0s outstanding (aicdks relay 503 `model_not_found`; Resend daily quota 429). In-product find-and-fix opportunities are thinning; the biggest remaining levers are external (relay/quota) or need real traffic.
