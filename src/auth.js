@@ -112,6 +112,15 @@ export function clearCookie() {
   return 'ml_session=; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=0';
 }
 
+// Anonymous per-device voter id for share-page meal reactions.
+export function getVoter(c) {
+  return getCookie(c.req.raw, 'ml_voter');
+}
+
+export function voterCookie(v) {
+  return `ml_voter=${v}; HttpOnly; Secure; Path=/; SameSite=Lax; Max-Age=${60 * 60 * 24 * 365}`;
+}
+
 function getCookie(req, name) {
   const h = req.headers.get('Cookie') || '';
   const m = h.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
