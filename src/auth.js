@@ -6,7 +6,7 @@ const CODE_TTL = 60 * 10;
 export async function sendMagicCode(env, email) {
   const sendKey = `sends:${email.toLowerCase()}`;
   const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
-  if (sends >= 3) return false;
+  if (sends >= 3) return 'fail';
   await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
@@ -23,8 +23,9 @@ export async function sendMagicCode(env, email) {
   if (!res.ok) {
     const detail = (await res.text().catch(() => '')).slice(0, 200);
     console.error(`Login-code email send failed (HTTP ${res.status}): ${detail}`);
+    return res.status === 429 ? 'quota' : 'fail';
   }
-  return res.ok;
+  return 'ok';
 }
 
 export async function sendSubscribeConfirm(env, email, confirmToken, unsubToken) {

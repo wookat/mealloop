@@ -547,8 +547,11 @@ app.post('/login', async (c) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return c.html(page({ title: 'Log in', body: loginBody('Please enter a valid email address.'), path: '/login', noindex: true }));
   }
-  const ok = await sendMagicCode(c.env, email);
-  return c.html(page({ title: 'Enter code', body: loginBody(ok ? `Code sent to ${email}. Check your inbox.` : 'Could not send email right now — please try again in a minute.', ok ? email : ''), path: '/login', noindex: true }));
+  const sent = await sendMagicCode(c.env, email);
+  const msg = sent === 'ok' ? `Code sent to ${email}. Check your inbox.`
+    : sent === 'quota' ? 'Our email service is over capacity right now. Please try again later today — sorry about that.'
+    : 'Could not send email right now — please try again in a minute.';
+  return c.html(page({ title: 'Enter code', body: loginBody(msg, sent === 'ok' ? email : ''), path: '/login', noindex: true }));
 });
 
 app.post('/verify', async (c) => {

@@ -1445,3 +1445,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 
 **Driver ③ visual:** real-browser walkthrough of the share page with live votes at 375px and 1280px (disposable household, deleted after — share link 404s post-delete, GDPR cascade confirmed). No horizontal overflow at 375px (scrollWidth delta 0); reaction buttons wrap cleanly under each meal title; own-vote highlight (emerald pill + tally) reads clearly at both widths; coarse-pointer buttons inherit the existing ≥40px touch-target rule. No defects found this round.
 **Driver ① note:** relay still 503 on this round's check.
+
+## Round 163 — 2026-08-10 (honest login-error copy during the Resend quota outage)
+
+**Driver ② UX:** Resend still returns 429 daily_quota_exceeded (re-verified via tail), so every new-user login attempt failed with "try again in a minute" — misleading when the outage lasts until the quota resets.
+**Fix:** `sendMagicCode` now returns `'ok' | 'quota' | 'fail'`; a 429 shows "Our email service is over capacity right now. Please try again later today — sorry about that." Other failures keep the try-again-in-a-minute copy.
+**Verified in production:** live /login POST renders the quota message; tests 25/25, deploy clean. Resend quota/plan escalation from R157 still stands.
