@@ -628,6 +628,7 @@ app.get('/app', async (c) => {
   const setupLeft = setupSteps.filter((s) => !s.done).length;
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
   const ai = c.req.query('ai');
+  const aiDown = ai ? null : await c.env.KV.get('ai:unavailable');
   const aiRetried = c.req.query('retried') === '1';
   const aiNotice = ai === 'err' ? `<div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 print:hidden">
   <p>${aiRetried ? `<strong>We retried and the AI service is still unavailable.</strong> It usually recovers within a few minutes — your plan is untouched. Keep trying, or fill the week without AI below.` : `<strong>The AI couldn't draft your week just now.</strong> This is usually a brief hiccup on the AI side — your plan is untouched.`}</p>
@@ -680,6 +681,7 @@ ${setupLeft > 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button data-ai-start data-busy-label="Drafting your week…" title="Drafts dinners from your own recipe box — you review the draft first; nothing is saved until you apply it." class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
   </form>` : ''}
+  ${aiDown && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<span class="basis-full text-xs text-amber-700" role="status">AI drafting is having trouble right now — you can try anyway, or fill your week from your recipe box.</span>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
@@ -961,10 +963,14 @@ app.post('/app/ai/generate', async (c) => {
       dayLabels: days.map(dayLabel),
     });
     draft.week_start = days[0];
-    await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
+    await Promise.all([
+      c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 }),
+      c.env.KV.delete('ai:unavailable'),
+    ]);
     return c.redirect('/app/ai');
   } catch (err) {
     console.error('AI generate failed:', err instanceof Error ? err.message : String(err));
+    await c.env.KV.put('ai:unavailable', '1', { expirationTtl: 300 });
     return c.redirect(`/app?week=${days[0]}&ai=err${f.retry ? '&retried=1' : ''}`);
   }
 });

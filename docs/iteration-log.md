@@ -1422,3 +1422,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Driver ⑤ data:** practical-cooking guides lead 14-day views (picky-eaters 18, batch-cooking 13, leftovers/budget 11). Shipped 29th guide `slow-cooker-meal-planning` (crunch-night matching, night-before prep, cheap cuts economics), grouped under Meal planning basics.
 **Verified in production:** guide 200, listed in /guides and sitemap, IndexNow ping 200. Full sitemap scan all 200, TTFB / 78 ms.
 **Driver ① note:** aicdks relay still unstable (503 model_not_found earlier, now 429 rate-limit on direct test) — success-path smoke still pending relay recovery; escalated in R157.
+
+## Round 159 — 2026-08-10 (AI availability hint on the planner)
+
+**Driver ①/②:** with the aicdks relay flapping (503/429 for hours), every user who clicks "✨ Plan my week with AI" pays the full overlay-then-error round trip with no forewarning.
+**Fix:** `/app/ai/generate` failures now set a 5-minute KV flag `ai:unavailable` (cleared on the next success); while set, the planner toolbar shows a small amber status line — "AI drafting is having trouble right now — you can try anyway, or fill your week from your recipe box." The button stays enabled (flag is advisory, not a lockout).
+**Verified in production (disposable account, deleted after):** triggered a failure → flag set → hint renders on the planner; hint suppressed on ?ai= pages (the alert already covers those); tests 25/25, deploy clean.
