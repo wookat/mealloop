@@ -9,7 +9,7 @@
   "scripts": {
     "build:css": "tailwindcss -i src/input.css -o public/styles.css --minify",
     "dev": "wrangler dev",
-    "deploy": "npm run build:css && wrangler deploy",
+    "deploy": "npm run build:css && node scripts/asset-version.mjs && wrangler deploy",
     "check": "node --check src/index.js && node --check src/auth.js && node --check src/recipes.js && node --check src/util.js && node --check src/layout.js && node --check src/guides.js",
     "test": "node --test test/*.test.js"
   },

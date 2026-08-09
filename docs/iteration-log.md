@@ -1296,3 +1296,109 @@ Each round: five drivers (① QA/tests ② UX walkthrough ③ frontend visual/a1
 ## Round 126 — 2026-08-08 (clean-sweep round 2: no findings → low-intensity mode)
 
 **Scan:** all 33 sitemap URLs return 200 with unique titles and meta descriptions (no duplicates, no thin pages); TTFB ~79 ms. D1 HTTP API still 7403 (platform-side; data driver still blocked, app unaffected). Second consecutive round with no actionable improvement — per protocol, converting to low-intensity operations (weekly pSEO + IndexNow, traffic weekly, security/retention watch).
+
+## Round 127 — 2026-08-12 (ops: secret-gated aggregate stats endpoint; data driver unblocked)
+
+**Findings:** Cloudflare D1 HTTP API still returns 7403 for every account token (platform-side), blocking the data-analysis driver since R125 — while the Worker's D1 binding works fine.
+**Fixes shipped:** `GET /ops/stats?days=N` — requires `Authorization: Bearer <ADMIN_STATS_KEY>` (new Worker secret; wrong/missing key → plain 404). Returns only the first-party aggregate counters the app already stores (analytics_daily paths, search_terms, email_intents totals) — never user data.
+**Verified in production:** no-auth → 404; with key → JSON. 14-day readout: /s 814 · /app/list 621 · /app 375 · / 205 · /guides 72; guide detail views led by picky-eaters (18), batch-cooking (13), leftovers/budget (11 each); search terms still internal-QA only; email intents: 1 total (0 confirmed, 1 unsubscribed — QA rows).
+
+## Round 128 — 2026-08-12 (competitor revisit: title-first recipe search ranking)
+
+**Findings:** competitor revisit — Plan to Eat's 2026 updates: recipe search now ranks title matches above description/ingredient matches (v8.3.2), Concise Mode AI rewriting, form-variant list rows; Samsung Food doubling down on Vision AI calorie tracking ($59.99/yr Food+). AI/nutrition items remain out of v1 scope; the search-ranking pattern is directly adoptable — our recipe search ordered purely by `${order}` so an ingredient-only match could outrank an exact title match.
+**Fixes shipped:** recipe box search now orders by `(title LIKE '%q%') DESC` first, then the existing sort — title hits always surface above ingredient-only hits. Partial-word matching already worked (substring LIKE).
+**Verified in production:** deployed; unit suite 24/24 green.
+
+## Round 129 — 2026-08-12 (pSEO: freezer meals guide — data-driven topic)
+
+**Findings:** /ops/stats readout shows practical-cooking guides lead views (picky-eaters 18, batch-cooking 13, leftovers/budget 11) — freezer-meal intent is adjacent and uncovered.
+**Fixes shipped:** 28th guide `freezer-meals-for-family-weeknights` (plan-from-the-freezer angle tied to ×2 scaling + weekly plan), in "Meal planning basics" topic.
+**Verified in production:** guide 200 with Article/Breadcrumb JSON-LD, listed in /guides, sitemap 34 locs, IndexNow 200. TTFB spot-check: / 134 ms, /pricing 75 ms, new guide 81 ms.
+
+## Round 130 — 2026-08-12 (CWV re-test + backlog re-eval)
+
+**CWV (Lighthouse, mobile emulation, headless):** `/` LCP 1.1 s / CLS 0 (perf 1.00); guide page LCP 1.1 s / CLS 0 (perf 1.00) — no flags.
+**Backlog re-eval:** pantry min-stock stays deferred (niche, no user signal); real-device touch validation still not possible from this environment; AI features (Concise Mode-style rewrites, nutrition/Vision AI) remain out of scope pending AI budget per boss directive.
+
+## Round 131 — 2026-08-12 (clean-sweep round: no findings)
+
+**Five-driver scan:** landing "From the guides" picks (picky-eaters / batch-cooking / budget) exactly match the top-3 most-viewed guides in the 90-day /ops/stats readout — already data-aligned, no change needed. Search terms still internal-QA only; no new referrers. Competitor deltas beyond R128's adopted search-ranking pattern are all AI-dependent (out of scope pending budget). Perf/a11y/security re-checked green in R130. No actionable item found — one more no-find round converts to low-intensity operations.
+
+## Round 132 — 2026-08-12 (flagship: AI week-menu generation)
+
+**Directive:** boss greenlit AI channel (api.aicdks.com, glm-5.2) — closes the AI gap vs Plan to Eat/Samsung Food without their subscription pricing.
+**Shipped:** "✨ Plan my week with AI" on the planner → server-side call drafts 7 dinners from the household's recipe box (+ tags/favourites, avoiding the last 2 weeks); box too small → the model proposes full new recipes (ingredients+steps) that get saved into the box on apply. Draft lives in KV (1h TTL): per-day ↻ Swap from alternates, days already planned are kept as-is, Apply inserts plan entries (new recipes tagged `ai-suggested`), Discard deletes the draft. Failure/timeout degrades to a notice pointing at the existing "Fill empty dinners" path. Key is a Worker secret (AICDKS_API_KEY), never sent to the client; prompts contain recipe titles only — no emails/tokens.
+
+## Round 133 — 2026-08-12 (flagship: pantry ↔ grocery list linkage)
+
+**Shipped:** /app/pantry — household-level "what we have at home" with stocked/low/out levels. Stocked items are skipped by "Add week's ingredients" and "+ Add staples" (notice shows how many were skipped); "Used up" one-tap after cooking; one button sends all low/out items to the grocery list (dedupe/buy-again aware). Pantry rows deleted with household on GDPR erase. Migration 0015 applied in production via new key-gated POST /ops/migrate (idempotent DDL only — D1 HTTP API outage workaround, same gate as /ops/stats).
+
+### 133b — pantry stocked-skip unit-mismatch fix (QA regression finding)
+
+Testing found the common case failing: pantry "basmati rice" (Stocked) did not skip "300g basmati rice" because `ingredientKey` embeds the unit (`basmati rice|` ≠ `basmati rice|g`). Added `pantryKey` (name-only, quantity/unit-agnostic) and switched all pantry matching to it: weekly to-list skip, staples skip, and pantry→list dedupe (no more near-duplicate rows). Unit tests added (25 total).
+
+## Round 134–136 — 2026-08-12 (onboarding / user guidance)
+
+**Directive:** boss asked for restrained user guidance. Competitor patterns (from the August scan + Samsung Food deep-dive): long forced onboarding quizzes (Samsung Food, 6 steps) hurt more than help; the effective pattern is Plan to Eat/Mealime-style lightweight setup checklists and contextual empty-state CTAs. We follow the latter.
+**R134–135 shipped:**
+- Planner "Get set up in N steps" checklist card (replaces the old single "Start with one recipe" card): ① Add a recipe ② Plan a dinner ③ Get your grocery list, each with done-state (✓/strikethrough) computed server-side from household data; dismissible ✕ remembered in localStorage (`ml-hide-setup`); rendered `hidden` and revealed client-side so dismissed users never see a flash; disappears entirely once all 3 steps done; print-hidden.
+- Empty-state CTA: grocery list empty state now offers "Open the planner" + "Set up staples" buttons (editable views only — share page unchanged).
+- New-feature discovery: one-time amber "New" badges on "✨ Plan my week with AI" (planner) and "Pantry" (grocery-list toolbar) via generic `data-new` helper — hidden after first click, localStorage-remembered, no animation (nothing to reduce for reduced-motion).
+**R136:** the setup checklist doubles as the first-run coach — deliberately no overlay coach marks (strict CSP, restraint principle: nothing blocks the UI, everything skippable, zero requests).
+
+### 136b — 375px planner toolbar overflow fix (regression finding, pre-existing)
+
+New-user regression flagged the planner at 422px scrollWidth on a 375px viewport. Isolation showed the setup card fits fine — the culprit was the week-nav toolbar (Print/Prev/Today/Next/Month/+ Snacks) missing `flex-wrap`, dating back to R106–108 when the Month link was added. Added `flex-wrap`; re-verified 375/375 in production.
+
+**Regression evidence (testing agent, disposable household, GDPR-deleted after):** full new-user walkthrough recorded — 3→2→1-step progression with ✓/strikethrough, dismiss persists via localStorage and card restores when key cleared, card gone after all steps, empty-list CTAs present, Pantry badge one-time behaviour proven (`ml-new-pantry`), axe 0 violations, standing household untouched (35 to buy · 0 checked, no setup card as expected). Untested: AI badge post-click hiding (avoided a paid generation; mechanism shared with pantry badge), share-page empty-list CTA absence (low priority).
+
+## Round 137–141 — 2026-08-12 (brand system + full-activity marketing)
+
+**Directive:** boss asked for comprehensive branding + all product activities beyond development.
+**R137 brand system (docs/brand/):** brand-story.md (positioning one-liner, story, pillars, differentiation, proof points), naming-and-voice.md (canonical product/feature names, tone-of-voice rules, banned words, microcopy patterns), visual-guide.md (logo usage, color, type, spacing, motion, asset inventory — consolidates R114–118).
+**R138 on-site brand consistency:** audited name casing (no violations), titles/OG/footer/email signatures consistent; footer gains About + Press links.
+**R139 About + Press pages:** /about (story + beliefs, brand-guide copy) and /press (short/long boilerplate, facts, downloadable logo/icon/OG assets, naming/color rules); both in sitemap (34→36 locs).
+**R140 email lifecycle:** new `sendWelcome` (src/auth.js) — one-time welcome email on first subscription confirmation (quickstart + unsubscribe + List-Unsubscribe headers, only to just-double-opted-in addresses; re-confirms don't resend). Announcement + re-engagement templates and confirmed-only sending procedure in docs/marketing/email-lifecycle.md.
+**R141 marketing pack (docs/marketing/):** directory-submissions.md (10-site checklist with canonical copy — all require real accounts, so all are boss-to-execute 👤), product-hunt-kit.md (tagline, gallery plan, maker comment, FAQ, runbook), social-calendar-14d.md (14 days of copy-paste X/Reddit/HN posts, value-first Reddit rules), content-plan.md (internal-link rules + next 8 guide topics).
+**Red lines kept:** no fake accounts registered, no reviews fabricated, welcome email only post-double-opt-in, no anti-bot bypass.
+
+## Round 142–146 — 2026-08-05 (design-system deep upgrade)
+
+**Directive:** boss asked for a deep font/component upgrade, full desktop+mobile adaptation, richer premium effects, and "plain language for expert output" (user mental model).
+**R142 typography:** display scale rhythm (h1 1.15 / h2–h3 1.25 line-height, -0.01em tracking), `text-wrap: balance` on headings + `pretty` on paragraphs; `.tnum` tabular-nums utility applied to compared numbers (pricing amounts, grocery-list count, servings-scale selector; timers already had it).
+**R143 component polish:** one shadow language (subtle 2-layer card shadow; deeper popover shadow), global `:focus-visible` emerald ring on all interactive elements, input/select focus border transition; touch comfort on coarse pointers (22px checkboxes, ≥44px list rows, ≥40px buttons/nav) without inflating desktop density.
+**R144 device adaptation:** main container widens to max-w-6xl at ≥1280px (planner 7-col grid gets real room; header/footer unchanged at 5xl for reading width). 375/768/1024/1440 walkthrough delegated to regression.
+**R145 effects:** hero ambient radial backdrop (emerald+amber, zero JS/CLS), staggered card entrances (`.stagger`, 70ms steps) on landing features/how-it-works and pricing cards, card hover lift, `details` popover pop-in — all inside the existing `prefers-reduced-motion: no-preference` gate.
+**R146 plain language:** visible planner microcopy explaining what the AI button does and pantry skipping ("drafts from your own recipe box — nothing saved until you apply"), title tooltips on servings-scale (×2 doubles grocery amounts, recipe unchanged) and units selector (display-only, reversible). Pantry page and skip notices already carried plain-language copy.
+
+### 146b — heading-order a11y fix (regression finding, pre-existing)
+
+Regression axe flagged moderate `heading-order` (h1→h3) on landing and /app — pre-existing markup. Landing feature cards and planner/month/share day labels promoted h3→h2 (visual classes unchanged). /pricing and /app/list were already clean.
+
+## Round 147–151 — 2026-08-05 (1:1 replication benchmark vs Plan to Eat)
+
+**Directive:** pick one flagship competitor, deep-walk every page/flow in a real account, build a replication scorecard, fix every sub-100% item as a defect, then list where we exceed.
+**R147 benchmark walkthrough:** Plan to Eat (web) chosen over Mealime (web-first, real trial). Walked Cook/Plan/Shop, recipe detail, cooking view, staples, drag-to-plan → auto list, 375px responsive mode. Compliance: patterns re-implemented from scratch; no code/assets/copy taken; no bot walls bypassed.
+**R148 scorecard:** docs/replication-benchmark.md — page-by-page IA/layout/interaction/state/copy comparison with 0–100% fidelity scores, P-ranked gaps, deliberate n/a list, superiority list (share link, AI drafts, pantry deduction, mobile web, privacy/CSP, export, SEO moat — PTE's own 375px web squeezes desktop layout and ships CSP violations).
+**R149 recipe Duplicate (parity fix):** POST /app/recipes/:id/duplicate copies title "(copy)", ingredients, steps, times, servings, photo, notes, tags; action added next to Edit/Delete.
+**R150 "Most planned" sort (parity fix):** third sort option on /app/recipes (PTE "Times Planned"), correlated count of past plan_entries; preserved across searches.
+**R151 list "From this week's plan" chips (parity fix):** /app/list shows linked chips for each recipe planned this week (PTE Planned Recipes panel equivalent), print-hidden.
+
+### 151b — recipe-card heading-order fix (regression finding, pre-existing)
+
+Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pre-existing recipe-card markup. Card titles promoted h3→h2 (visual classes unchanged).
+
+## Round 152–154 — 2026-08-05 (replication upgrade: full page coverage + technical-standard audit)
+
+**Directive:** confirm every benchmark page is covered, and match the benchmark's technical standards.
+**R152 page-coverage inventory:** crawled PTE sitemap_index (29 pages + 1,275 posts), both robots.txt, nav/footer — 28 page types; 22/22 in-scope types covered (100%), 6 deliberate-n/a (payments ×3, podcast/email archive, macro tour). One real gap found: no public FAQ.
+**R153 technical audit + fix:** black-box DevTools/headers/Lighthouse comparison across 12 dimensions (rendering, JS weight, assets, fonts, images, CDN, structured data, SEO, security headers, perf, a11y) — 12/12 meet or exceed after fixing the one gap: un-hashed CSS/JS with max-age=0 → build-hash `?v=` URLs + immutable 1y (scripts/asset-version.mjs, wired into `npm run deploy`).
+**R154 /faq:** public FAQ page (9 Q&As, FAQPage JSON-LD, footer link, sitemap 37 locs) — PTE tour/frequently-asked-questions parity.
+## Round 155 — 2026-08-09 (acceptance-review remediation: 68/100 report)
+
+**Directive:** external acceptance review scored 68/100 (fail). P0: new user clicking "Plan my week with AI" with an empty recipe box waits ~80 s in silence, then errors with no fallback.
+**P0 fixes:** ① pre-check in /app/ai/generate — fewer than 3 recipes redirects to a guided notice offering an in-house 8-recipe starter pack (`src/starters.js`, POST /app/recipes/starters, dedup by title) or import; ② bounded AI wall time — 20 s timeout per attempt with one automatic retry (max ~40 s, was a single 60 s attempt); ③ failure notice rebuilt: role=alert with a one-click "Try again" and a "Fill from recipe box instead (no AI)" fallback.
+**P1 fix:** full-screen progress overlay during drafting (spinner + staged status lines advancing every 7 s + "usually 10–25 s" expectation), aria-live, reduced-motion-safe static ring.
+**P2 fixes:** ① grocery-list toolbar condensed from 9 flat controls to 2 primary (+ Add staples, Share with family) + "⋯ More" menu (Copy/Print/Staples/Pantry/Aisle order/Clear checked/Units); aisle-order editor now an inline card when open; ② warm food illustration (in-house generated, no third-party rights) added to the landing hero + starter CTA on the empty recipe box.
+**Cross-report self-check:** login page now states what the email is used for (sign-in codes only, no default marketing); AI wait/failure UX covered above; nav ≤6 items at 375px — no overflow.
+**R155b:** overlay stage-timer bug fixed (single interval, one listener per form).

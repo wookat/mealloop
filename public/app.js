@@ -56,6 +56,68 @@
     });
   });
 
+  document.querySelectorAll('button[data-busy-label]').forEach(function (btn) {
+    btn.form && btn.form.addEventListener('submit', function () {
+      btn.textContent = btn.dataset.busyLabel;
+      btn.setAttribute('aria-busy', 'true');
+      setTimeout(function () { btn.disabled = true; }, 0);
+    });
+  });
+
+  // AI drafting progress overlay: shown while the /app/ai/generate form is in
+  // flight so the wait is never silent; the stage line advances on a timer.
+  var aiOverlay = document.querySelector('[data-ai-overlay]');
+  if (aiOverlay) {
+    var stages = [
+      'Reading your recipe box…',
+      'Drafting seven dinners…',
+      'Balancing variety across the week…',
+      'Almost there — double-checking the draft…',
+      'Taking longer than usual — retrying once…'
+    ];
+    var aiTimer = null;
+    var startOverlay = function () {
+      aiOverlay.hidden = false;
+      var line = aiOverlay.querySelector('[data-ai-stage]');
+      line.textContent = stages[0];
+      var i = 0;
+      if (aiTimer) clearInterval(aiTimer);
+      aiTimer = setInterval(function () {
+        if (i < stages.length - 1) line.textContent = stages[++i];
+      }, 7000);
+    };
+    var seen = [];
+    document.querySelectorAll('button[data-ai-start]').forEach(function (btn) {
+      if (!btn.form || seen.indexOf(btn.form) !== -1) return;
+      seen.push(btn.form);
+      btn.form.addEventListener('submit', startOverlay);
+    });
+  }
+
+  // One-time dismissible boxes (e.g. planner setup guide): server renders them
+  // hidden; shown only until the user dismisses, remembered in localStorage.
+  document.querySelectorAll('[data-dismiss-box]').forEach(function (box) {
+    var key = 'ml-hide-' + box.dataset.dismissBox;
+    try { if (localStorage.getItem(key)) return; } catch (e) {}
+    box.hidden = false;
+    var btn = box.querySelector('[data-dismiss]');
+    btn && btn.addEventListener('click', function () {
+      box.hidden = true;
+      try { localStorage.setItem(key, '1'); } catch (e) {}
+    });
+  });
+
+  // "New" feature badges: shown until the feature is first used.
+  document.querySelectorAll('[data-new]').forEach(function (badge) {
+    var key = 'ml-new-' + badge.dataset.new;
+    try { if (localStorage.getItem(key)) return; } catch (e) {}
+    badge.hidden = false;
+    var host = badge.closest('a, button');
+    host && host.addEventListener('click', function () {
+      try { localStorage.setItem(key, '1'); } catch (e) {}
+    });
+  });
+
   document.querySelectorAll('select[data-autosubmit]').forEach(function (sel) {
     sel.addEventListener('change', function () {
       if (sel.value === '__custom') {

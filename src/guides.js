@@ -452,4 +452,22 @@ export const GUIDES = [
       p('When the week\'s dinners are visible to the whole household on one link, "what\'s for dinner?" stops being a nightly decision and becomes a lookup — for the kids too. Rotate two or three known-good school-week menus and September runs itself.'),
     ].join(''),
   },
+  {
+    slug: 'freezer-meals-for-family-weeknights',
+    title: 'Freezer meals that rescue family weeknights (without mystery containers)',
+    excerpt: 'A freezer stash only works if you plan from it. Cook double, label with a date, and put the meal on the week — not just in the freezer.',
+    body: [
+      p('Most freezer-meal advice ends with a full freezer and no plan: a stack of anonymous containers you rediscover in November. A freezer stash rescues weeknights only when it\'s part of the plan — every frozen meal gets a slot on a future week the moment it goes in.'),
+      h2('Cook double, freeze half, plan it forward'),
+      ul([
+        'When a recipe already scales — lasagne, chilli, stew, curry, soup — <strong>cook ×2 and freeze half</strong> before dinner is served, so the extra never becomes leftovers grazing.',
+        '<strong>Label with the dish and the date</strong>, and immediately add it to a future crunch night on the weekly plan. A frozen meal without a slot is a mystery container in waiting.',
+        'Keep the stash shallow: <strong>4–6 meals</strong> you rotate through beats 20 you forget about.',
+      ]),
+      h2('The freezer night is a planned night'),
+      p('Treat "freezer night" like any other dinner on the shared plan: it shows up on the week, everyone can see it, and nothing needs shopping. That\'s the point — one night a week where the answer to "what\'s for dinner?" is already cooked. Pair it with the busiest evening on the calendar and school-season weeks stop depending on takeaway.'),
+      h2('What actually freezes well for families'),
+      p('Saucy and braised dishes (bolognese, curries, pulled chicken, bean chilli) survive the freezer best; crispy and creamy things mostly don\'t. Freeze flat in bags where you can, thaw in the fridge the night before — the plan reminds you, because thawing is tomorrow\'s note on today\'s card.'),
+    ].join(''),
+  },
 ];

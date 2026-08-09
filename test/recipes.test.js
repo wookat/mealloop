@@ -104,6 +104,14 @@ test('ingredientKey matches scaled/unscaled variants of the same item', async ()
   assert.notEqual(ingredientKey('milk'), ingredientKey('500ml milk'));
 });
 
+test('pantryKey ignores quantity and unit', async () => {
+  const { pantryKey } = await import('../src/util.js');
+  assert.equal(pantryKey('basmati rice'), pantryKey('300g basmati rice'));
+  assert.equal(pantryKey('milk'), pantryKey('500ml milk'));
+  assert.equal(pantryKey('red onion'), pantryKey('2 red onions'));
+  assert.notEqual(pantryKey('peanut butter'), pantryKey('butter'));
+});
+
 test('convertUnits converts display units both ways and leaves the rest alone', async () => {
   const { convertUnits } = await import('../src/util.js');
   assert.equal(convertUnits('750g lean beef mince', 'imperial'), '1.65 lb lean beef mince');

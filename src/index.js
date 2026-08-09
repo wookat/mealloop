@@ -1,9 +1,11 @@
 import { Hono } from 'hono';
 import { page } from './layout.js';
-import { getUser, sendMagicCode, sendSubscribeConfirm, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
+import { getUser, sendMagicCode, sendSubscribeConfirm, sendWelcome, verifyCode, logout, sessionCookie, clearCookie } from './auth.js';
 import { importRecipeFromUrl, parseRecipeText } from './recipes.js';
-import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
+import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleIngredient, ingredientKey, pantryKey, convertUnits, isIngredientHeading, STANDARD_CATEGORIES, sortCategories, sanitizeImageUrl, clampMinutes, swapAdjacent, icsEscape, copyName, splitListInput, clip } from './util.js';
 import { GUIDES } from './guides.js';
+import { generateWeekDraft } from './ai.js';
+import { STARTER_RECIPES } from './starters.js';
 
 const app = new Hono();
 
@@ -52,7 +54,7 @@ const LANDING_FAQ = [
 app.get('/', async (c) => {
   const user = await getUser(c);
   const body = `
-<section class="py-10 sm:py-16 text-center fade-up">
+<section class="py-10 sm:py-16 text-center fade-up hero-ambient -mx-4 px-4">
   <p class="inline-block mb-4 px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold tracking-wide">OPEN BETA · ALL FEATURES FREE DURING BETA · NO ADS</p>
   <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-stone-900 max-w-2xl mx-auto">What's for dinner? <span class="text-emerald-600">Decide once, together.</span></h1>
   <p class="mt-4 text-lg text-stone-600 max-w-xl mx-auto">Import recipes from any site, plan your week, and share one live grocery list with your whole family — with a single link. No accounts needed for them.</p>
@@ -60,21 +62,22 @@ app.get('/', async (c) => {
     <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Start your free beta trial'}</a>
     <a href="/guides" class="px-6 py-3 rounded-xl border border-stone-300 font-semibold text-lg hover:bg-stone-100">How it works</a>
   </div>
+  <img src="/hero-dinner.webp" alt="Illustration of a family dinner table with a pot of pasta, salad and four place settings" width="880" height="587" fetchpriority="high" class="mx-auto mt-10 w-full max-w-2xl">
 </section>
-<section class="grid sm:grid-cols-3 gap-4 py-8">
+<section class="grid sm:grid-cols-3 gap-4 py-8 stagger">
   ${[
     ['Import from any recipe site', 'Paste a URL — we pull the title, photo, ingredients and steps automatically. Steps stay readable right here.'],
     ['One live grocery list', 'Ingredients from your weekly plan are grouped by store aisle. Checking an item syncs for everyone in seconds.'],
     ['Share with a link', 'Your family sees the week and the list with one link — no app install, no sign-up, no subscription.'],
   ].map(([t, d]) => `
   <div class="rounded-2xl bg-white border border-stone-200 p-5">
-    <h3 class="font-semibold text-stone-900">${t}</h3>
+    <h2 class="font-semibold text-stone-900">${t}</h2>
     <p class="mt-1.5 text-sm text-stone-600">${d}</p>
   </div>`).join('')}
 </section>
 <section class="py-8">
   <h2 class="text-2xl font-bold text-center">How it works</h2>
-  <div class="mt-6 grid sm:grid-cols-3 gap-4">
+  <div class="mt-6 grid sm:grid-cols-3 gap-4 stagger">
     ${[
       ['1', 'Plan', 'Pick dinners for the week from your recipe box — import from any site, paste text, or type your own. Ten minutes on Sunday.'],
       ['2', 'Shop', 'One tap turns the week into an aisle-sorted grocery list. Quantities merge, staples auto-add, and everyone sees the same live list.'],
@@ -197,9 +200,10 @@ app.get('/subscribe/confirm', async (c) => {
   const t = String(c.req.query('t') || '');
   let ok = false;
   if (/^[A-Za-z0-9_-]{10,}$/.test(t)) {
-    const row = await c.env.DB.prepare('SELECT id FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
+    const row = await c.env.DB.prepare('SELECT id, email, unsub_token, confirmed FROM email_intents WHERE confirm_token = ? AND unsubscribed_at IS NULL').bind(t).first();
     if (row) {
       await c.env.DB.prepare("UPDATE email_intents SET confirmed = 1, confirmed_at = datetime('now') WHERE id = ?").bind(row.id).run();
+      if (!row.confirmed) c.executionCtx.waitUntil(sendWelcome(c.env, row.email, row.unsub_token));
       ok = true;
     }
   }
@@ -271,13 +275,13 @@ app.get('/pricing', async (c) => {
     <p class="text-sm text-amber-800 mt-1">Every plan below is <strong>free for everyone during the beta</strong> — all features unlocked, no card required. Billing starts only at launch, and beta users will be notified well in advance.</p>
   </div>
 </section>
-<section class="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto items-stretch">
+<section class="grid gap-4 sm:grid-cols-3 max-w-4xl mx-auto items-stretch stagger">
   ${PRICING_PLANS.map((p) => `
   <div class="rounded-2xl bg-white border ${p.highlight ? 'border-emerald-500 ring-1 ring-emerald-500 relative' : 'border-stone-200'} p-6 flex flex-col">
     ${p.highlight ? '<span class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 text-white text-xs font-semibold px-3 py-0.5">Most popular</span>' : ''}
     <h2 class="font-bold text-lg text-stone-900">${p.name}</h2>
     <p class="mt-1 text-sm text-stone-600">${p.blurb}</p>
-    <p class="mt-4"><span class="text-3xl font-extrabold text-stone-900">${p.price}</span> <span class="text-sm text-stone-500">${p.per}</span></p>
+    <p class="mt-4 tnum"><span class="text-3xl font-extrabold text-stone-900">${p.price}</span> <span class="text-sm text-stone-500">${p.per}</span></p>
     <ul class="mt-4 space-y-2 text-sm text-stone-700 flex-1">
       ${p.features.map((f) => `<li class="flex gap-2"><span aria-hidden="true" class="text-emerald-600 font-bold">✓</span>${f}</li>`).join('')}
     </ul>
@@ -299,6 +303,41 @@ app.get('/pricing', async (c) => {
   </div>
 </section>`;
   return c.html(page({ title: 'Pricing', description: 'MealLoop pricing: Free, Household and Supporter plans. All features free for everyone during the open beta — no card required.', body, user, path: '/pricing' }));
+});
+
+const FAQS = [
+  ['What is MealLoop?', 'MealLoop is a family meal planner: keep your recipes in one box, plan the week (or month) of dinners, and everyone in the household shops from one always-in-sync grocery list.'],
+  ['How do I get my recipes in?', 'Paste a link to any public recipe page and MealLoop imports it, paste recipe text by hand, type it in yourself, or upload a JSON backup from another app. Everything you add stays exportable.'],
+  ['Does my family need accounts?', 'Only the person who runs the plan needs one. Everyone else can use your household share link to see the week and check items off the grocery list — no signup, no app install.'],
+  ['Does it work on my phone?', 'Yes. MealLoop is a fast website that adapts to any screen, so there is nothing to install and it is always up to date at the store.'],
+  ['How does the grocery list stay in sync?', 'When you add planned meals to the list, ingredients merge automatically by aisle. Anyone viewing the list — on the app or the share link — sees checks appear within seconds.'],
+  ['What does the AI week planner do?', 'It drafts a week of dinners from your own recipe box and recent history. Nothing is saved until you press Apply, and pantry items you already have are skipped on the list.'],
+  ['Can I scale recipes or switch units?', 'Yes — scale servings up or down on any recipe, and switch the whole household between metric and imperial display units.'],
+  ['Is my data locked in?', 'No. You can export every recipe as standard schema.org JSON at any time, and delete your account (and all data) yourself from settings.'],
+  ['How much does it cost?', 'During the open beta everything is free for everyone — no card required. Planned prices are on the pricing page and beta users will be notified well before billing starts.'],
+];
+
+app.get('/faq', async (c) => {
+  const user = await getUser(c);
+  const body = `
+<script type="application/ld+json">${JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: FAQS.map(([q, a]) => ({ '@type': 'Question', name: q, acceptedAnswer: { '@type': 'Answer', text: a } })),
+  })}</script>
+<section class="max-w-2xl mx-auto py-8 sm:py-12">
+  <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-stone-900 text-center">Frequently asked questions</h1>
+  <p class="mt-3 text-lg text-stone-600 text-center">Everything busy families ask before their first week with MealLoop.</p>
+  <div class="mt-7 space-y-3">
+    ${FAQS.map(([q, a]) => `
+    <details class="rounded-xl bg-white border border-stone-200 p-4">
+      <summary class="font-semibold cursor-pointer text-stone-900">${q}</summary>
+      <p class="mt-2 text-sm text-stone-600">${a}</p>
+    </details>`).join('')}
+  </div>
+  <p class="mt-8 text-center text-sm text-stone-600">Still curious? <a class="text-emerald-700 underline" href="/pricing">See pricing</a> or <a class="text-emerald-700 underline" href="${user ? '/app' : '/login'}">${user ? 'open your planner' : 'start planning free'}</a>.</p>
+</section>`;
+  return c.html(page({ title: 'FAQ', description: 'Answers to common questions about MealLoop: recipe import, household share links, the synced grocery list, AI week drafts, data export and beta pricing.', body, user, path: '/faq' }));
 });
 
 app.get('/privacy', async (c) =>
@@ -342,6 +381,52 @@ app.get('/terms', async (c) =>
 </ul>`) }))
 );
 
+app.get('/about', async (c) =>
+  c.html(page({ title: 'About', path: '/about', user: await getUser(c), description: 'MealLoop is the calm way for busy families to answer "what\'s for dinner?" — plan the week in minutes, and everyone shops from one always-in-sync list.', body: `
+<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4">
+<h1 class="text-2xl font-bold">About MealLoop</h1>
+<p class="text-lg text-stone-600">MealLoop is the calm way for busy families to answer "what's for dinner?" — plan the week in minutes, and everyone shops from one always-in-sync list.</p>
+<p>Every family has the same 6pm problem: someone standing in front of the fridge, tired, deciding dinner from scratch — again. Recipes live in ten browser tabs, the shopping list is a text thread, and whoever's at the store buys the wrong things twice.</p>
+<p>MealLoop closes the loop. Save recipes once — paste any recipe URL, type them in, or import a backup — drag them onto a week, and the grocery list writes itself: merged quantities, sorted by aisle, minus what's already in your pantry. Your household shares one link; anyone can check things off at the store and everyone else sees it instantly. When the week's done, you loop: reuse a saved menu or let AI draft the next week from your own recipe box.</p>
+<h2 class="font-semibold text-lg pt-2">What we believe</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li><strong>Calm over clever.</strong> No forced onboarding quizzes, no gamification, no notification spam.</li>
+<li><strong>The family is the unit.</strong> Shared lists and anonymous share links — no one needs an account to check off milk.</li>
+<li><strong>Your food, your data.</strong> Recipes export in an open format, accounts self-delete, analytics are cookie-free aggregates. No ads, ever.</li>
+<li><strong>Warmth, not sterility.</strong> Food software should feel like a kitchen, not a spreadsheet.</li>
+</ul>
+<p>MealLoop is built by <a class="text-emerald-700 underline" href="https://zalize.com" rel="noopener">Zalize</a> and is currently in open beta — every feature is free during the beta. Questions? <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>. Press &amp; media: see the <a class="text-emerald-700 underline" href="/press">press kit</a>.</p>
+</article>` }))
+);
+
+app.get('/press', async (c) =>
+  c.html(page({ title: 'Press kit', path: '/press', user: await getUser(c), description: 'MealLoop press & media kit: boilerplate, brand assets, screenshots and facts for journalists and creators.', body: `
+<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4">
+<h1 class="text-2xl font-bold">MealLoop press kit</h1>
+<p class="text-stone-600">Everything you need to write about MealLoop. Questions or interview requests: <a class="text-emerald-700 underline" href="mailto:mealloop@zalize.com">mealloop@zalize.com</a>.</p>
+<h2 class="font-semibold text-lg pt-2">Boilerplate</h2>
+<p><strong>Short:</strong> MealLoop is a family meal planner and shared grocery list: import recipes from any site, plan your week in minutes, and shop from one always-in-sync list — no app install needed for the family.</p>
+<p><strong>Long:</strong> MealLoop (mealloop.zalize.com) helps busy families answer "what's for dinner?" without the nightly decision fatigue. Households save recipes once — from any recipe website, by typing them in, or by importing a backup — plan their week on a simple planner, and get an automatic grocery list with merged quantities sorted by supermarket aisle, minus what's already in the pantry. One private share link keeps the whole household in sync at the store, with no account or app required. MealLoop also drafts weekly menus with AI grounded in the family's own recipe box, exports recipes in an open format, and is privacy-first: no ads, no cookies before login, and cookie-free aggregate analytics. Built by Zalize, MealLoop is in open beta with all features free during the beta.</p>
+<h2 class="font-semibold text-lg pt-2">Facts</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li>Product: family meal planning + shared grocery list, web-based (works on any phone/desktop browser).</li>
+<li>Pricing: open beta — all features free; published plans are Free, Household ($3/mo or $24/yr) and Supporter ($29/yr) at general availability.</li>
+<li>Privacy: no ads, no third-party trackers, no cookies before login, GDPR self-serve account deletion.</li>
+<li>Platform: Cloudflare Workers edge deployment, server-rendered, strict Content Security Policy.</li>
+<li>Maker: Zalize. Contact: mealloop@zalize.com.</li>
+</ul>
+<h2 class="font-semibold text-lg pt-2">Brand assets</h2>
+<ul class="list-disc pl-5 space-y-1">
+<li><a class="text-emerald-700 underline" href="/favicon.svg" download>Logo mark (SVG)</a> — the "plate + loop"; don't recolor or restyle.</li>
+<li><a class="text-emerald-700 underline" href="/icon-512.png" download>App icon 512×512 (PNG)</a></li>
+<li><a class="text-emerald-700 underline" href="/og-card.png" download>Social / cover card 1200×630 (PNG)</a></li>
+</ul>
+<p>Name is always written <strong>MealLoop</strong> (one word, capital M and L). Primary color emerald <code>#059669</code> on warm cream <code>#fbf8f3</code>; display font Nunito.</p>
+<h2 class="font-semibold text-lg pt-2">Screenshots</h2>
+<p>Screenshot anything on the live site, or try the interactive demo on the <a class="text-emerald-700 underline" href="/">home page</a> — we're happy to provide specific shots on request.</p>
+</article>` }))
+);
+
 function legalBody(title, inner) {
   return `<article class="prose-sm max-w-2xl mx-auto py-8 space-y-4"><h1 class="text-2xl font-bold">${title}</h1>${inner}<p class="text-stone-500 text-sm">Last updated: 2026-08-05</p></article>`;
 }
@@ -349,7 +434,7 @@ function legalBody(title, inner) {
 // ---------- pSEO guides ----------
 // Topic hub: /guides grouped into themed sections (SideChef-style topic navigation).
 const GUIDE_TOPICS = [
-  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'back-to-school-meal-planning', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks']],
+  ['Meal planning basics', ['how-to-meal-plan-for-a-family', 'meal-plan-in-20-minutes', 'stop-deciding-whats-for-dinner-every-night', 'why-meal-plans-fall-apart', 'dinner-rotation-two-weeks', 'reusable-weekly-menu-template', 'back-to-school-meal-planning', 'meal-planning-on-a-budget', 'meal-planning-for-picky-eaters', 'plan-leftovers-nights-reduce-food-waste', 'batch-cooking-for-busy-weeks', 'freezer-meals-for-family-weeknights']],
   ['Grocery lists & shopping', ['grocery-list-by-aisle', 'organize-grocery-list-by-store-aisle', 'weekly-grocery-list-with-staples', 'household-staples-list', 'shared-grocery-list-without-an-app']],
   ['Recipes & cooking', ['import-recipes-from-any-website', 'save-recipes-from-sites-that-block-importers', 'scaling-recipes-for-family-size', 'metric-imperial-recipe-conversion', 'print-a-recipe-without-ads-and-clutter', 'cook-from-your-phone-without-screen-lock', 'move-recipes-from-another-app']],
   ['Family, sharing & tools', ['meal-planning-as-a-team', 'meal-plan-in-your-family-calendar', 'meal-planning-apps-vs-shared-notes', 'plan-to-eat-alternatives', 'samsung-food-review-for-families']],
@@ -441,6 +526,7 @@ function loginBody(msg, email = '') {
   return `<div class="max-w-sm mx-auto py-14">
 <h1 class="text-2xl font-bold text-center">Log in or sign up</h1>
 <p class="text-center text-stone-600 text-sm mt-1">We'll email you a 6-digit code. No password needed.</p>
+<p class="text-center text-stone-400 text-xs mt-1.5">We only use your email for sign-in codes and things you explicitly opt in to — never marketing by default.</p>
 ${msg ? `<p class="mt-4 text-center text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(msg)}</p>` : ''}
 ${email
     ? `<form method="post" action="/verify" class="mt-6 space-y-3">
@@ -529,13 +615,35 @@ app.get('/app', async (c) => {
   ]);
   const prevWeek = shiftDays(days[0], -7);
   const nextWeek = shiftDays(days[0], 7);
-  const menus = await c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all();
+  const [menus, anyPlan, anyItem] = await Promise.all([
+    c.env.DB.prepare('SELECT id, name FROM menus WHERE household_id = ? ORDER BY created_at DESC LIMIT 50').bind(h.id).all(),
+    c.env.DB.prepare('SELECT 1 AS x FROM plan_entries WHERE household_id = ? LIMIT 1').bind(h.id).first(),
+    c.env.DB.prepare('SELECT 1 AS x FROM shopping_items WHERE household_id = ? LIMIT 1').bind(h.id).first(),
+  ]);
+  const setupSteps = [
+    { done: recipes.results.length > 0, label: 'Add a recipe', hint: 'paste any recipe URL, or type one in', href: '/app/recipes' },
+    { done: !!anyPlan, label: 'Plan a dinner', hint: 'open “+ add” on any day below', href: null },
+    { done: !!anyItem, label: 'Get your grocery list', hint: 'one click gathers every ingredient', href: '/app/list' },
+  ];
+  const setupLeft = setupSteps.filter((s) => !s.done).length;
   const picked = recipes.results.find((r) => r.id === c.req.query('recipe'));
+  const ai = c.req.query('ai');
+  const aiNotice = ai === 'err' ? `<div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 print:hidden">
+  <p><strong>The AI couldn't draft your week just now.</strong> This is usually a brief hiccup on the AI side — your plan is untouched.</p>
+  <div class="mt-2 flex flex-wrap gap-2">
+    <form method="post" action="/app/ai/generate" class="inline"><input type="hidden" name="week" value="${days[0]}"><button data-ai-start data-busy-label="Retrying…" class="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Try again</button></form>
+    ${recipes.results.length ? `<form method="post" action="/app/plan/fill-week" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100">Fill from recipe box instead (no AI)</button></form>` : ''}
+  </div>
+</div>` : ai === 'fewbox' ? `<div role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 print:hidden">
+  <p><strong>The AI plans best from your own recipes — your box has ${recipes.results.length ? `only ${recipes.results.length}` : 'none yet'}.</strong> Add our 8 family-tested starter dinners (you can edit or delete them anytime), or <a class="underline font-medium" href="/app/recipes">import your own</a> first.</p>
+  <form method="post" action="/app/recipes/starters" class="mt-2"><input type="hidden" name="week" value="${days[0]}"><button data-busy-label="Adding starter recipes…" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Add 8 starter recipes</button></form>
+</div>` : ai === 'starters' ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden">8 starter recipes added to <a class="underline font-medium" href="/app/recipes">your recipe box</a> — now try “✨ Plan my week with AI”.</p>` : '';
   const body = `
+${aiNotice}
 ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden"><strong>${esc(picked.title)}</strong> is preselected — open “+ add” on a day below and click Add.</p>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
   <h1 class="text-2xl font-bold">Week of ${dayLabel(days[0])}</h1>
-  <div class="flex items-center gap-2 text-sm print:hidden">
+  <div class="flex flex-wrap items-center gap-2 text-sm print:hidden">
     <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Print</button>
     <a href="/app?week=${prevWeek}" data-swipe-prev class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">← Prev</a>
     <a href="/app#today" class="px-3 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-100">Today</a>
@@ -544,11 +652,18 @@ ${picked ? `<p class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px
     <form method="post" action="/app/settings/snacks" class="inline"><input type="hidden" name="week" value="${days[0]}"><button class="px-3 py-1.5 rounded-lg border ${h.snacks ? 'border-emerald-600 text-emerald-700 bg-emerald-50' : 'border-stone-300 hover:bg-stone-100'}">${h.snacks ? '✓ Snacks row' : '+ Snacks row'}</button></form>
   </div>
 </div>
-${recipes.results.length === 0 ? `
-<div class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden">
-  <h2 class="font-semibold text-emerald-900">Start with one recipe</h2>
-  <p class="mt-1 text-sm text-emerald-800">Import a recipe by pasting its URL — then you can drop it into any day below and its ingredients flow into your grocery list.</p>
-  <a href="/app/recipes" class="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Add your first recipe</a>
+${setupLeft > 0 ? `
+<div data-dismiss-box="setup" class="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 print:hidden" hidden>
+  <div class="flex items-start justify-between gap-2">
+    <h2 class="font-semibold text-emerald-900">Get set up in ${setupLeft} step${setupLeft === 1 ? '' : 's'}</h2>
+    <button type="button" data-dismiss="setup" aria-label="Hide setup guide" class="text-emerald-700 hover:text-emerald-900 -mt-1 px-1">✕</button>
+  </div>
+  <ol class="mt-2 space-y-1.5 text-sm text-emerald-800">
+    ${setupSteps.map((s) => `<li class="flex items-baseline gap-2">
+      <span aria-hidden="true" class="${s.done ? 'text-emerald-600' : 'text-emerald-400'}">${s.done ? '✓' : '○'}</span>
+      <span>${s.done ? `<s class="text-emerald-600">${s.label}</s>` : s.href ? `<a class="font-medium underline" href="${s.href}">${s.label}</a>` : `<span class="font-medium">${s.label}</span>`}${s.done ? '' : ` <span class="text-emerald-700/80">— ${s.hint}</span>`}</span>
+    </li>`).join('')}
+  </ol>
 </div>` : ''}
 <div class="mb-4 flex flex-wrap gap-2 print:hidden">
   <form method="post" action="/app/plan/to-list" class="inline">
@@ -560,6 +675,10 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Copy last week's plan</button>
   </form>
+  ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/ai/generate" class="inline">
+    <input type="hidden" name="week" value="${days[0]}">
+    <button data-ai-start data-busy-label="Drafting your week…" title="Drafts dinners from your own recipe box — you review the draft first; nothing is saved until you apply it." class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
+  </form>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Fill empty dinners from recipe box</button>
@@ -568,6 +687,14 @@ ${recipes.results.length === 0 ? `
     <input type="hidden" name="week" value="${days[0]}">
     <button class="px-4 py-2 rounded-lg border border-stone-300 text-sm text-stone-500 hover:text-red-600 hover:bg-stone-100">Clear week</button>
   </form>` : ''}
+  ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<p class="w-full text-xs text-stone-500">✨ The AI drafts dinners from your own recipe box — you review the draft and nothing is saved until you apply it. Stocked pantry items are skipped when the grocery list is built.</p>` : ''}
+</div>
+<div data-ai-overlay hidden class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/40 p-4" role="status" aria-live="polite">
+  <div class="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+    <div class="spinner mx-auto" aria-hidden="true"></div>
+    <p data-ai-stage class="mt-4 font-semibold text-stone-800">Reading your recipe box…</p>
+    <p class="mt-1.5 text-sm text-stone-500">Usually takes 10–25 seconds. Nothing is saved until you review and apply the draft.</p>
+  </div>
 </div>
 <div class="mb-5 flex flex-wrap items-center gap-2 text-sm print:hidden">
   ${entries.results.length ? `<form method="post" action="/app/menus" class="flex gap-2">
@@ -594,7 +721,7 @@ ${recipes.results.length === 0 ? `
 <div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
   <div${d === today() ? ' id="today"' : ''} class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200 scroll-mt-20' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
-    <h3 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h3>
+    <h2 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h2>
     ${mealsFor(h).map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
       return `<div class="mt-2">
@@ -605,7 +732,7 @@ ${days.map((d) => `
             <span class="flex shrink-0 items-center gap-1 print:hidden">
               ${e.recipe_id ? `<form method="post" action="/app/plan/scale">
                 <input type="hidden" name="id" value="${e.id}"><input type="hidden" name="week" value="${days[0]}">
-                <select name="scale" data-autosubmit aria-label="Servings scale" class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
+                <select name="scale" data-autosubmit aria-label="Servings scale" title="×2 doubles this recipe's ingredients on your grocery list — the recipe itself stays as written." class="rounded border border-transparent hover:border-stone-300 bg-transparent text-xs tnum ${e.scale && e.scale !== 1 ? 'text-emerald-700 font-semibold' : 'text-stone-500'} px-0 py-0.5">
                   ${SCALES.map((s) => `<option value="${s}"${s === (e.scale || 1) ? ' selected' : ''}>×${s}</option>`).join('')}
                 </select>
               </form>` : `<details class="relative">
@@ -795,6 +922,158 @@ app.post('/app/plan/fill-week', async (c) => {
   return c.redirect(`/app?week=${days[0]}`);
 });
 
+// ---------- AI week drafting ----------
+const draftKey = (hid) => `aidraft:${hid}`;
+
+app.post('/app/recipes/starters', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const week = weekDates(String(f.week || ''))[0];
+  const existing = await c.env.DB.prepare('SELECT title FROM recipes WHERE household_id = ?').bind(h.id).all();
+  const have = new Set(existing.results.map((r) => r.title.toLowerCase()));
+  const stmts = STARTER_RECIPES.filter((r) => !have.has(r.title.toLowerCase())).map((r) =>
+    c.env.DB.prepare('INSERT INTO recipes (id, household_id, title, description, prep_minutes, cook_minutes, servings, ingredients_json, steps_json, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .bind(uid(), h.id, r.title, r.description, r.prep, r.cook, r.servings, JSON.stringify(r.ingredients), JSON.stringify(r.steps), r.tags, user.id)
+  );
+  if (stmts.length) {
+    await c.env.DB.batch(stmts);
+    await bumpVersion(c.env, h.id);
+  }
+  return c.redirect(`/app?week=${week}&ai=starters`);
+});
+
+app.post('/app/ai/generate', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const days = weekDates(String(f.week || ''));
+  try {
+    const [recipes, recent] = await Promise.all([
+      c.env.DB.prepare('SELECT id, title, tags, favorite FROM recipes WHERE household_id = ? ORDER BY favorite DESC, created_at DESC LIMIT 100').bind(h.id).all(),
+      c.env.DB.prepare('SELECT DISTINCT r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ?')
+        .bind(h.id, shiftDays(days[0], -14), shiftDays(days[0], -1)).all(),
+    ]);
+    if (recipes.results.length < 3) return c.redirect(`/app?week=${days[0]}&ai=fewbox`);
+    const draft = await generateWeekDraft(c.env, {
+      recipes: recipes.results,
+      avoidTitles: recent.results.map((r) => r.title).slice(0, 30),
+      dayLabels: days.map(dayLabel),
+    });
+    draft.week_start = days[0];
+    await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
+    return c.redirect('/app/ai');
+  } catch {
+    return c.redirect(`/app?week=${days[0]}&ai=err`);
+  }
+});
+
+async function loadDraft(c, h) {
+  const raw = await c.env.KV.get(draftKey(h.id));
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+app.get('/app/ai', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const draft = await loadDraft(c, h);
+  if (!draft) return c.redirect('/app');
+  const days = weekDates(draft.week_start);
+  const ids = [...new Set(draft.week.concat(draft.alternates || []).map((p) => p.recipe_id).filter(Boolean))];
+  const titles = new Map();
+  if (ids.length) {
+    const rows = await c.env.DB.prepare(`SELECT id, title FROM recipes WHERE household_id = ? AND id IN (${ids.map(() => '?').join(',')})`).bind(h.id, ...ids).all();
+    for (const r of rows.results) titles.set(r.id, r.title);
+  }
+  const existing = await c.env.DB.prepare("SELECT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?").bind(h.id, days[0], days[6]).all();
+  const occupied = new Set(existing.results.map((r) => r.date));
+  const body = `
+<h1 class="text-2xl font-bold mb-1">Your AI week draft</h1>
+<p class="text-sm text-stone-500 mb-5">Dinners for the week of ${dayLabel(days[0])}. Swap any day, then apply — days that already have a dinner planned are kept as-is. Nothing is saved until you apply.</p>
+<div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 mb-6">
+${days.map((d, i) => {
+    const p = draft.week[i];
+    const isNew = !!p.new;
+    const title = isNew ? p.new.title : (titles.get(p.recipe_id) || 'Unknown recipe');
+    return `
+  <div class="rounded-xl bg-white border ${occupied.has(d) ? 'border-stone-200 opacity-60' : 'border-emerald-200'} p-3">
+    <h2 class="text-sm font-semibold text-stone-700">${dayLabel(d)}</h2>
+    ${occupied.has(d) ? `<p class="mt-2 text-xs text-stone-500">Already planned — kept as-is.</p>` : `
+    <p class="mt-2 text-sm ${isNew ? '' : 'text-emerald-800'}">${esc(title)}</p>
+    ${isNew ? `<span class="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">New recipe — will be added to your box</span>
+    <details class="mt-1"><summary class="cursor-pointer text-xs text-stone-500 hover:text-emerald-700">Ingredients (${p.new.ingredients.length})</summary>
+      <ul class="mt-1 space-y-0.5 text-xs text-stone-600">${p.new.ingredients.slice(0, 12).map((x) => `<li>• ${esc(x)}</li>`).join('')}</ul>
+    </details>` : `<span class="mt-1 inline-block rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">From your recipe box</span>`}
+    ${(draft.alternates || []).length ? `<form method="post" action="/app/ai/swap" class="mt-2">
+      <input type="hidden" name="day" value="${i}">
+      <button class="rounded-lg border border-stone-300 px-2.5 py-1 text-xs hover:bg-stone-100">↻ Swap</button>
+    </form>` : ''}`}
+  </div>`;
+  }).join('')}
+</div>
+<div class="flex flex-wrap gap-2">
+  <form method="post" action="/app/ai/apply"><button class="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700">Apply to my week</button></form>
+  <form method="post" action="/app/ai/discard"><button class="rounded-lg border border-stone-300 px-5 py-2.5 text-sm text-stone-600 hover:bg-stone-100">Discard draft</button></form>
+</div>`;
+  return c.html(page({ title: 'AI week draft', body, user, path: '/app', noindex: true }));
+});
+
+app.post('/app/ai/swap', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const i = Number(f.day);
+  const draft = await loadDraft(c, h);
+  if (draft && Number.isInteger(i) && i >= 0 && i < 7 && (draft.alternates || []).length) {
+    const next = draft.alternates.shift();
+    draft.alternates.push(draft.week[i]);
+    draft.week[i] = next;
+    await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
+  }
+  return c.redirect('/app/ai');
+});
+
+app.post('/app/ai/discard', async (c) => {
+  const h = c.get('household');
+  await c.env.KV.delete(draftKey(h.id));
+  return c.redirect('/app');
+});
+
+app.post('/app/ai/apply', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const draft = await loadDraft(c, h);
+  if (!draft) return c.redirect('/app');
+  const days = weekDates(draft.week_start);
+  const existing = await c.env.DB.prepare("SELECT date FROM plan_entries WHERE household_id = ? AND meal = 'dinner' AND date BETWEEN ? AND ?").bind(h.id, days[0], days[6]).all();
+  const occupied = new Set(existing.results.map((r) => r.date));
+  const owned = await c.env.DB.prepare('SELECT id FROM recipes WHERE household_id = ?').bind(h.id).all();
+  const ownedIds = new Set(owned.results.map((r) => r.id));
+  const stmts = [];
+  for (let i = 0; i < 7; i++) {
+    const d = days[i];
+    if (occupied.has(d)) continue;
+    const p = draft.week[i];
+    let recipeId = null;
+    if (p.new) {
+      recipeId = uid();
+      stmts.push(c.env.DB.prepare('INSERT INTO recipes (id, household_id, title, ingredients_json, steps_json, created_by, tags) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(recipeId, h.id, clip(p.new.title, 200), JSON.stringify(p.new.ingredients), JSON.stringify(p.new.steps), user.id, 'ai-suggested'));
+    } else if (ownedIds.has(p.recipe_id)) {
+      recipeId = p.recipe_id;
+    } else {
+      continue;
+    }
+    stmts.push(c.env.DB.prepare("INSERT INTO plan_entries (id, household_id, date, meal, recipe_id, note, scale) VALUES (?, ?, ?, 'dinner', ?, '', 1)")
+      .bind(uid(), h.id, d, recipeId));
+  }
+  if (stmts.length) {
+    await c.env.DB.batch(stmts);
+    await bumpVersion(c.env, h.id);
+  }
+  await c.env.KV.delete(draftKey(h.id));
+  return c.redirect(`/app?week=${days[0]}`);
+});
+
 app.post('/app/menus', async (c) => {
   const h = c.get('household');
   const f = await c.req.parseBody();
@@ -974,19 +1253,29 @@ app.post('/app/plan/to-list', async (c) => {
     }
   }
   const merged = mergeIngredients(labels);
-  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const [staples, pantry] = await Promise.all([
+    c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level = 'stocked'").bind(h.id).all(),
+  ]);
   const stapleCats = new Map(staples.results.map((s) => [ingredientKey(s.label), s.category]));
   for (const s of staples.results) if (!merged.some((m) => m.toLowerCase() === s.label.toLowerCase())) merged.push(s.label);
+  const stockedKeys = new Set(pantry.results.map((p) => pantryKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked, sources FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   const byKey = new Map();
   for (const r of existing.results) if (!byKey.has(ingredientKey(r.label))) byKey.set(ingredientKey(r.label), r);
+  const existingNames = new Set(existing.results.map((r) => pantryKey(r.label)));
   const stmts = [];
   let added = 0;
+  let skipped = 0;
   const seen = new Set();
   for (const label of merged) {
     const key = ingredientKey(label);
     if (seen.has(key)) continue;
     seen.add(key);
+    if (stockedKeys.has(pantryKey(label)) && !existingNames.has(pantryKey(label))) {
+      skipped++;
+      continue;
+    }
     const sources = [...(sourcesByKey.get(key) || [])].sort((x, y) => x.localeCompare(y)).join(', ').slice(0, 200);
     const hit = byKey.get(key);
     if (hit) {
@@ -1008,7 +1297,7 @@ app.post('/app/plan/to-list', async (c) => {
   }
   if (stmts.length) await c.env.DB.batch(stmts);
   await bumpVersion(c.env, h.id);
-  return c.redirect(`/app/list?added=${added}`);
+  return c.redirect(`/app/list?added=${added}${skipped ? `&pantry=${skipped}` : ''}`);
 });
 
 function shiftDays(dateStr, n) {
@@ -1090,8 +1379,10 @@ app.get('/app/recipes', async (c) => {
   const q = String(c.req.query('q') || '').trim().slice(0, 100);
   const tag = normalizeTag(String(c.req.query('tag') || ''));
   const fav = c.req.query('fav') === '1';
-  const sort = c.req.query('sort') === 'title' ? 'title' : 'newest';
-  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC' : 'favorite DESC, created_at DESC';
+  const sort = ['title', 'planned'].includes(c.req.query('sort')) ? c.req.query('sort') : 'newest';
+  const order = sort === 'title' ? 'favorite DESC, title COLLATE NOCASE ASC'
+    : sort === 'planned' ? "favorite DESC, (SELECT COUNT(*) FROM plan_entries p WHERE p.recipe_id = recipes.id AND p.date <= date('now')) DESC, created_at DESC"
+    : 'favorite DESC, created_at DESC';
   if (q) {
     // Aggregate search terms (no user/household attribution) to learn what people look for.
     const term = q.toLowerCase().slice(0, 60);
@@ -1101,8 +1392,8 @@ app.get('/app/recipes', async (c) => {
     );
   }
   const recipes = q
-    ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY ${order}`)
-        .bind(h.id, `%${q}%`, `%${q}%`).all()
+    ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (title LIKE ? OR ingredients_json LIKE ?) ORDER BY (title LIKE ?) DESC, ${order}`)
+        .bind(h.id, `%${q}%`, `%${q}%`, `%${q}%`).all()
     : tag
       ? await c.env.DB.prepare(`SELECT * FROM recipes WHERE household_id = ? AND (',' || tags || ',') LIKE ? ORDER BY ${order}`)
           .bind(h.id, `%,${tag},%`).all()
@@ -1121,11 +1412,11 @@ app.get('/app/recipes', async (c) => {
   <h1 class="text-2xl font-bold">Recipes</h1>
   <div class="flex flex-wrap items-center gap-2">
     <form method="get" action="/app/recipes" class="flex gap-2">
-      ${sort === 'title' ? '<input type="hidden" name="sort" value="title">' : ''}
+      ${sort !== 'newest' ? `<input type="hidden" name="sort" value="${sort}">` : ''}
       <input type="search" name="q" aria-label="Search recipes" value="${esc(q)}" placeholder="Search title or ingredient…" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm w-56">
       <button class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-100">Search</button>
     </form>
-    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'title' ? 'sort=title' : ''}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}</span>`; })()}
+    ${(() => { const p = new URLSearchParams(); if (q) p.set('q', q); if (tag) p.set('tag', tag); if (fav) p.set('fav', '1'); const base = p.toString(); const link = (s, label) => sort === s ? `<span aria-current="true" class="px-2 py-1 rounded-md bg-stone-200 text-stone-700 font-medium">${label}</span>` : `<a href="/app/recipes?${base ? base + '&' : ''}${s === 'newest' ? '' : `sort=${s}`}" class="px-2 py-1 rounded-md text-stone-500 hover:bg-stone-100">${label}</a>`; return `<span class="flex items-center gap-0.5 text-xs" role="group" aria-label="Sort recipes">${link('newest', 'Newest')}${link('title', 'A–Z')}${link('planned', 'Most planned')}</span>`; })()}
   </div>
 </div>
 ${err ? `<p role="alert" class="mb-3 text-sm rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">${esc(err)}</p>` : ''}
@@ -1145,7 +1436,7 @@ ${recipes.results.map((r) => `
     <a href="/app/recipes/${r.id}" class="block">
       ${r.image_url ? `<img src="${esc(r.image_url)}" alt="" class="h-36 w-full object-cover" loading="lazy">` : `<div class="h-36 w-full bg-stone-100 flex items-center justify-center text-stone-300 text-4xl">🍽</div>`}
       <div class="p-3 pb-2">
-        <h3 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h3>
+        <h2 class="font-semibold leading-snug">${r.favorite ? '<span class="text-amber-500">★</span> ' : ''}${esc(r.title)}</h2>
         <p class="text-xs text-stone-500 mt-1">${[r.prep_minutes && `Prep ${r.prep_minutes}m`, r.cook_minutes && `Cook ${r.cook_minutes}m`, r.servings && esc(r.servings)].filter(Boolean).join(' · ')}</p>
         ${r.tags ? `<p class="mt-1.5 flex flex-wrap gap-1">${r.tags.split(',').filter(Boolean).map((t) => `<span class="px-1.5 py-0.5 rounded-full text-[11px] bg-emerald-50 text-emerald-800">#${esc(t)}</span>`).join('')}</p>` : ''}
       </div>
@@ -1160,6 +1451,7 @@ ${recipes.results.map((r) => `
 ${recipes.results.length === 0 ? (q || tag || fav ? `<p class="text-stone-500 text-sm">No recipes match “${esc(q || (tag ? `#${tag}` : '★ Favourites'))}” — <a class="text-emerald-700 underline" href="/app/recipes">show all</a>.</p>` : `<div class="py-10 text-center">
   <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><circle cx="44" cy="50" r="30" fill="#f5efe5"/><circle cx="44" cy="50" r="18" fill="none" stroke="#f59e0b" stroke-width="3"/><path d="M36 26 q-3 -6 2 -10 M44 24 q-3 -6 2 -10 M52 26 q-3 -6 2 -10" fill="none" stroke="#aaa090" stroke-width="2.5" stroke-linecap="round"/></svg>
   <p class="mt-3 text-stone-500 text-sm">Your recipe box is empty — paste a URL above to import your first recipe.</p>
+  <form method="post" action="/app/recipes/starters" class="mt-3"><button data-busy-label="Adding starter recipes…" class="rounded-lg border border-emerald-600 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">Or add 8 family-tested starter recipes</button></form>
 </div>`) : ''}
 <details class="mt-8"${c.req.query('paste') !== undefined ? ' open' : ''}>
   <summary class="cursor-pointer text-sm text-stone-500 hover:text-emerald-700">Or paste a whole recipe</summary>
@@ -1438,6 +1730,20 @@ app.post('/app/recipes/:id/to-list', async (c) => {
   return c.redirect(`/app/list?added=${added}&src=recipe`);
 });
 
+app.post('/app/recipes/:id/duplicate', async (c) => {
+  const h = c.get('household');
+  const user = c.get('user');
+  const r = await c.env.DB.prepare('SELECT * FROM recipes WHERE id = ? AND household_id = ?').bind(c.req.param('id'), h.id).first();
+  if (!r) return c.notFound();
+  const id = uid();
+  const title = clip(`${r.title} (copy)`, 200);
+  await c.env.DB.prepare(
+    'INSERT INTO recipes (id, household_id, title, source_url, image_url, description, prep_minutes, cook_minutes, servings, ingredients_json, steps_json, notes, tags, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+  ).bind(id, h.id, title, r.source_url, r.image_url, r.description, r.prep_minutes, r.cook_minutes, r.servings, r.ingredients_json, r.steps_json, r.notes, r.tags || '', user.id).run();
+  await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/recipes/${id}`);
+});
+
 app.post('/app/recipes/:id/delete', async (c) => {
   const h = c.get('household');
   const id = c.req.param('id');
@@ -1496,6 +1802,7 @@ ${canEdit ? `<div class="mt-8 flex flex-wrap items-center gap-3 print:hidden">
 </form>` : ''}
 ${canEdit ? `<div class="mt-4 flex items-center gap-4 print:hidden">
   <a href="/app/recipes/${r.id}/edit" class="text-sm text-emerald-700 hover:underline">Edit recipe</a>
+  <form method="post" action="/app/recipes/${r.id}/duplicate"><button class="text-sm text-stone-600 hover:underline">Duplicate</button></form>
   <form method="post" action="/app/recipes/${r.id}/delete" data-confirm="Delete this recipe?"><button class="text-sm text-red-600 hover:underline">Delete recipe</button></form>
 </div>` : ''}
 </article>`;
@@ -1505,20 +1812,23 @@ ${canEdit ? `<div class="mt-4 flex items-center gap-4 print:hidden">
 app.get('/app/list', async (c) => {
   const user = c.get('user');
   const h = c.get('household');
-  const [items, staples] = await Promise.all([
+  const wk = weekDates(today());
+  const [items, staples, weekRecipes] = await Promise.all([
     c.env.DB.prepare('SELECT * FROM shopping_items WHERE household_id = ? ORDER BY category, COALESCE(sort_index, 1000000), created_at').bind(h.id).all(),
     c.env.DB.prepare('SELECT label FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare('SELECT DISTINCT r.id, r.title FROM plan_entries p JOIN recipes r ON r.id = p.recipe_id WHERE p.household_id = ? AND p.date BETWEEN ? AND ? ORDER BY r.title COLLATE NOCASE').bind(h.id, wk[0], wk[6]).all(),
   ]);
   const suggestions = [...new Set([...staples.results.map((s) => s.label), ...COMMON_ITEMS])];
   const added = c.req.query('added');
   const srcLabel = c.req.query('src') === 'recipe' ? 'that recipe' : c.req.query('src') === 'staples' ? 'your staples' : "this week's plan";
-  const notice = added === undefined ? '' : Number(added) > 0
+  const pantrySkipped = Number(c.req.query('pantry')) || 0;
+  const notice = added === undefined ? '' : (Number(added) > 0
     ? `Added ${Number(added)} new item${Number(added) === 1 ? '' : 's'} from ${srcLabel}.`
-    : `Everything from ${srcLabel} is already on the list.`;
+    : `Everything from ${srcLabel} is already on the list.`) + (pantrySkipped ? ` Skipped ${pantrySkipped} item${pantrySkipped === 1 ? '' : 's'} you already have in the pantry.` : '');
   const stores = (h.stores || '').split(',').filter(Boolean);
   const storeFilter = stores.includes(c.req.query('store')) ? c.req.query('store') : '';
   const shown = storeFilter ? items.results.filter((i) => !i.store || i.store === storeFilter) : items.results;
-  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1' });
+  const body = listBody(h, shown, { editable: true, base: '/app/list', shareLink: true, notice, suggestions, stores, storeFilter, aislesOpen: c.req.query('aisles') === '1', weekRecipes: weekRecipes.results });
   return c.html(page({ title: 'Grocery list', body, user, path: '/app/list', noindex: true }));
 });
 
@@ -1689,12 +1999,21 @@ app.post('/app/list/aisles', async (c) => {
 
 app.post('/app/list/staples', async (c) => {
   const h = c.get('household');
-  const staples = await c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all();
+  const [staples, pantry] = await Promise.all([
+    c.env.DB.prepare('SELECT label, category FROM staples WHERE household_id = ?').bind(h.id).all(),
+    c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level = 'stocked'").bind(h.id).all(),
+  ]);
+  const stockedKeys = new Set(pantry.results.map((p) => pantryKey(p.label)));
   const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
   let added = 0;
+  let skipped = 0;
   for (const s of staples.results) {
     const key = ingredientKey(s.label);
     const hit = existing.results.find((r) => ingredientKey(r.label) === key);
+    if (!hit && stockedKeys.has(pantryKey(s.label))) {
+      skipped++;
+      continue;
+    }
     if (hit) {
       if (hit.checked) {
         await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();
@@ -1707,7 +2026,7 @@ app.post('/app/list/staples', async (c) => {
     }
   }
   if (added) await bumpVersion(c.env, h.id);
-  return c.redirect(`/app/list?added=${added}&src=staples`);
+  return c.redirect(`/app/list?added=${added}&src=staples${skipped ? `&pantry=${skipped}` : ''}`);
 });
 
 app.post('/app/list/uncheck', async (c) => {
@@ -1726,7 +2045,7 @@ app.post('/app/list/clear', async (c) => {
 
 const COMMON_ITEMS = ['Milk', 'Eggs', 'Bread', 'Butter', 'Cheese', 'Yogurt', 'Bananas', 'Apples', 'Tomatoes', 'Onions', 'Garlic', 'Potatoes', 'Carrots', 'Lettuce', 'Chicken breast', 'Beef mince', 'Rice', 'Pasta', 'Olive oil', 'Coffee', 'Tea', 'Sugar', 'Flour', 'Salt', 'Pepper', 'Toilet paper', 'Paper towels', 'Dish soap', 'Laundry detergent'];
 
-function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false }) {
+function listBody(h, items, { editable, base, shareLink, notice, suggestions = [], canAdd = editable, stores = [], storeFilter = '', extraQuery = '', aislesOpen = false, weekRecipes = [] }) {
   const cats = [...new Set(items.map((i) => i.category))];
   const allCats = sortCategories([...new Set([...STANDARD_CATEGORIES, ...cats])], h.category_order);
   const qs = (store, aisles) => {
@@ -1790,39 +2109,49 @@ function listBody(h, items, { editable, base, shareLink, notice, suggestions = [
       </li>`;
   return `
 ${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
+${weekRecipes.length ? `<div class="mb-4 flex flex-wrap items-center gap-1.5 print:hidden"><span class="text-xs text-stone-500">From this week's plan:</span>${weekRecipes.map((r) => `<a href="/app/recipes/${r.id}" class="px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100">${esc(r.title)}</a>`).join('')}</div>` : ''}
 <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
+  <h1 class="text-2xl font-bold">Grocery list${items.length ? ` <span class="align-middle text-sm font-normal text-stone-500 tnum">${open.length ? `${open.length} to buy` : '<span class="celebrate inline-block">all done 🎉</span>'}${done.length ? ` · ${done.length} checked` : ''}</span>` : ''}</h1>
   <div class="flex flex-wrap gap-2 print:hidden">
-    <button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
-    <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>
     ${shareLink ? `<form method="post" action="/app/list/staples"><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">+ Add staples</button></form>
-    <a href="/app/staples" class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Staples</a>
-    <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : ''}
-    ${editable ? `<details class="relative"${aislesOpen ? ' open' : ''}>
-      <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Aisle order…</summary>
-      <div class="absolute right-0 z-10 mt-1 w-64 rounded-lg border border-stone-200 bg-white p-2 shadow-lg">
-        <p class="px-1 pb-1 text-xs text-stone-500">Match the order you walk your store.</p>
-        ${allCats.map((cat, idx) => `<div class="flex items-center justify-between gap-2 px-1 py-0.5 text-sm">
-          <span class="truncate">${esc(cat)}</span>
-          <span class="flex gap-1">
-            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} up"${idx === 0 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↑</button></form>
-            <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} down"${idx === allCats.length - 1 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↓</button></form>
-          </span>
-        </div>`).join('')}
+    <a href="/app/share" class="px-3 py-1.5 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50 whitespace-nowrap">Share with family</a>` : `<button type="button" data-copy-list class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Copy list</button>
+    <button type="button" data-print class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Print</button>`}
+    ${editable ? `<details class="relative">
+      <summary class="cursor-pointer list-none px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap" aria-label="More list actions">⋯ More</summary>
+      <div class="absolute right-0 z-10 mt-1 w-56 rounded-lg border border-stone-200 bg-white p-1.5 shadow-lg">
+        ${shareLink ? `<button type="button" data-copy-list class="block w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-stone-100">Copy list</button>
+        <button type="button" data-print class="block w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-stone-100">Print</button>
+        <a href="/app/staples" class="block rounded-md px-2.5 py-1.5 text-sm hover:bg-stone-100">Edit staples</a>
+        <a href="/app/pantry" class="block rounded-md px-2.5 py-1.5 text-sm hover:bg-stone-100">Pantry<span data-new="pantry" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></a>` : ''}
+        <a href="${base}${qs(storeFilter, true)}" class="block rounded-md px-2.5 py-1.5 text-sm hover:bg-stone-100">Aisle order…</a>
+        <form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="block w-full rounded-md px-2.5 py-1.5 text-left text-sm hover:bg-stone-100">Clear checked</button></form>
+        <form method="post" action="/app/settings/units" class="flex items-center gap-1 px-2.5 py-1.5">
+          <input type="hidden" name="back" value="/app/list">
+          <select name="units" data-autosubmit aria-label="Units" title="Display only — converts amounts between metric and imperial; your recipes stay as written and you can switch back anytime." class="w-full rounded-lg border border-stone-300 text-sm px-2 py-1 bg-white text-stone-600">
+            <option value=""${!h.units ? ' selected' : ''}>Units: as written</option>
+            <option value="metric"${h.units === 'metric' ? ' selected' : ''}>Units: metric</option>
+            <option value="imperial"${h.units === 'imperial' ? ' selected' : ''}>Units: imperial</option>
+          </select>
+          <noscript><button class="px-2 py-1 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Set</button></noscript>
+        </form>
       </div>
-    </details>
-    <form method="post" action="/app/list/clear" data-confirm="Remove all checked items? This can't be undone."><button class="px-3 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100 whitespace-nowrap">Clear checked</button></form>
-    <form method="post" action="/app/settings/units" class="flex items-center gap-1">
-      <input type="hidden" name="back" value="/app/list">
-      <select name="units" data-autosubmit aria-label="Units" class="rounded-lg border border-stone-300 text-sm px-2 py-1.5 bg-white text-stone-600">
-        <option value=""${!h.units ? ' selected' : ''}>Units: as written</option>
-        <option value="metric"${h.units === 'metric' ? ' selected' : ''}>Units: metric</option>
-        <option value="imperial"${h.units === 'imperial' ? ' selected' : ''}>Units: imperial</option>
-      </select>
-      <noscript><button class="px-2 py-1.5 rounded-lg border border-stone-300 text-sm hover:bg-stone-100">Set</button></noscript>
-    </form>` : ''}
+    </details>` : ''}
   </div>
 </div>
+${editable && aislesOpen ? `<div class="mb-4 max-w-sm rounded-xl border border-stone-200 bg-white p-3 shadow-sm print:hidden">
+  <div class="flex items-center justify-between gap-2">
+    <h2 class="text-sm font-semibold text-stone-800">Aisle order</h2>
+    <a href="${base}${qs(storeFilter)}" class="rounded-md px-2 py-0.5 text-xs text-stone-500 hover:bg-stone-100">Done</a>
+  </div>
+  <p class="pb-1 text-xs text-stone-500">Match the order you walk your store.</p>
+  ${allCats.map((cat, idx) => `<div class="flex items-center justify-between gap-2 px-1 py-0.5 text-sm">
+    <span class="truncate">${esc(cat)}</span>
+    <span class="flex gap-1">
+      <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="up"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} up"${idx === 0 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↑</button></form>
+      <form method="post" action="/app/list/aisles"><input type="hidden" name="category" value="${esc(cat)}"><input type="hidden" name="dir" value="down"><input type="hidden" name="back" value="${base}${qs(storeFilter, true)}"><button aria-label="Move ${esc(cat)} down"${idx === allCats.length - 1 ? ' disabled' : ''} class="px-1.5 py-0.5 rounded text-stone-500 hover:bg-stone-100 disabled:opacity-30">↓</button></form>
+    </span>
+  </div>`).join('')}
+</div>` : ''}
 ${stores.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-4 print:hidden">
   <a href="${base}${qs('')}" class="px-2.5 py-1 rounded-full text-xs font-medium ${!storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">All stores</a>
   ${stores.map((s) => `<a href="${base}${qs(s)}" class="px-2.5 py-1 rounded-full text-xs font-medium ${s === storeFilter ? 'bg-emerald-600 text-white' : 'bg-stone-100 text-stone-700 hover:bg-stone-200'}">${esc(s)}</a>`).join('')}
@@ -1851,6 +2180,10 @@ ${(() => { const openCats = sortCategories([...new Set(open.map((i) => i.categor
 ${items.length === 0 ? `<div class="py-10 text-center">
   <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><path d="M22 34 h44 l-6 34 a6 6 0 0 1 -6 6 h-20 a6 6 0 0 1 -6 -6 z" fill="#f5efe5" stroke="#aaa090" stroke-width="2.5"/><path d="M32 34 q0 -14 12 -14 q12 0 12 14" fill="none" stroke="#aaa090" stroke-width="2.5"/><circle cx="37" cy="52" r="5" fill="#f59e0b"/><circle cx="51" cy="56" r="5" fill="#84cc16"/></svg>
   <p class="mt-3 text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>
+  ${editable ? `<div class="mt-4 flex flex-wrap justify-center gap-2 print:hidden">
+    <a href="/app" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Open the planner</a>
+    <a href="/app/staples" class="rounded-lg border border-stone-300 px-4 py-2 text-sm hover:bg-stone-100">Set up staples</a>
+  </div>` : ''}
 </div>` : ''}
 ${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat, idx) => `
   <section id="cat-${idx}" class="scroll-mt-4">
@@ -1936,6 +2269,106 @@ app.post('/app/staples/delete', async (c) => {
   const f = await c.req.parseBody();
   await c.env.DB.prepare('DELETE FROM staples WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
   return c.redirect('/app/staples');
+});
+
+// ---------- pantry (what you already have at home) ----------
+const PANTRY_LEVELS = ['stocked', 'low', 'out'];
+const PANTRY_LEVEL_LABELS = { stocked: 'Stocked', low: 'Running low', out: 'Out' };
+
+app.get('/app/pantry', async (c) => {
+  const user = c.get('user');
+  const h = c.get('household');
+  const items = await c.env.DB.prepare('SELECT * FROM pantry_items WHERE household_id = ? ORDER BY label COLLATE NOCASE').bind(h.id).all();
+  const needed = items.results.filter((i) => i.level !== 'stocked');
+  const added = c.req.query('added');
+  const notice = added === undefined ? '' : Number(added) > 0
+    ? `Added ${Number(added)} item${Number(added) === 1 ? '' : 's'} to the grocery list.`
+    : 'Everything low or out is already on the list.';
+  const body = `
+${notice ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">${esc(notice)}</p>` : ''}
+<h1 class="text-2xl font-bold mb-1">Pantry</h1>
+<p class="text-sm text-stone-500 mb-5 max-w-2xl">What you already have at home. <strong>Stocked</strong> items are skipped when "Add week's ingredients" builds your grocery list; mark them <strong>low</strong> or <strong>out</strong> after cooking and send them to the list in one tap.</p>
+<div class="flex flex-wrap gap-2 mb-5">
+  <form method="post" action="/app/pantry/add" class="flex gap-2 max-w-md">
+    <input name="label" required maxlength="200" aria-label="Add pantry item" autocomplete="off" placeholder="Add what you have (e.g. rice, olive oil)" class="flex-1 rounded-lg border border-stone-300 px-3 py-2">
+    <button class="rounded-lg bg-emerald-600 text-white font-semibold px-4 hover:bg-emerald-700">Add</button>
+  </form>
+  ${needed.length ? `<form method="post" action="/app/pantry/to-list"><button class="rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold px-4 py-2 hover:bg-emerald-50">Add ${needed.length} low/out item${needed.length === 1 ? '' : 's'} to grocery list</button></form>` : ''}
+  <a href="/app/list" class="rounded-lg border border-stone-300 text-sm px-4 py-2 hover:bg-stone-100">Grocery list</a>
+</div>
+${items.results.length === 0 ? `<p class="text-stone-500 text-sm">Nothing tracked yet — add the basics you always keep at home (rice, pasta, oil, spices…).</p>` : `<ul class="rounded-xl bg-white border border-stone-200 divide-y divide-stone-100 max-w-2xl">
+${items.results.map((i) => `<li class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm">
+  <span class="min-w-0 break-words ${i.level === 'out' ? 'text-stone-400 line-through' : ''}">${esc(i.label)}</span>
+  <span class="flex shrink-0 items-center gap-1.5">
+    <form method="post" action="/app/pantry/level">
+      <input type="hidden" name="id" value="${i.id}">
+      <select name="level" data-autosubmit aria-label="Stock level for ${esc(i.label)}" class="rounded border ${i.level === 'stocked' ? 'border-emerald-300 text-emerald-700' : i.level === 'low' ? 'border-amber-300 text-amber-700' : 'border-red-200 text-red-600'} bg-transparent text-xs px-1 py-0.5">
+        ${PANTRY_LEVELS.map((l) => `<option value="${l}"${l === i.level ? ' selected' : ''}>${PANTRY_LEVEL_LABELS[l]}</option>`).join('')}
+      </select>
+    </form>
+    ${i.level === 'stocked' ? `<form method="post" action="/app/pantry/level"><input type="hidden" name="id" value="${i.id}"><input type="hidden" name="level" value="out"><button class="rounded border border-stone-300 px-2 py-0.5 text-xs text-stone-600 hover:bg-stone-100">Used up</button></form>` : ''}
+    <form method="post" action="/app/pantry/delete"><input type="hidden" name="id" value="${i.id}"><button aria-label="Remove ${esc(i.label)}" class="text-stone-500 hover:text-red-600">✕</button></form>
+  </span>
+</li>`).join('')}
+</ul>`}`;
+  return c.html(page({ title: 'Pantry', body, user, path: '/app/pantry', noindex: true }));
+});
+
+app.post('/app/pantry/add', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  for (const raw of splitListInput(clip(String(f.label || ''), 500))) {
+    const label = clip(raw.trim(), 200);
+    if (!label) continue;
+    const existing = await c.env.DB.prepare('SELECT id FROM pantry_items WHERE household_id = ? AND lower(label) = lower(?)').bind(h.id, label).first();
+    if (existing) {
+      await c.env.DB.prepare("UPDATE pantry_items SET level = 'stocked', updated_at = datetime('now') WHERE id = ?").bind(existing.id).run();
+    } else {
+      await c.env.DB.prepare('INSERT INTO pantry_items (id, household_id, label) VALUES (?, ?, ?)').bind(uid(), h.id, label).run();
+    }
+  }
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/level', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  const level = String(f.level || '');
+  if (PANTRY_LEVELS.includes(level)) {
+    await c.env.DB.prepare("UPDATE pantry_items SET level = ?, updated_at = datetime('now') WHERE id = ? AND household_id = ?")
+      .bind(level, String(f.id || ''), h.id).run();
+  }
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/delete', async (c) => {
+  const h = c.get('household');
+  const f = await c.req.parseBody();
+  await c.env.DB.prepare('DELETE FROM pantry_items WHERE id = ? AND household_id = ?').bind(String(f.id || ''), h.id).run();
+  return c.redirect('/app/pantry');
+});
+
+app.post('/app/pantry/to-list', async (c) => {
+  const h = c.get('household');
+  const needed = await c.env.DB.prepare("SELECT label FROM pantry_items WHERE household_id = ? AND level != 'stocked'").bind(h.id).all();
+  const existing = await c.env.DB.prepare('SELECT id, label, checked FROM shopping_items WHERE household_id = ?').bind(h.id).all();
+  let added = 0;
+  for (const p of needed.results) {
+    const key = pantryKey(p.label);
+    const hit = existing.results.find((r) => pantryKey(r.label) === key);
+    if (hit) {
+      if (hit.checked) {
+        await c.env.DB.prepare('UPDATE shopping_items SET checked = 0 WHERE id = ?').bind(hit.id).run();
+        added++;
+      }
+    } else {
+      await c.env.DB.prepare('INSERT INTO shopping_items (id, household_id, label, category) VALUES (?, ?, ?, ?)')
+        .bind(uid(), h.id, p.label, categorize(p.label)).run();
+      added++;
+    }
+  }
+  if (added) await bumpVersion(c.env, h.id);
+  return c.redirect(`/app/pantry?added=${added}`);
 });
 
 app.get('/app/list/version', async (c) => {
@@ -2062,6 +2495,7 @@ app.post('/app/account/delete', async (c) => {
       c.env.DB.prepare('DELETE FROM menu_entries WHERE menu_id IN (SELECT id FROM menus WHERE household_id = ?)').bind(h.id),
       c.env.DB.prepare('DELETE FROM menus WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM staples WHERE household_id = ?').bind(h.id),
+      c.env.DB.prepare('DELETE FROM pantry_items WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM plan_entries WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM shopping_items WHERE household_id = ?').bind(h.id),
       c.env.DB.prepare('DELETE FROM recipes WHERE household_id = ?').bind(h.id),
@@ -2109,7 +2543,7 @@ app.get('/s/:token', async (c) => {
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);
     return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
-      <h3 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h3>
+      <h2 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h2>
       ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
   }).join('')}
@@ -2169,13 +2603,41 @@ app.get('/s/:token/version', async (c) => {
   return c.json({ version: h.version });
 });
 
+// ---------- Ops: aggregate stats readout (secret-gated; used because the D1 HTTP API
+// is not always reachable from ops tooling — exposes only the same first-party
+// aggregate counters the app already stores, never user data) ----------
+app.get('/ops/stats', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const key = c.env.ADMIN_STATS_KEY;
+  if (!key || auth !== `Bearer ${key}`) return c.notFound();
+  const days = Math.min(90, Math.max(1, parseInt(c.req.query('days') || '7', 10) || 7));
+  const since = `-${days} days`;
+  const [paths, terms, intents] = await Promise.all([
+    c.env.DB.prepare("SELECT path, SUM(views) views FROM analytics_daily WHERE day >= date('now', ?) GROUP BY path ORDER BY views DESC LIMIT 40").bind(since).all(),
+    c.env.DB.prepare("SELECT term, SUM(count) count FROM search_terms WHERE day >= date('now', ?) GROUP BY term ORDER BY count DESC LIMIT 40").bind(since).all(),
+    c.env.DB.prepare('SELECT COUNT(*) total, SUM(confirmed) confirmed, SUM(unsubscribed_at IS NOT NULL) unsubscribed FROM email_intents').first(),
+  ]);
+  return c.json({ days, paths: paths.results, search_terms: terms.results, email_intents: intents });
+});
+
+// Applies pending schema migrations via the Worker's D1 binding (same D1 HTTP
+// API outage workaround as /ops/stats). Idempotent DDL only, same key gate.
+app.post('/ops/migrate', async (c) => {
+  const auth = c.req.header('authorization') || '';
+  const key = c.env.ADMIN_STATS_KEY;
+  if (!key || auth !== `Bearer ${key}`) return c.notFound();
+  await c.env.DB.exec("CREATE TABLE IF NOT EXISTS pantry_items (id TEXT PRIMARY KEY, household_id TEXT NOT NULL REFERENCES households(id), label TEXT NOT NULL, level TEXT NOT NULL DEFAULT 'stocked', updated_at TEXT NOT NULL DEFAULT (datetime('now')))");
+  await c.env.DB.exec('CREATE INDEX IF NOT EXISTS idx_pantry_household ON pantry_items(household_id)');
+  return c.json({ ok: true });
+});
+
 // ---------- SEO ----------
 app.get('/robots.txt', (c) =>
   c.text(`User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /s/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`)
 );
 
 app.get('/sitemap.xml', (c) => {
-  const urls = ['/', '/pricing', '/guides', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+  const urls = ['/', '/pricing', '/faq', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join('\n')}
