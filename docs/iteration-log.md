@@ -1409,3 +1409,10 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Fix:** the ai=err "Try again" form now carries hidden retry=1; a repeat failure redirects to ?ai=err&retried=1 whose alert reads "We retried and the AI service is still unavailable…" with a "Try once more" button — so even sub-second failures produce a visible state change (plus the existing Retrying… busy state + progress overlay on submit).
 **Ops:** new key-gated POST /ops/cleanup-qa (same ADMIN_STATS_KEY gate, same cascade as self-serve deletion) removed the acceptance reviewer's QA accounts (delivered+qa1754730005 / delivered+qa1754820001 @resend.dev; no other qa-pattern accounts existed).
 **Regression (production, disposable account, GDPR-deleted after):** overlay + Retrying… on retry submits; first failure keeps old copy/Try again; second failure lands on retried=1 with new copy/Try once more; fallback intact; baseline household untouched (35 to buy · 0 checked). AI relay was down the whole run — success-path smoke deferred until it recovers.
+
+## Round 157 — 2026-08-10 (AI relay diagnosis + email-send observability)
+
+**Trigger:** post-merge success-path smoke for the AI planner failed again despite the relay answering direct tests minutes earlier.
+**Diagnosis (wrangler tail with new error logging):** the relay intermittently returns `503 model_not_found — 分组 free 下模型 glm-5.2 无可用渠道（distributor）` — a relay-side channel/group outage, not an app bug (the Worker key was also re-synced to the boss-provided key to rule out a mismatch). App-side timeout/retry/fallback behaves as designed; success path remains unproven until the relay's glm-5.2 channel is stable.
+**Separate incident:** Resend `POST /emails` returning 429 `daily_quota_exceeded` — new sign-in codes cannot be emailed until the daily quota resets (login-code KV fallback exists for ops). Added error-detail logging to `sendMagicCode` and AI fetch failures so future tails show root causes immediately.
+**Escalated to boss:** aicdks channel/quota needs attention (stored admin password no longer logs in); Resend daily quota may need a plan bump if usage grows.

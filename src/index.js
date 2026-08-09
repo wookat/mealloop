@@ -963,7 +963,8 @@ app.post('/app/ai/generate', async (c) => {
     draft.week_start = days[0];
     await c.env.KV.put(draftKey(h.id), JSON.stringify(draft), { expirationTtl: 3600 });
     return c.redirect('/app/ai');
-  } catch {
+  } catch (err) {
+    console.error('AI generate failed:', err instanceof Error ? err.message : String(err));
     return c.redirect(`/app?week=${days[0]}&ai=err${f.retry ? '&retried=1' : ''}`);
   }
 });
