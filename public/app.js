@@ -95,6 +95,26 @@
     });
   }
 
+  // Resend-code cooldown: the plain form works without JS; with JS the button
+  // waits out a short cooldown so users don't burn their send allowance.
+  var resend = document.querySelector('button[data-resend]');
+  if (resend) {
+    var label = resend.textContent;
+    var wait = 60;
+    resend.disabled = true;
+    var rTick = setInterval(function () {
+      wait--;
+      if (wait <= 0) {
+        clearInterval(rTick);
+        resend.disabled = false;
+        resend.textContent = label;
+        return;
+      }
+      resend.textContent = "Didn't get it? Resend in " + wait + ' s';
+    }, 1000);
+    resend.textContent = "Didn't get it? Resend in " + wait + ' s';
+  }
+
   // One-time dismissible boxes (e.g. planner setup guide): server renders them
   // hidden; shown only until the user dismisses, remembered in localStorage.
   document.querySelectorAll('[data-dismiss-box]').forEach(function (box) {
