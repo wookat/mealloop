@@ -530,14 +530,20 @@ ${picks.map((r) => `<li><a class="text-emerald-700 hover:underline" href="/guide
 }
 
 // ---------- auth ----------
+// Internal app path a login can safely bounce back to.
+function safeNext(v) {
+  const p = String(v || '');
+  return /^\/app(\/[A-Za-z0-9/_-]*)?(\?[A-Za-z0-9=&_-]*)?$/.test(p) ? p : '';
+}
+
 app.get('/login', async (c) => {
   const user = await getUser(c);
-  if (user) return c.redirect('/app');
-  const body = loginBody('');
+  if (user) return c.redirect(safeNext(c.req.query('next')) || '/app');
+  const body = loginBody('', '', safeNext(c.req.query('next')));
   return c.html(page({ title: 'Log in', body, path: '/login', noindex: true }));
 });
 
-function loginBody(msg, email = '') {
+function loginBody(msg, email = '', next = '') {
   return `<div class="max-w-sm mx-auto py-14">
 <h1 class="text-2xl font-bold text-center">Log in or sign up</h1>
 <p class="text-center text-stone-600 text-sm mt-1">We'll email you a 6-digit code. No password needed.</p>
@@ -546,10 +552,17 @@ ${msg ? `<p class="mt-4 text-center text-sm rounded-lg bg-amber-50 border border
 ${email
     ? `<form method="post" action="/verify" class="mt-6 space-y-3">
         <input type="hidden" name="email" value="${esc(email)}">
+        ${next ? `<input type="hidden" name="next" value="${esc(next)}">` : ''}
         <input name="code" aria-label="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autofocus autocomplete="one-time-code" placeholder="6-digit code" class="w-full rounded-lg border border-stone-300 px-3 py-2.5 text-center text-xl tracking-[0.4em]">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Verify & continue</button>
+      </form>
+      <form method="post" action="/login" class="mt-3 text-center">
+        <input type="hidden" name="email" value="${esc(email)}">
+        ${next ? `<input type="hidden" name="next" value="${esc(next)}">` : ''}
+        <button data-resend class="text-sm text-emerald-700 underline disabled:text-stone-400 disabled:no-underline">Didn't get it? Resend code</button>
       </form>`
     : `<form method="post" action="/login" class="mt-6 space-y-3">
+        ${next ? `<input type="hidden" name="next" value="${esc(next)}">` : ''}
         <input type="email" name="email" required aria-label="Email address" autofocus autocomplete="email" placeholder="you@example.com" class="w-full rounded-lg border border-stone-300 px-3 py-2.5">
         <button class="w-full rounded-lg bg-emerald-600 text-white font-semibold py-2.5 hover:bg-emerald-700">Email me a code</button>
       </form>`}
@@ -566,7 +579,7 @@ app.post('/login', async (c) => {
   const msg = sent === 'ok' ? `Code sent to ${email}. Check your inbox.`
     : sent === 'quota' ? 'Our email service is over capacity right now. Please try again later today — sorry about that.'
     : 'Could not send email right now — please try again in a minute.';
-  return c.html(page({ title: 'Enter code', body: loginBody(msg, sent === 'ok' ? email : ''), path: '/login', noindex: true }));
+  return c.html(page({ title: 'Enter code', body: loginBody(msg, sent === 'ok' ? email : '', safeNext(form.next)), path: '/login', noindex: true }));
 });
 
 app.post('/verify', async (c) => {
@@ -574,10 +587,10 @@ app.post('/verify', async (c) => {
   const email = String(form.email || '').trim().toLowerCase();
   const sess = await verifyCode(c.env, email, String(form.code || ''));
   if (!sess) {
-    return c.html(page({ title: 'Enter code', body: loginBody('Invalid or expired code. Try again.', email), path: '/login', noindex: true }));
+    return c.html(page({ title: 'Enter code', body: loginBody('Invalid or expired code. Try again.', email, safeNext(form.next)), path: '/login', noindex: true }));
   }
   c.header('Set-Cookie', sessionCookie(sess));
-  return c.redirect('/app');
+  return c.redirect(safeNext(form.next) || '/app');
 });
 
 app.post('/logout', async (c) => {
@@ -592,7 +605,10 @@ app.use('/app', requireHousehold);
 
 async function requireHousehold(c, next) {
   const user = await getUser(c);
-  if (!user) return c.redirect('/login');
+  if (!user) {
+    const path = new URL(c.req.url);
+    return c.redirect(`/login?next=${encodeURIComponent(path.pathname + path.search)}`);
+  }
   let member = await c.env.DB.prepare(
     'SELECT h.* FROM households h JOIN household_members m ON m.household_id = h.id WHERE m.user_id = ?'
   ).bind(user.id).first();
@@ -2221,7 +2237,6 @@ ${items.length === 0 ? `<div class="py-10 text-center">
   <p class="mt-3 text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>
   ${editable ? `<div class="mt-4 flex flex-wrap justify-center gap-2 print:hidden">
     <a href="/app" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Open the planner</a>
-    <a href="/app/staples" class="rounded-lg border border-stone-300 px-4 py-2 text-sm hover:bg-stone-100">Set up staples</a>
   </div>` : ''}
 </div>` : ''}
 ${sortCategories([...new Set(open.map((i) => i.category))], h.category_order).map((cat, idx) => `
