@@ -79,12 +79,13 @@
     var startOverlay = function () {
       aiOverlay.hidden = false;
       var line = aiOverlay.querySelector('[data-ai-stage]');
+      var t0 = Date.now();
       line.textContent = stages[0];
-      var i = 0;
       if (aiTimer) clearInterval(aiTimer);
       aiTimer = setInterval(function () {
-        if (i < stages.length - 1) line.textContent = stages[++i];
-      }, 7000);
+        var i = Math.min(Math.floor((Date.now() - t0) / 7000), stages.length - 1);
+        line.textContent = stages[i];
+      }, 1000);
     };
     var seen = [];
     document.querySelectorAll('button[data-ai-start]').forEach(function (btn) {

@@ -1497,3 +1497,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 
 **Driver ① QA:** disposable-household production regression of the manual paste path: multi-section recipe text (title/serves/ingredients/steps) → 302, recipe listed, ingredients and steps parsed correctly on the detail page; cook-mode entry button (`data-cook-mode`, client-side) present on the recipe. Account deleted after; baseline untouched (35 to buy). No defects.
 **Batch health note:** R157–171 = 15 rounds — 10 shipped improvements, 3 clean no-defect regressions, 2 external P0s outstanding (aicdks relay 503 `model_not_found`; Resend daily quota 429). In-product find-and-fix opportunities are thinning; the biggest remaining levers are external (relay/quota) or need real traffic.
+
+## Round 172 — 2026-08-13 (AI success-path smoke passed + overlay stage-timing fix)
+
+**External P0 resolved:** the aicdks relay recovered (glm-5.2 chat completions return 200 with the existing key; no code or secret change needed). Full production AI success-path smoke passed end-to-end with a disposable account: 8 starter recipes → ✨ Plan my week with AI → progress overlay → /app/ai 7-day draft with alternates → swap → apply → 7 dinners on /app → GDPR delete; baseline share page untouched (35 to buy · 0 checked). Attempt-level flakiness remains (~1 of 2 attempts needed the visible retry, which succeeded).
+**Fix (P2 from smoke):** the overlay stage line advanced faster than intended (stage 5 at ~13 s instead of ~28 s). Stage selection is now derived from elapsed time (`Date.now() - t0`) on a 1 s tick instead of an incrementing interval counter, so the stage text always matches true elapsed time regardless of how many timers run.
+**Verified:** tests 25/25 locally; deployed and re-checked in production.
