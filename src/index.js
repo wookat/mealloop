@@ -203,7 +203,7 @@ app.post('/subscribe', async (c) => {
           if (seen) await c.env.DB.prepare('UPDATE email_intents SET confirm_token = ?, unsub_token = ? WHERE id = ?').bind(confirmToken, unsubToken, seen.id).run();
           else await c.env.DB.prepare('INSERT INTO email_intents (id, email, source, confirm_token, unsub_token) VALUES (?, ?, ?, ?, ?)').bind(uid(), email, 'landing', confirmToken, unsubToken).run();
         }
-        await sendSubscribeConfirm(c.env, email, confirmToken, unsubToken);
+        await sendSubscribeConfirm(c.env, email, confirmToken, unsubToken, c.req.header('cf-connecting-ip'));
       }
     }
   }
@@ -562,7 +562,7 @@ app.post('/login', async (c) => {
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return c.html(page({ title: 'Log in', body: loginBody('Please enter a valid email address.'), path: '/login', noindex: true }));
   }
-  const sent = await sendMagicCode(c.env, email);
+  const sent = await sendMagicCode(c.env, email, c.req.header('cf-connecting-ip'));
   const msg = sent === 'ok' ? `Code sent to ${email}. Check your inbox.`
     : sent === 'quota' ? 'Our email service is over capacity right now. Please try again later today — sorry about that.'
     : 'Could not send email right now — please try again in a minute.';

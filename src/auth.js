@@ -2,68 +2,83 @@ import { uid, token } from './util.js';
 
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL = 60 * 10;
+const IP_HOURLY_LIMIT = 10;
+const GLOBAL_DAILY_CAP = 90;
 
-export async function sendMagicCode(env, email) {
-  const sendKey = `sends:${email.toLowerCase()}`;
-  const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
-  if (sends >= 3) return 'fail';
-  await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
-  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
-  await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
+// Single gate for all outbound email: per-IP hourly limit plus a global daily
+// circuit breaker, so no single caller can burn the provider quota.
+async function deliver(env, ip, message) {
+  const dayKey = `mailday:${new Date().toISOString().slice(0, 10)}`;
+  const ipKey = ip ? `mailip:${ip}` : null;
+  const [dayN, ipN] = await Promise.all([env.KV.get(dayKey), ipKey ? env.KV.get(ipKey) : null]);
+  const dayCount = parseInt(dayN || '0', 10);
+  if (dayCount >= GLOBAL_DAILY_CAP) {
+    console.error(`Email send blocked: global daily cap (${GLOBAL_DAILY_CAP}) reached`);
+    return 'quota';
+  }
+  if (ipKey && parseInt(ipN || '0', 10) >= IP_HOURLY_LIMIT) {
+    console.error(`Email send blocked: per-IP hourly limit for ${ip}`);
+    return 'fail';
+  }
+  await Promise.all([
+    env.KV.put(dayKey, String(dayCount + 1), { expirationTtl: 60 * 60 * 24 }),
+    ipKey ? env.KV.put(ipKey, String(parseInt(ipN || '0', 10) + 1), { expirationTtl: 60 * 60 }) : null,
+  ]);
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: 'MealLoop <mealloop@zalize.com>',
-      to: [email],
-      subject: `${code} is your MealLoop login code`,
-      text: `Your MealLoop login code is ${code}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`,
-    }),
+    body: JSON.stringify({ from: 'MealLoop <mealloop@zalize.com>', ...message }),
   });
   if (!res.ok) {
     const detail = (await res.text().catch(() => '')).slice(0, 200);
-    console.error(`Login-code email send failed (HTTP ${res.status}): ${detail}`);
+    console.error(`Email send failed (HTTP ${res.status}): ${detail}`);
     return res.status === 429 ? 'quota' : 'fail';
   }
   return 'ok';
 }
 
-export async function sendSubscribeConfirm(env, email, confirmToken, unsubToken) {
-  const site = env.SITE_URL || 'https://mealloop.zalize.com';
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: 'MealLoop <mealloop@zalize.com>',
-      to: [email],
-      subject: 'Confirm your MealLoop updates subscription',
-      text: `You (or someone using this address) asked to get MealLoop product updates.\n\nConfirm your subscription:\n${site}/subscribe/confirm?t=${confirmToken}\n\nIf you didn't request this, ignore this email — you won't be subscribed.\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
-      headers: {
-        'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-      },
-    }),
+export async function sendMagicCode(env, email, ip) {
+  const sendKey = `sends:${email.toLowerCase()}`;
+  const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
+  if (sends >= 3) return 'fail';
+  await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  const sent = await deliver(env, ip, {
+    to: [email],
+    subject: `${code} is your MealLoop login code`,
+    text: `Your MealLoop login code is ${code}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`,
   });
-  return res.ok;
+  if (sent !== 'ok') return sent;
+  await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
+  return 'ok';
+}
+
+export async function sendSubscribeConfirm(env, email, confirmToken, unsubToken, ip) {
+  const site = env.SITE_URL || 'https://mealloop.zalize.com';
+  const sent = await deliver(env, ip, {
+    to: [email],
+    subject: 'Confirm your MealLoop updates subscription',
+    text: `You (or someone using this address) asked to get MealLoop product updates.\n\nConfirm your subscription:\n${site}/subscribe/confirm?t=${confirmToken}\n\nIf you didn't request this, ignore this email — you won't be subscribed.\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
+    headers: {
+      'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
+  });
+  return sent === 'ok';
 }
 
 export async function sendWelcome(env, email, unsubToken) {
   const site = env.SITE_URL || 'https://mealloop.zalize.com';
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-    body: JSON.stringify({
-      from: 'MealLoop <mealloop@zalize.com>',
-      to: [email],
-      subject: 'Welcome to MealLoop — plan your first week in a minute',
-      text: `Thanks for confirming — you're on the MealLoop updates list.\n\nIf you haven't tried the app yet, here's the one-minute version:\n1. Add a recipe — paste any recipe URL, or type one in: ${site}/app/recipes\n2. Plan a dinner on your week.\n3. Click "Add week's ingredients" — your grocery list writes itself, sorted by aisle.\n\nShare your list with the household from the Share page; anyone can check things off at the store, no account needed.\n\nEverything is free during the open beta: ${site}\n\n— MealLoop (Zalize)\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
-      headers: {
-        'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
-        'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-      },
-    }),
+  const sent = await deliver(env, null, {
+    to: [email],
+    subject: 'Welcome to MealLoop — plan your first week in a minute',
+    text: `Thanks for confirming — you're on the MealLoop updates list.\n\nIf you haven't tried the app yet, here's the one-minute version:\n1. Add a recipe — paste any recipe URL, or type one in: ${site}/app/recipes\n2. Plan a dinner on your week.\n3. Click "Add week's ingredients" — your grocery list writes itself, sorted by aisle.\n\nShare your list with the household from the Share page; anyone can check things off at the store, no account needed.\n\nEverything is free during the open beta: ${site}\n\n— MealLoop (Zalize)\n\nUnsubscribe any time: ${site}/unsubscribe?t=${unsubToken}`,
+    headers: {
+      'List-Unsubscribe': `<${site}/unsubscribe?t=${unsubToken}>`,
+      'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+    },
   });
-  return res.ok;
+  return sent === 'ok';
 }
 
 export async function verifyCode(env, email, code) {
