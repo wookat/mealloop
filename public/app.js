@@ -108,6 +108,11 @@
         clearInterval(rTick);
         resend.disabled = false;
         resend.textContent = label;
+        // Promote to a clear action once available, so users notice they can resend.
+        resend.className =
+          'rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700';
+        var code = document.querySelector('input[name="code"]');
+        if (code && !code.value && document.activeElement !== code) resend.focus();
         return;
       }
       resend.textContent = "Didn't get it? Resend in " + wait + ' s';
