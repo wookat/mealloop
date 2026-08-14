@@ -766,7 +766,7 @@ ${setupLeft > 0 ? `
 </div>
 <div class="planner-grid grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
 ${days.map((d) => `
-  <div${d === today() ? ' id="today"' : ''} class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200 scroll-mt-20' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
+  <div${d === today() ? ' id="today"' : ''} class="rounded-xl ${d < today() ? 'bg-stone-100 print:bg-white' : 'bg-white'} border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200 scroll-mt-20' : 'border-stone-200'} p-3">
     <h2 class="text-sm font-semibold ${d === today() ? 'text-emerald-700' : 'text-stone-700'}">${dayLabel(d)}</h2>
     ${mealsFor(h).map((meal) => {
       const es = entries.results.filter((e) => e.date === d && e.meal === meal);
@@ -1050,7 +1050,7 @@ ${days.map((d, i) => {
     const isNew = !!p.new;
     const title = isNew ? p.new.title : (titles.get(p.recipe_id) || 'Unknown recipe');
     return `
-  <div class="rounded-xl bg-white border ${occupied.has(d) ? 'border-stone-200 opacity-60' : 'border-emerald-200'} p-3">
+  <div class="rounded-xl ${occupied.has(d) ? 'bg-stone-100 border-stone-200' : 'bg-white border-emerald-200'} border p-3">
     <h2 class="text-sm font-semibold text-stone-700">${dayLabel(d)}</h2>
     ${occupied.has(d) ? `<p class="mt-2 text-xs text-stone-500">Already planned — kept as-is.</p>` : `
     <p class="mt-2 text-sm ${isNew ? '' : 'text-emerald-800'}">${esc(title)}</p>
@@ -1412,7 +1412,7 @@ app.get('/app/month', async (c) => {
     const labels = byDate.get(d) || [];
     const shown = labels.slice(0, 3);
     return `
-  <a href="/app?week=${weekDates(d)[0]}" class="block min-h-20 rounded-lg border p-1.5 text-left hover:border-emerald-400 ${d === t ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-stone-200'} ${inMonth ? 'bg-white' : 'bg-stone-50 opacity-60'} ${!inMonth && !labels.length ? 'hidden sm:block' : ''}">
+  <a href="/app?week=${weekDates(d)[0]}" class="block min-h-20 rounded-lg border p-1.5 text-left hover:border-emerald-400 ${d === t ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-stone-200'} ${inMonth ? 'bg-white' : 'bg-stone-100'} ${!inMonth && !labels.length ? 'hidden sm:block' : ''}">
     <span class="text-xs font-semibold ${d === t ? 'text-emerald-700' : 'text-stone-500'}"><span class="sm:hidden">${dayLabel(d)}</span><span class="hidden sm:inline">${Number(d.slice(8))}</span></span>
     <span class="mt-0.5 block space-y-0.5">
       ${shown.map((l) => `<span class="block truncate rounded bg-emerald-50 px-1 py-0.5 text-[11px] leading-4 text-emerald-900">${esc(l)}</span>`).join('')}
@@ -2234,7 +2234,7 @@ ${(() => { const openCats = sortCategories([...new Set(open.map((i) => i.categor
 <div id="list" data-version="${h.version}" data-base="${base}" class="space-y-5 max-w-2xl">
 ${items.length === 0 ? `<div class="py-10 text-center">
   <svg width="88" height="88" viewBox="0 0 88 88" aria-hidden="true" class="mx-auto"><path d="M22 34 h44 l-6 34 a6 6 0 0 1 -6 6 h-20 a6 6 0 0 1 -6 -6 z" fill="#f5efe5" stroke="#aaa090" stroke-width="2.5"/><path d="M32 34 q0 -14 12 -14 q12 0 12 14" fill="none" stroke="#aaa090" stroke-width="2.5"/><circle cx="37" cy="52" r="5" fill="#f59e0b"/><circle cx="51" cy="56" r="5" fill="#84cc16"/></svg>
-  <p class="mt-3 text-stone-500 text-sm">List is empty. Plan your week and click "Add week's ingredients", or add items manually.</p>
+  <p class="mt-3 text-stone-500 text-sm">Nothing here yet — plan meals on your week first, then "Add week's ingredients" builds this list for you. Or add items and staples from the toolbar above.</p>
   ${editable ? `<div class="mt-4 flex flex-wrap justify-center gap-2 print:hidden">
     <a href="/app" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">Open the planner</a>
   </div>` : ''}
@@ -2610,7 +2610,7 @@ app.get('/s/:token', async (c) => {
   <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
   ${days.map((d) => {
     const es = entries.results.filter((e) => e.date === d);
-    return `<div class="rounded-xl bg-white border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3${d < today() ? ' opacity-60 print:opacity-100' : ''}">
+    return `<div class="rounded-xl ${d < today() ? 'bg-stone-100 print:bg-white' : 'bg-white'} border ${d === today() ? 'border-emerald-500 ring-1 ring-emerald-200' : 'border-stone-200'} p-3">
       <h2 class="text-sm font-semibold${d === today() ? ' text-emerald-700' : ''}">${dayLabel(d)}</h2>
       ${es.length ? es.map((e) => `<p class="mt-1.5 text-sm"><span class="text-[10px] uppercase text-stone-500 mr-1">${e.meal}</span>${e.recipe_id ? `<a class="text-emerald-700 hover:underline" href="/s/${h.share_token}/r/${e.recipe_id}">${esc(e.recipe_title)}</a>` : esc(e.note)}${reactHtml(e)}</p>`).join('') : '<p class="mt-1.5 text-xs text-stone-500">Nothing planned</p>'}
     </div>`;
