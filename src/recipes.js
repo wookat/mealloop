@@ -197,8 +197,15 @@ function text(v) {
   return v.text || v.name || '';
 }
 
-const ING_HEADING = /^(ingredients?|what you('|’)ll need|you('|’)ll need|shopping list)\s*[:.]?$/i;
-const STEP_HEADING = /^(method|steps?|directions?|instructions?|preparation|to make|how to make( it)?)\s*[:.]?$/i;
+// Common section headings, including the major non-English ones people paste.
+const ING_HEADING =
+  /^(ingredients?|what you('|’)ll need|you('|’)ll need|shopping list|zutaten|ingrédients?|ingredientes?|ingredienti|ingrediënten|材料|食材|配料)\s*[:.]?$/i;
+const STEP_HEADING =
+  /^(method|steps?|directions?|instructions?|preparation|to make|how to make( it)?|zubereitung|anleitung|préparation|preparaci[oó]n|elaboraci[oó]n|preparazione|bereiding|modo de preparo|做法|步骤|作法)\s*[:.]?$/i;
+
+// A line that starts with an amount ("2 cups…", "½ tsp…", "1kg…") reads as an
+// ingredient; a run of them lets us split heading-less pastes.
+const QTY_LINE = /^[\d½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅛⅜⅝⅞]/;
 
 export function parseRecipeText(raw) {
   const lines = String(raw || '').split('\n').map((s) => s.replace(/^\s*(?:[-*•‣▪]|\d{1,2}[.)])\s+/, '').trim());
@@ -208,12 +215,38 @@ export function parseRecipeText(raw) {
     if (ingAt === -1 && ING_HEADING.test(l)) ingAt = i;
     else if (stepAt === -1 && STEP_HEADING.test(l)) stepAt = i;
   });
-  if (ingAt === -1 || stepAt === -1 || stepAt < ingAt) return null;
   const nonEmpty = (arr) => arr.filter(Boolean);
-  const title = nonEmpty(lines.slice(0, ingAt))[0] || '';
-  const ingredients = nonEmpty(lines.slice(ingAt + 1, stepAt));
-  const steps = nonEmpty(lines.slice(stepAt + 1));
-  if (!ingredients.length || !steps.length) return null;
+  if (ingAt !== -1 && stepAt !== -1 && stepAt > ingAt) {
+    const title = nonEmpty(lines.slice(0, ingAt))[0] || '';
+    const ingredients = nonEmpty(lines.slice(ingAt + 1, stepAt));
+    const steps = nonEmpty(lines.slice(stepAt + 1));
+    if (!ingredients.length || !steps.length) return null;
+    return { title: clip(title, 200), ingredients, steps };
+  }
+  return parseWithoutHeadings(lines);
+}
+
+// Heading-less fallback: the longest run of ≥2 amount-first lines is the
+// ingredient block; the text before it holds the title, everything after is
+// the steps. Fail-closed when the shape isn't there.
+function parseWithoutHeadings(lines) {
+  let best = null;
+  let start = -1;
+  for (let i = 0; i <= lines.length; i++) {
+    if (i < lines.length && QTY_LINE.test(lines[i])) {
+      if (start === -1) start = i;
+    } else if (lines[i]) {
+      if (start !== -1 && (!best || i - start > best[1] - best[0])) best = [start, i];
+      start = -1;
+    }
+  }
+  if (start !== -1 && (!best || lines.length - start > best[1] - best[0])) best = [start, lines.length];
+  if (!best || best[1] - best[0] < 2) return null;
+  const nonEmpty = (arr) => arr.filter(Boolean);
+  const title = nonEmpty(lines.slice(0, best[0]))[0] || '';
+  const ingredients = lines.slice(best[0], best[1]).filter(Boolean);
+  const steps = nonEmpty(lines.slice(best[1]));
+  if (!steps.length) return null;
   return { title: clip(title, 200), ingredients, steps };
 }
 

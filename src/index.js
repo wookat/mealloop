@@ -1656,7 +1656,7 @@ app.post('/app/recipes/paste', async (c) => {
   const text = String(f.text || '').slice(0, 20000);
   const parsed = parseRecipeText(text);
   if (!parsed || !parsed.title) {
-    const friendly = "We couldn't split that text — make sure it has the title on the first line, then an “Ingredients” heading, then a “Method” or “Steps” heading. Or use the manual form below.";
+    const friendly = "We couldn't split that text — add an “Ingredients” heading before the ingredients and a “Method” or “Steps” heading before the steps (title on the first line). Ingredient lines that start with an amount, like “2 cups flour”, also work without headings. Or use the manual form below.";
     return c.redirect(`/app/recipes?err=${encodeURIComponent(friendly)}&paste=${encodeURIComponent(text.slice(0, 1500))}`);
   }
   const id = uid();

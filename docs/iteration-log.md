@@ -1549,3 +1549,11 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **P2 (per-IP quotas punish CGNAT/shared egress):** restructured to "wide IP backstop + narrow client quota + global breaker" on both cost endpoints. Email: per-IP 10/h → 30/h (narrow gate remains 3 sends per address, global 90/day breaker unchanged). AI: per-IP 20/day → 100/day (narrow gate remains 10/day per household), plus a new global breaker 200 drafts/day (`rl:ai:<day>:all`) so total LLM spend stays bounded.
 **Docs (beacon honesty, per report P2-4):** analytics export now states counts are not forgery-proof and must be treated as directional signals, never hard metrics.
 **Verified:** tests 29/29 local; deployed; production curl: first hit `X-Edge-Cache: MISS`, second `HIT` with full security headers; logged-in request bypasses cache; query-string URL bypasses cache.
+
+## Round 180 — 2026-08-14 (audit round 9: paste-parse coverage)
+
+**P2 (paste coverage — heading-less and non-English pastes rejected wholesale):** systemic fix inside `parseRecipeText` (no new entities):
+1. **Heading vocabulary widened** — `ING_HEADING`/`STEP_HEADING` now match the major non-English headings people paste (Zutaten/Zubereitung, Ingrédients/Préparation, Ingredientes/Preparación·Elaboración, Ingredienti/Preparazione, ingrediënten/bereiding, modo de preparo, 材料/食材/配料, 做法/步骤/作法).
+2. **Heading-less heuristic fallback** — when no headings are found, the longest run of ≥2 amount-first lines (digit or unicode fraction) is taken as the ingredient block; the text before it holds the title, everything after becomes the steps. Fail-closed: prose without an amount-run, or a single amount line, still rejects — no garbage data.
+3. **Clearer rejection hint** — the error now tells users to add "Ingredients"/"Method" headings and mentions that amount-first ingredient lines work without headings.
+**Verified:** tests 31/31 (new cases: heading-less split, fail-closed prose, single-line rejection, German + Chinese headings); deployed; production paste smoke via testing agent.
