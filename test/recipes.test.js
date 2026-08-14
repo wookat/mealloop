@@ -149,6 +149,26 @@ test('parseRecipeText splits pasted recipe text', async () => {
   assert.equal(long.title, 'a'.repeat(199));
 });
 
+test('parseRecipeText falls back to a quantity-run split when headings are missing', async () => {
+  const { parseRecipeText } = await import('../src/recipes.js');
+  const r = parseRecipeText('Weeknight Chili\n2 tbsp olive oil\n1 onion, diced\n½ tsp cumin\n400g beef mince\nBrown the mince with the onion.\nAdd cumin and simmer 20 minutes.');
+  assert.equal(r.title, 'Weeknight Chili');
+  assert.deepEqual(r.ingredients, ['2 tbsp olive oil', '1 onion, diced', '½ tsp cumin', '400g beef mince']);
+  assert.deepEqual(r.steps, ['Brown the mince with the onion.', 'Add cumin and simmer 20 minutes.']);
+  // Fail-closed: prose without an amount-run still rejects.
+  assert.equal(parseRecipeText('Just a story about dinner.\nIt was nice.\nWe ate it.'), null);
+  // A single amount line is not enough signal.
+  assert.equal(parseRecipeText('Title\n2 cups flour\nMix and bake.'), null);
+});
+
+test('parseRecipeText understands common non-English headings', async () => {
+  const { parseRecipeText } = await import('../src/recipes.js');
+  const de = parseRecipeText('Apfelkuchen\nZutaten\n3 Äpfel\n200g Mehl\nZubereitung\nTeig kneten.\nBacken.');
+  assert.deepEqual([de.title, de.ingredients.length, de.steps.length], ['Apfelkuchen', 2, 2]);
+  const zh = parseRecipeText('番茄炒蛋\n材料\n鸡蛋 3 个\n番茄 2 个\n做法\n打散鸡蛋。\n下锅翻炒。');
+  assert.deepEqual([zh.title, zh.ingredients.length, zh.steps.length], ['番茄炒蛋', 2, 2]);
+});
+
 test('sortCategories orders by saved aisle order then store-walk default', async () => {
   const { sortCategories } = await import('../src/util.js');
   const cats = ['Other', 'Dairy & Eggs', 'Produce', 'Asian aisle'];
