@@ -25,7 +25,12 @@ app.use('*', async (c, next) => {
   } catch {}
   try {
     const ct = c.res.headers.get('content-type') || '';
-    if (c.req.method === 'GET' && ct.includes('text/html') && c.res.status === 200) {
+    // QA/internal traffic is marked (UA suffix, header or cookie) and never counted.
+    const qa =
+      (c.req.header('user-agent') || '').includes('DevinQA') ||
+      c.req.header('x-qa-traffic') ||
+      /(?:^|;\s*)ml_qa=1/.test(c.req.header('cookie') || '');
+    if (c.req.method === 'GET' && ct.includes('text/html') && c.res.status === 200 && !qa) {
       const raw = new URL(c.req.url).pathname;
       // Never persist share tokens in analytics.
       const path = raw.startsWith('/s/') ? '/s' : raw.split('/').slice(0, 3).join('/') || '/';
@@ -2777,8 +2782,12 @@ app.get('/robots.txt', (c) =>
   c.text(`User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /s/\nSitemap: ${c.env.SITE_URL}/sitemap.xml\n`)
 );
 
+function sitePaths() {
+  return ['/', '/pricing', '/faq', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+}
+
 app.get('/sitemap.xml', (c) => {
-  const urls = ['/', '/pricing', '/faq', '/guides', '/about', '/press', '/privacy', '/terms', ...GUIDES.map((g) => `/guides/${g.slug}`)];
+  const urls = sitePaths();
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `<url><loc>${c.env.SITE_URL}${u}</loc></url>`).join('\n')}
@@ -2797,4 +2806,25 @@ app.notFound((c) =>
   c.html(page({ title: 'Not found', body: `<div class="py-24 text-center"><h1 class="text-3xl font-bold">404</h1><p class="mt-2 text-stone-600">That page doesn't exist.</p><a class="mt-4 inline-block text-emerald-700 underline" href="/">Go home</a></div>`, path: '/404', noindex: true }), 404)
 );
 
-export default app;
+// Weekly IndexNow push of every indexable URL (same pattern as ShelfMark's
+// runIndexNow: full sitemap in batches, fired from the cron trigger).
+async function runIndexNow(env) {
+  if (!env.INDEXNOW_KEY) return;
+  const urls = sitePaths().map((p) => env.SITE_URL + p);
+  for (let i = 0; i < urls.length; i += 8000) {
+    await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json; charset=utf-8' },
+      body: JSON.stringify({
+        host: new URL(env.SITE_URL).hostname,
+        key: env.INDEXNOW_KEY,
+        urlList: urls.slice(i, i + 8000)
+      })
+    });
+  }
+}
+
+export default {
+  fetch: app.fetch,
+  scheduled: (event, env, ctx) => ctx.waitUntil(runIndexNow(env))
+};
