@@ -38,7 +38,7 @@ test('per-IP hourly limit blocks before calling the provider', async () => {
   let calls = 0;
   await withFetch(async () => { calls++; return new Response('{}', { status: 200 }); }, async () => {
     const r = await sendMagicCode({ KV, RESEND_API_KEY: 'x' }, 'c@d.com', '9.9.9.9');
-    assert.equal(r, 'fail');
+    assert.equal(r, 'limit');
   });
   assert.equal(calls, 0);
   assert.equal(KV.store.has('code:c@d.com'), false);

@@ -18,7 +18,7 @@ async function deliver(env, ip, message) {
   }
   if (ipKey && parseInt(ipN || '0', 10) >= IP_HOURLY_LIMIT) {
     console.error(`Email send blocked: per-IP hourly limit for ${ip}`);
-    return 'fail';
+    return 'limit';
   }
   await Promise.all([
     env.KV.put(dayKey, String(dayCount + 1), { expirationTtl: 60 * 60 * 24 }),
@@ -40,8 +40,7 @@ async function deliver(env, ip, message) {
 export async function sendMagicCode(env, email, ip) {
   const sendKey = `sends:${email.toLowerCase()}`;
   const sends = parseInt((await env.KV.get(sendKey)) || '0', 10);
-  if (sends >= 3) return 'fail';
-  await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
+  if (sends >= 3) return 'limit';
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   const sent = await deliver(env, ip, {
     to: [email],
@@ -49,6 +48,9 @@ export async function sendMagicCode(env, email, ip) {
     text: `Your MealLoop login code is ${code}. It expires in 10 minutes.\n\nIf you didn't request this, you can ignore this email.`,
   });
   if (sent !== 'ok') return sent;
+  // Count only emails that actually went out, so a blocked attempt (shared-IP
+  // limit, quota) doesn't burn the address's own allowance.
+  await env.KV.put(sendKey, String(sends + 1), { expirationTtl: CODE_TTL });
   await env.KV.put(`code:${email.toLowerCase()}`, code, { expirationTtl: CODE_TTL });
   return 'ok';
 }

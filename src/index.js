@@ -9,6 +9,10 @@ import { STARTER_RECIPES } from './starters.js';
 
 const app = new Hono();
 
+// Daily cost caps for the LLM drafting endpoint.
+const AI_DAILY_PER_HOUSEHOLD = 10;
+const AI_DAILY_PER_IP = 20;
+
 // ---------- security headers + first-party cookie-free analytics ----------
 app.use('*', async (c, next) => {
   await next();
@@ -25,9 +29,13 @@ app.use('*', async (c, next) => {
   } catch {}
   try {
     const ct = c.res.headers.get('content-type') || '';
-    // QA/internal traffic is marked (UA suffix, header or cookie) and never counted.
+    const ua = c.req.header('user-agent') || '';
+    // Skip QA-marked traffic (UA suffix, header or cookie) and obvious
+    // non-browser agents (bots, scripts) so counts stay close to real visitors.
     const qa =
-      (c.req.header('user-agent') || '').includes('DevinQA') ||
+      ua.includes('DevinQA') ||
+      !ua.startsWith('Mozilla/') ||
+      /bot|crawl|spider|curl|wget|python|headless/i.test(ua) ||
       c.req.header('x-qa-traffic') ||
       /(?:^|;\s*)ml_qa=1/.test(c.req.header('cookie') || '');
     if (c.req.method === 'GET' && ct.includes('text/html') && c.res.status === 200 && !qa) {
@@ -583,6 +591,7 @@ app.post('/login', async (c) => {
   const sent = await sendMagicCode(c.env, email, c.req.header('cf-connecting-ip'));
   const msg = sent === 'ok' ? `Code sent to ${email}. Check your inbox.`
     : sent === 'quota' ? 'Our email service is over capacity right now. Please try again later today — sorry about that.'
+    : sent === 'limit' ? 'Too many login codes were requested from this address or network. Please wait before trying again — the limit clears within an hour.'
     : 'Could not send email right now — please try again in a minute.';
   return c.html(page({ title: 'Enter code', body: loginBody(msg, sent === 'ok' ? email : '', safeNext(form.next)), path: '/login', noindex: true }));
 });
@@ -687,6 +696,9 @@ app.get('/app', async (c) => {
 </div>` : ai === 'fewbox' ? `<div role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 print:hidden">
   <p><strong>The AI plans best from your own recipes — your box has ${recipes.results.length ? `only ${recipes.results.length}` : 'none yet'}.</strong> Add our 8 family-tested starter dinners (you can edit or delete them anytime), or <a class="underline font-medium" href="/app/recipes">import your own</a> first.</p>
   <form method="post" action="/app/recipes/starters" class="mt-2"><input type="hidden" name="week" value="${days[0]}"><button data-busy-label="Adding starter recipes…" class="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">Add 8 starter recipes</button></form>
+</div>` : ai === 'limit' ? `<div role="alert" class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800 print:hidden">
+  <p><strong>You've reached today's AI drafting limit (${AI_DAILY_PER_HOUSEHOLD} drafts a day).</strong> It resets tomorrow — your plan is untouched. You can still fill the week from your recipe box below.</p>
+  ${recipes.results.length ? `<form method="post" action="/app/plan/fill-week" class="mt-2 inline"><input type="hidden" name="week" value="${days[0]}"><button class="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium hover:bg-amber-100">Fill from recipe box (no AI)</button></form>` : ''}
 </div>` : ai === 'starters' ? `<p role="status" class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 print:hidden">8 starter recipes added to <a class="underline font-medium" href="/app/recipes">your recipe box</a> — now try “✨ Plan my week with AI”.</p>` : '';
   const body = `
 ${aiNotice}
@@ -727,7 +739,7 @@ ${setupLeft > 0 ? `
   </form>
   ${days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/ai/generate" class="inline">
     <input type="hidden" name="week" value="${days[0]}">
-    <button data-ai-start data-busy-label="Drafting your week…" title="Drafts dinners from your own recipe box — you review the draft first; nothing is saved until you apply it." class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
+    <button data-ai-start data-busy-label="Drafting your week…" title="Drafts dinners from your own recipe box — you review the draft first; nothing is saved until you apply it. Up to ${AI_DAILY_PER_HOUSEHOLD} AI drafts a day." class="px-4 py-2 rounded-lg border border-emerald-600 text-emerald-700 text-sm font-semibold hover:bg-emerald-50">✨ Plan my week with AI<span data-new="ai-week" class="ml-1.5 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-950 align-middle" hidden>New</span></button>
   </form>` : ''}
   ${aiDown && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<span class="basis-full text-xs text-amber-700" role="status">AI drafting is having trouble right now — you can try anyway, or fill your week from your recipe box.</span>` : ''}
   ${recipes.results.length > 0 && days.some((d) => !entries.results.some((e) => e.date === d && e.meal === 'dinner')) ? `<form method="post" action="/app/plan/fill-week" class="inline">
@@ -1008,6 +1020,19 @@ app.post('/app/ai/generate', async (c) => {
         .bind(h.id, shiftDays(days[0], -14), shiftDays(days[0], -1)).all(),
     ]);
     if (recipes.results.length < 3) return c.redirect(`/app?week=${days[0]}&ai=fewbox`);
+    // Cost gate for the LLM call: per-household and per-IP daily caps (same KV
+    // counter pattern as the outbound-email gate in auth.js).
+    const ip = c.req.header('cf-connecting-ip') || '';
+    const hKey = `rl:ai:${today()}:${h.id}`;
+    const iKey = ip ? `rl:ai:${today()}:ip:${ip}` : null;
+    const [hN, iN] = await Promise.all([c.env.KV.get(hKey), iKey ? c.env.KV.get(iKey) : null]);
+    if (parseInt(hN || '0', 10) >= AI_DAILY_PER_HOUSEHOLD || (iKey && parseInt(iN || '0', 10) >= AI_DAILY_PER_IP)) {
+      return c.redirect(`/app?week=${days[0]}&ai=limit`);
+    }
+    await Promise.all([
+      c.env.KV.put(hKey, String(parseInt(hN || '0', 10) + 1), { expirationTtl: 60 * 60 * 24 }),
+      iKey ? c.env.KV.put(iKey, String(parseInt(iN || '0', 10) + 1), { expirationTtl: 60 * 60 * 24 }) : null,
+    ]);
     const draft = await generateWeekDraft(c.env, {
       recipes: recipes.results,
       avoidTitles: recent.results.map((r) => r.title).slice(0, 30),
