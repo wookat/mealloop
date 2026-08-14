@@ -180,7 +180,7 @@ app.get('/', async (c) => {
       acceptedAnswer: { '@type': 'Answer', text: a.replace(/<[^>]+>/g, '') },
     })),
   })}</script>`;
-  return c.html(page({ title: 'Family meal planning with real-time sync', description: 'Family meal planner in open beta: import recipes from any site, plan your week, share one live grocery list with a single link. All features free during beta.', body, user, path: '/' }));
+  return c.html(page({ title: 'Family meal planning with real-time sync', description: "Plan the week's dinners in minutes and shop from one always-in-sync family grocery list. Import recipes from any site — free during the open beta.", body, user, path: '/' }));
 });
 
 app.post('/subscribe', async (c) => {
