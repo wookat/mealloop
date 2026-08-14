@@ -120,7 +120,7 @@ app.get('/', async (c) => {
   <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight text-stone-900 max-w-2xl mx-auto">What's for dinner? <span class="text-emerald-600">Decide once, together.</span></h1>
   <p class="mt-4 text-lg text-stone-600 max-w-xl mx-auto">Import recipes from any site, plan your week, and share one live grocery list with your whole family — with a single link. No accounts needed for them.</p>
   <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-    <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Start your free beta trial'}</a>
+    <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Join the beta — free'}</a>
     <a href="/guides" class="px-6 py-3 rounded-xl border border-stone-300 font-semibold text-lg hover:bg-stone-100">How it works</a>
   </div>
   <img src="/hero-dinner.webp" alt="Illustration of a family dinner table with a pot of pasta, salad and four place settings" width="880" height="587" fetchpriority="high" class="mx-auto mt-10 w-full max-w-2xl">
@@ -299,12 +299,12 @@ const PRICING_PLANS = [
     features: ['Up to 30 recipes', 'Weekly meal planner', 'One grocery list, aisle-sorted', 'Recipe import from any site', 'Metric / imperial switch'],
   },
   {
-    name: 'Household', price: '$3', per: '/month · or $24/year', cta: 'Start free beta trial', highlight: true,
+    name: 'Household', price: '$3', per: '/month · or $24/year', cta: 'Join the beta — free', highlight: true,
     blurb: 'The full family loop — one plan for the whole house.',
     features: ['Unlimited recipes', 'Family share link — no accounts for family', 'Family meal reactions (👍/👎) from the link', 'Live-syncing grocery list', 'Multiple stores & custom aisles', 'Staples, saved menus & leftovers planning', 'Calendar (iCal) subscription', 'Cook mode & recipe scaling'],
   },
   {
-    name: 'Supporter', price: '$29', per: '/year', cta: 'Start free beta trial',
+    name: 'Supporter', price: '$29', per: '/year', cta: 'Join the beta — free',
     blurb: 'Everything in Household, plus help shape the roadmap.',
     features: ['Everything in Household', 'Priority support', 'Early access to new features', 'Vote on the roadmap'],
   },
