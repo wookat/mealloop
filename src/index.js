@@ -6,12 +6,16 @@ import { uid, token, esc, weekDates, categorize, today, mergeIngredients, scaleI
 import { GUIDES } from './guides.js';
 import { generateWeekDraft } from './ai.js';
 import { STARTER_RECIPES } from './starters.js';
+import { ASSET_V } from './assetv.js';
 
 const app = new Hono();
 
-// Daily cost caps for the LLM drafting endpoint.
+// Daily cost caps for the LLM drafting endpoint: narrow per-household quota
+// is the main gate, per-IP is a wide backstop (CGNAT-safe), and a global
+// daily circuit breaker bounds total spend.
 const AI_DAILY_PER_HOUSEHOLD = 10;
-const AI_DAILY_PER_IP = 20;
+const AI_DAILY_PER_IP = 100;
+const AI_DAILY_GLOBAL = 200;
 
 // ---------- security headers + first-party cookie-free analytics ----------
 app.use('*', async (c, next) => {
@@ -63,6 +67,36 @@ app.use('*', async (c, next) => {
       } catch {}
     }
   } catch {}
+});
+
+// ---------- edge cache for public marketing pages ----------
+// Workers don't edge-cache fetch-handler responses on their own, so static
+// public pages go through caches.default (NameChart's pattern): key is
+// path + ASSET_V, 1 h TTL, and anything session-scoped or query-varied skips.
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url);
+  const cacheable =
+    c.req.method === 'GET' &&
+    !url.search &&
+    !(c.req.header('cookie') || '').includes('ml_session=') &&
+    (url.pathname === '/robots.txt' || url.pathname === '/sitemap.xml' || sitePaths().includes(url.pathname));
+  if (!cacheable) return next();
+  const key = new Request(`${url.origin}${url.pathname}?edge=${ASSET_V}`);
+  const hit = await caches.default.match(key);
+  if (hit) {
+    const res = new Response(hit.body, hit);
+    res.headers.set('X-Edge-Cache', 'HIT');
+    c.res = res;
+    return;
+  }
+  await next();
+  if (c.res.status === 200 && !c.res.headers.get('set-cookie')) {
+    const copy = c.res.clone();
+    const stored = new Response(copy.body, copy);
+    stored.headers.set('Cache-Control', 'public, s-maxage=3600');
+    c.executionCtx.waitUntil(caches.default.put(key, stored));
+    c.res.headers.set('X-Edge-Cache', 'MISS');
+  }
 });
 
 // ---------- marketing ----------
@@ -1025,13 +1059,19 @@ app.post('/app/ai/generate', async (c) => {
     const ip = c.req.header('cf-connecting-ip') || '';
     const hKey = `rl:ai:${today()}:${h.id}`;
     const iKey = ip ? `rl:ai:${today()}:ip:${ip}` : null;
-    const [hN, iN] = await Promise.all([c.env.KV.get(hKey), iKey ? c.env.KV.get(iKey) : null]);
-    if (parseInt(hN || '0', 10) >= AI_DAILY_PER_HOUSEHOLD || (iKey && parseInt(iN || '0', 10) >= AI_DAILY_PER_IP)) {
+    const gKey = `rl:ai:${today()}:all`;
+    const [hN, iN, gN] = await Promise.all([c.env.KV.get(hKey), iKey ? c.env.KV.get(iKey) : null, c.env.KV.get(gKey)]);
+    if (
+      parseInt(hN || '0', 10) >= AI_DAILY_PER_HOUSEHOLD ||
+      (iKey && parseInt(iN || '0', 10) >= AI_DAILY_PER_IP) ||
+      parseInt(gN || '0', 10) >= AI_DAILY_GLOBAL
+    ) {
       return c.redirect(`/app?week=${days[0]}&ai=limit`);
     }
     await Promise.all([
       c.env.KV.put(hKey, String(parseInt(hN || '0', 10) + 1), { expirationTtl: 60 * 60 * 24 }),
       iKey ? c.env.KV.put(iKey, String(parseInt(iN || '0', 10) + 1), { expirationTtl: 60 * 60 * 24 }) : null,
+      c.env.KV.put(gKey, String(parseInt(gN || '0', 10) + 1), { expirationTtl: 60 * 60 * 24 }),
     ]);
     const draft = await generateWeekDraft(c.env, {
       recipes: recipes.results,

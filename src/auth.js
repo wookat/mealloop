@@ -2,7 +2,9 @@ import { uid, token } from './util.js';
 
 const SESSION_TTL = 60 * 60 * 24 * 30; // 30 days
 const CODE_TTL = 60 * 10;
-const IP_HOURLY_LIMIT = 10;
+// Wide backstop only (CGNAT-safe) — the narrow gate is the per-address
+// 3-sends cap, and the global daily cap bounds total spend.
+const IP_HOURLY_LIMIT = 30;
 const GLOBAL_DAILY_CAP = 90;
 
 // Single gate for all outbound email: per-IP hourly limit plus a global daily

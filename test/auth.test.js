@@ -34,7 +34,7 @@ test('sendMagicCode sends and only stores the code after a successful send', asy
 });
 
 test('per-IP hourly limit blocks before calling the provider', async () => {
-  const KV = fakeKV({ 'mailip:9.9.9.9': '10' });
+  const KV = fakeKV({ 'mailip:9.9.9.9': '30' });
   let calls = 0;
   await withFetch(async () => { calls++; return new Response('{}', { status: 200 }); }, async () => {
     const r = await sendMagicCode({ KV, RESEND_API_KEY: 'x' }, 'c@d.com', '9.9.9.9');
