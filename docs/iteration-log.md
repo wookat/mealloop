@@ -1557,3 +1557,8 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 2. **Heading-less heuristic fallback** — when no headings are found, the longest run of ≥2 amount-first lines (digit or unicode fraction) is taken as the ingredient block; the text before it holds the title, everything after becomes the steps. Fail-closed: prose without an amount-run, or a single amount line, still rejects — no garbage data.
 3. **Clearer rejection hint** — the error now tells users to add "Ingredients"/"Method" headings and mentions that amount-first ingredient lines work without headings.
 **Verified:** tests 31/31 (new cases: heading-less split, fail-closed prose, single-line rejection, German + Chinese headings); deployed; production paste smoke via testing agent.
+
+## Round 181 — 2026-08-15 (audit round 11: "free during beta" wording unification)
+
+**Org-wide copy rule (drop "trial"):** "trial" implied a paywall + time limit, contradicting the footer's "all features free during beta". Site-wide grep: nav CTA "Start free trial" → "Join the beta", hero "Start your free beta trial" → "Join the beta — free", both pricing CTAs "Start free beta trial" → "Join the beta — free". The only remaining "trial" is a factual competitor description (Plan to Eat's 14-day trial in a guide). Cross-line P2: footer sibling link "CV Builder" → "HonestCV" (unified product name).
+**Verified:** tests 31/31; deployed; production grep of /, /pricing, /faq shows zero "trial" and consistent beta wording.
