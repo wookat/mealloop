@@ -1522,3 +1522,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 **Fix (tokens + one pattern, no per-node patches):** `@theme` now pins `emerald-600 → #047857` (5.5:1 under white) and `emerald-700 → #065f46` (hover/darker text), and darkens `stone-400 → #736b5a` / `stone-500 → #635b4b` (≥4.5:1 on white/stone-50/stone-100). Past/out-of-month/occupied cards drop `opacity-60` in favour of a `bg-stone-100` surface, so the "recedes" cue no longer costs text contrast.
 **Reviewer suggestions adopted:** (1) resend button promotes to a solid primary button (and takes focus only if the code field is untouched) when the 60 s cooldown ends; (2) empty grocery-list copy now walks the sequence "plan meals → Add week's ingredients builds the list".
 **Verified:** axe color-contrast re-scan (axe-core via CDP) — 0 violations on /, /login, /pricing, share page, /app, /app/list, /app/recipes; tests pass locally; reviewer QA account cleaned via /ops/cleanup-qa; baseline share list intact (35 to buy).
+
+## Round 176 — 2026-08-14 (audit round 5: SEO description length + retention-funnel export)
+
+**Reviewer P2 (homepage meta description 158ch):** site-wide sweep of every `description:` literal found only the homepage above 155ch (FAQ is 152). Rewrote the homepage description to 146ch with the core promise ("plan the week's dinners in minutes … always-in-sync grocery list") inside the first ~90ch so it survives the ~120ch mobile truncation.
+**Round-6 prep:** `docs/analytics-export.md` exports the 30-day first-visit → signup → plan/list activation → return funnel from first-party aggregates (views-not-uniques proxy for visits, QA patterns and baseline household excluded, honest caveats section). Headline: 307 landing views → 4 signups → 2 activated households → 0 returning; ~2 search referrals total — acquisition, not retention, is the binding constraint.
+**Verified:** tests pass locally; deployed; production `/` serves the 146ch description.
