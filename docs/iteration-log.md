@@ -1562,3 +1562,9 @@ Regression axe flagged moderate `heading-order` (h1→h3) on /app/recipes — pr
 
 **Org-wide copy rule (drop "trial"):** "trial" implied a paywall + time limit, contradicting the footer's "all features free during beta". Site-wide grep: nav CTA "Start free trial" → "Join the beta", hero "Start your free beta trial" → "Join the beta — free", both pricing CTAs "Start free beta trial" → "Join the beta — free". The only remaining "trial" is a factual competitor description (Plan to Eat's 14-day trial in a guide). Cross-line P2: footer sibling link "CV Builder" → "HonestCV" (unified product name).
 **Verified:** tests 31/31; deployed; production grep of /, /pricing, /faq shows zero "trial" and consistent beta wording.
+
+## Round 182 — 2026-08-16 (UI blind-benchmark round 1: hero product demo + differentiator badges)
+
+**P2 (hero visual off-message):** the dinner-table illustration didn't show the core promise. Replaced with a pure HTML/CSS two-phone product mock (reusing existing Tailwind tokens, no image asset, no JS): two phone frames render the same aisle-grouped grocery list — "Your phone — you check it off…" (2 lemons checked, struck through) and "Their phone — …and everyone sees it, live" with a "Synced just now" chip. Faster LCP than the 48 KB webp it replaces and it demos the actual product.
+**P2 (no app-store badges to show):** added a differentiator badge row under the CTA — "No app to install", "Family joins with one link — no accounts", "Free during beta" — turning the no-app-needed positioning into a visual element.
+**Verified:** tests 31/31; CSS rebuilt (arbitrary-value classes present); deployed; production screenshots at 1440/375.
