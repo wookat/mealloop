@@ -123,7 +123,36 @@ app.get('/', async (c) => {
     <a href="${user ? '/app' : '/login'}" class="px-6 py-3 rounded-xl bg-emerald-600 text-white font-semibold text-lg hover:bg-emerald-700 shadow-sm">${user ? 'Open your planner' : 'Join the beta — free'}</a>
     <a href="/guides" class="px-6 py-3 rounded-xl border border-stone-300 font-semibold text-lg hover:bg-stone-100">How it works</a>
   </div>
-  <img src="/hero-dinner.webp" alt="Illustration of a family dinner table with a pot of pasta, salad and four place settings" width="880" height="587" fetchpriority="high" class="mx-auto mt-10 w-full max-w-2xl">
+  <div class="mt-5 flex flex-wrap gap-2 justify-center text-xs font-semibold">
+    <span class="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-stone-700"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>No app to install</span>
+    <span class="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-stone-700"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Family joins with one link — no accounts</span>
+    <span class="inline-flex items-center gap-1.5 rounded-full border border-stone-300 bg-white px-3 py-1.5 text-stone-700"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Free during beta</span>
+  </div>
+  <div class="mx-auto mt-10 grid max-w-xl grid-cols-2 items-start gap-4 sm:gap-8" aria-label="Two phones showing the same grocery list staying in sync">
+    ${[
+      ['Your phone', true, 'You check it off…'],
+      ['Their phone', true, '…and everyone sees it, live'],
+    ].map(([who, checked, caption]) => `
+    <figure class="text-left">
+      <div class="rounded-[1.75rem] border-4 border-stone-800 bg-white p-3 shadow-lg">
+        <div class="mx-auto mb-2 h-1.5 w-12 rounded-full bg-stone-300" aria-hidden="true"></div>
+        <p class="text-[11px] font-bold text-stone-900">Grocery list</p>
+        <p class="text-[10px] text-emerald-700 font-semibold">Produce</p>
+        <ul class="mt-1 space-y-1 text-[11px] text-stone-700">
+          <li class="flex items-center gap-1.5">${checked ? '<span aria-hidden="true" class="flex h-3.5 w-3.5 items-center justify-center rounded border border-emerald-600 bg-emerald-600 text-white"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><s class="text-stone-400">2 lemons</s>' : '<span aria-hidden="true" class="h-3.5 w-3.5 rounded border border-stone-300"></span>2 lemons'}</li>
+          <li class="flex items-center gap-1.5"><span aria-hidden="true" class="h-3.5 w-3.5 rounded border border-stone-300"></span>1 bag spinach</li>
+          <li class="flex items-center gap-1.5"><span aria-hidden="true" class="h-3.5 w-3.5 rounded border border-stone-300"></span>500 g tomatoes</li>
+        </ul>
+        <p class="mt-2 text-[10px] text-emerald-700 font-semibold">Dairy &amp; Eggs</p>
+        <ul class="mt-1 space-y-1 text-[11px] text-stone-700">
+          <li class="flex items-center gap-1.5"><span aria-hidden="true" class="h-3.5 w-3.5 rounded border border-stone-300"></span>1 L milk</li>
+          <li class="flex items-center gap-1.5"><span aria-hidden="true" class="h-3.5 w-3.5 rounded border border-stone-300"></span>12 eggs</li>
+        </ul>
+        <p class="mt-2 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Synced just now</p>
+      </div>
+      <figcaption class="mt-2 text-center text-xs text-stone-600"><span class="font-semibold text-stone-800">${who}</span> — ${caption}</figcaption>
+    </figure>`).join('')}
+  </div>
 </section>
 <section class="grid sm:grid-cols-3 gap-4 py-8 stagger">
   ${[
